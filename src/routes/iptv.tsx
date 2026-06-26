@@ -209,120 +209,56 @@ function IptvPage() {
 }
 
 function LiveSportsRail() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["sports", "popular"],
-    queryFn: fetchPopularLive,
+  const { data } = useQuery({
+    queryKey: ["ppv", "all"],
+    queryFn: fetchPpvAll,
     staleTime: 60_000,
-    refetchInterval: 90_000,
+    refetchInterval: 120_000,
   });
 
-  const matches = (data ?? []).filter((m) => m.sources?.length > 0).slice(0, 14);
+  const events = useMemo(() => {
+    if (!data) return { live: 0, upcoming: 0 };
+    const flat = flattenEvents(data);
+    const now = Date.now() / 1000;
+    let live = 0;
+    let upcoming = 0;
+    for (const e of flat) {
+      if (isEventLive(e, now)) live++;
+      else if (e.starts_at > now && e.starts_at - now < 24 * 3600) upcoming++;
+    }
+    return { live, upcoming };
+  }, [data]);
 
   return (
     <section className="mt-8 px-6 md:px-10">
-      <div className="mb-3 flex items-end justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30">
-            <Trophy className="h-4 w-4" />
+      <Link
+        to="/sports"
+        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/[0.08] via-card/40 to-card/40 p-4 ring-1 ring-white/5 transition hover:border-amber-500/40 hover:bg-amber-500/[0.06] md:p-5"
+      >
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30">
+          <Trophy className="h-5 w-5" strokeWidth={2.2} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-black tracking-tight md:text-lg">Live Sports</h2>
+            {events.live > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-red-500/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                {events.live} live
+              </span>
+            )}
           </div>
-          <div>
-            <h2 className="text-xl font-black tracking-tight md:text-2xl">Live Sports</h2>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-              Real games · happening right now
-            </p>
-          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {events.live > 0
+              ? `${events.live} match${events.live === 1 ? "" : "es"} airing now`
+              : "Football, NFL, UFC, MMA, NBA, F1 and more"}
+            {events.upcoming > 0 && ` · ${events.upcoming} upcoming today`}
+          </p>
         </div>
-        <Link
-          to="/sports"
-          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white"
-        >
-          See all <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </div>
-
-      {isLoading && (
-        <div className="flex gap-3 overflow-hidden">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-36 w-72 shrink-0 animate-pulse rounded-2xl bg-card/40 ring-1 ring-white/5" />
-          ))}
-        </div>
-      )}
-
-      {!isLoading && error && (
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-200/80">
-          Couldn't load live games right now. Try refreshing in a moment.
-        </div>
-      )}
-
-      {!isLoading && !error && matches.length === 0 && (
-        <div className="rounded-2xl border border-white/5 bg-card/30 px-4 py-6 text-center text-sm text-muted-foreground">
-          No live matches at the moment — check back soon.
-        </div>
-      )}
-
-      {matches.length > 0 && (
-        <div className="-mx-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 scrollbar-thin md:-mx-10 md:px-10">
-          {matches.map((m) => (
-            <MatchCard key={m.id} m={m} />
-          ))}
-          <Link
-            to="/sports"
-            className="snap-start grid h-36 w-44 shrink-0 place-items-center rounded-2xl border border-dashed border-white/15 bg-white/[0.02] text-xs font-semibold text-white/70 transition hover:bg-white/5 hover:text-white"
-          >
-            <span className="flex flex-col items-center gap-1">
-              <ArrowRight className="h-4 w-4" />
-              All sports
-            </span>
-          </Link>
-        </div>
-      )}
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15 transition group-hover:bg-white/15">
+          View matches <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+        </span>
+      </Link>
     </section>
-  );
-}
-
-function MatchCard({ m }: { m: SportsMatch }) {
-  const src = m.sources.find((s) => s.source === "admin") ?? m.sources[0];
-  const sourcesStr = JSON.stringify(m.sources);
-  const icon = SPORT_ICONS[m.category] ?? "🏅";
-  const poster = sportsImage(m.poster);
-  const home = m.teams?.home?.name;
-  const away = m.teams?.away?.name;
-  return (
-    <Link
-      to="/sports/$source/$id"
-      params={{ source: src.source, id: src.id }}
-      search={{ title: m.title, category: m.category, sources: sourcesStr }}
-      className="group relative h-36 w-72 shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-card/40 ring-1 ring-white/5 transition hover:-translate-y-0.5 hover:border-primary/50"
-    >
-      {poster ? (
-        <img
-          src={poster}
-          alt=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          className="absolute inset-0 h-full w-full object-cover opacity-60 transition group-hover:opacity-80"
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-black/40 to-amber-500/10" />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/30" />
-      <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-red-500/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white ring-1 ring-red-300/40">
-        <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> LIVE
-      </div>
-      {m.popular && (
-        <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-black">
-          <Users className="h-3 w-3" /> Popular
-        </div>
-      )}
-      <div className="absolute inset-x-0 bottom-0 p-3">
-        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/70">
-          <span>{icon}</span>
-          <span>{m.category.replace(/-/g, " ")}</span>
-        </div>
-        <div className="mt-1 line-clamp-2 text-sm font-bold leading-tight text-white">
-          {home && away ? `${home} vs ${away}` : m.title}
-        </div>
-      </div>
-    </Link>
   );
 }
