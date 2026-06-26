@@ -1,6 +1,17 @@
 import { Link } from "@tanstack/react-router";
 import { Play, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { useContinueWatching, removeProgress } from "@/lib/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function tmdbBackdrop(path?: string | null, fallback?: string | null) {
   return path || fallback || "";
@@ -8,6 +19,7 @@ function tmdbBackdrop(path?: string | null, fallback?: string | null) {
 
 export function ContinueWatchingRow() {
   const { items } = useContinueWatching();
+  const [pending, setPending] = useState<null | { mediaId: number | string; mediaType: string; title: string; season?: number | null; episode?: number | null }>(null);
   if (!items.length) return null;
 
   return (
@@ -63,7 +75,7 @@ export function ContinueWatchingRow() {
                 </div>
               </Link>
               <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); void removeProgress(it.mediaId, it.season, it.episode); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPending({ mediaId: it.mediaId, mediaType: it.mediaType, title: it.title, season: it.season, episode: it.episode }); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 aria-label="Remove from continue watching"
                 className="absolute right-2 top-2 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/75 text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-destructive hover:scale-110 active:scale-95 shadow-lg"
@@ -74,6 +86,34 @@ export function ContinueWatchingRow() {
           );
         })}
       </div>
+      <AlertDialog open={!!pending} onOpenChange={(o) => !o && setPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from Continue Watching?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pending ? (
+                <>
+                  <span className="font-medium text-foreground">{pending.title}</span>
+                  {pending.season != null && pending.episode != null && <> · S{pending.season} E{pending.episode}</>}
+                  {" "}will be removed from your list. Your playback position will be cleared.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pending) void removeProgress(pending.mediaId as any, pending.season ?? null, pending.episode ?? null);
+                setPending(null);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
