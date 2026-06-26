@@ -31,15 +31,6 @@ export function SharePopup() {
     } catch {}
   };
 
-  const nativeShare = async () => {
-    if (typeof navigator !== "undefined" && (navigator as any).share) {
-      try {
-        await (navigator as any).share({ title: "Sleepy", text: SHARE_TEXT, url: SITE_URL });
-        dismiss();
-      } catch {}
-    }
-  };
-
   if (!open) return null;
 
   const enc = encodeURIComponent;
@@ -108,15 +99,6 @@ export function SharePopup() {
               </a>
             ))}
           </div>
-
-          {typeof navigator !== "undefined" && (navigator as any).share && (
-            <button
-              onClick={nativeShare}
-              className="w-full rounded-xl bg-white/5 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/10 transition"
-            >
-              More sharing options…
-            </button>
-          )}
 
           <button
             onClick={dismiss}
