@@ -218,7 +218,7 @@ function LiveSportsRail() {
 
   const events = useMemo(() => {
     if (!data) return { live: 0, upcoming: 0 };
-    const flat = flattenEvents(data);
+    const flat = flattenEvents(data).filter((e) => e.category !== "24/7 Streams");
     const now = Date.now() / 1000;
     let live = 0;
     let upcoming = 0;
