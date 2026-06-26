@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Tv2, RadioTower, Star, Trophy, ArrowRight } from "lucide-react";
 import { CURATED_CHANNELS, CURATED_GROUPS } from "@/lib/iptv-curated";
-import { fetchPpvAll, flattenEvents, isEventLive } from "@/lib/sports";
+import { fetchPpvAll, flattenEvents } from "@/lib/sports";
 
 export const Route = createFileRoute("/iptv")({
   head: () => ({
