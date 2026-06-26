@@ -9,38 +9,266 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WatchlistRouteImport } from './routes/watchlist'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as IptvRouteImport } from './routes/iptv'
+import { Route as ExploreRouteImport } from './routes/explore'
+import { Route as AiRouteImport } from './routes/ai'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WatchIdRouteImport } from './routes/watch.$id'
+import { Route as PersonIdRouteImport } from './routes/person.$id'
+import { Route as LiveIdRouteImport } from './routes/live.$id'
+import { Route as MediaTypeIdRouteImport } from './routes/media.$type.$id'
+import { Route as ApiPublicSubtitleRouteImport } from './routes/api/public/subtitle'
+import { Route as ApiPublicIptvProxyRouteImport } from './routes/api/public/iptv-proxy'
+import { Route as ApiPublicFebboxProxyRouteImport } from './routes/api/public/febbox-proxy'
+import { Route as ApiPublicDownloadRouteImport } from './routes/api/public/download'
 
+const WatchlistRoute = WatchlistRouteImport.update({
+  id: '/watchlist',
+  path: '/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IptvRoute = IptvRouteImport.update({
+  id: '/iptv',
+  path: '/iptv',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExploreRoute = ExploreRouteImport.update({
+  id: '/explore',
+  path: '/explore',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiRoute = AiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WatchIdRoute = WatchIdRouteImport.update({
+  id: '/watch/$id',
+  path: '/watch/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PersonIdRoute = PersonIdRouteImport.update({
+  id: '/person/$id',
+  path: '/person/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveIdRoute = LiveIdRouteImport.update({
+  id: '/live/$id',
+  path: '/live/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MediaTypeIdRoute = MediaTypeIdRouteImport.update({
+  id: '/media/$type/$id',
+  path: '/media/$type/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSubtitleRoute = ApiPublicSubtitleRouteImport.update({
+  id: '/api/public/subtitle',
+  path: '/api/public/subtitle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicIptvProxyRoute = ApiPublicIptvProxyRouteImport.update({
+  id: '/api/public/iptv-proxy',
+  path: '/api/public/iptv-proxy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicFebboxProxyRoute = ApiPublicFebboxProxyRouteImport.update({
+  id: '/api/public/febbox-proxy',
+  path: '/api/public/febbox-proxy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicDownloadRoute = ApiPublicDownloadRouteImport.update({
+  id: '/api/public/download',
+  path: '/api/public/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
+  '/explore': typeof ExploreRoute
+  '/iptv': typeof IptvRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
+  '/watchlist': typeof WatchlistRoute
+  '/live/$id': typeof LiveIdRoute
+  '/person/$id': typeof PersonIdRoute
+  '/watch/$id': typeof WatchIdRoute
+  '/api/public/download': typeof ApiPublicDownloadRoute
+  '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
+  '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
+  '/api/public/subtitle': typeof ApiPublicSubtitleRoute
+  '/media/$type/$id': typeof MediaTypeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
+  '/explore': typeof ExploreRoute
+  '/iptv': typeof IptvRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
+  '/watchlist': typeof WatchlistRoute
+  '/live/$id': typeof LiveIdRoute
+  '/person/$id': typeof PersonIdRoute
+  '/watch/$id': typeof WatchIdRoute
+  '/api/public/download': typeof ApiPublicDownloadRoute
+  '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
+  '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
+  '/api/public/subtitle': typeof ApiPublicSubtitleRoute
+  '/media/$type/$id': typeof MediaTypeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
+  '/explore': typeof ExploreRoute
+  '/iptv': typeof IptvRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
+  '/watchlist': typeof WatchlistRoute
+  '/live/$id': typeof LiveIdRoute
+  '/person/$id': typeof PersonIdRoute
+  '/watch/$id': typeof WatchIdRoute
+  '/api/public/download': typeof ApiPublicDownloadRoute
+  '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
+  '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
+  '/api/public/subtitle': typeof ApiPublicSubtitleRoute
+  '/media/$type/$id': typeof MediaTypeIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/ai'
+    | '/explore'
+    | '/iptv'
+    | '/search'
+    | '/settings'
+    | '/watchlist'
+    | '/live/$id'
+    | '/person/$id'
+    | '/watch/$id'
+    | '/api/public/download'
+    | '/api/public/febbox-proxy'
+    | '/api/public/iptv-proxy'
+    | '/api/public/subtitle'
+    | '/media/$type/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/ai'
+    | '/explore'
+    | '/iptv'
+    | '/search'
+    | '/settings'
+    | '/watchlist'
+    | '/live/$id'
+    | '/person/$id'
+    | '/watch/$id'
+    | '/api/public/download'
+    | '/api/public/febbox-proxy'
+    | '/api/public/iptv-proxy'
+    | '/api/public/subtitle'
+    | '/media/$type/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/ai'
+    | '/explore'
+    | '/iptv'
+    | '/search'
+    | '/settings'
+    | '/watchlist'
+    | '/live/$id'
+    | '/person/$id'
+    | '/watch/$id'
+    | '/api/public/download'
+    | '/api/public/febbox-proxy'
+    | '/api/public/iptv-proxy'
+    | '/api/public/subtitle'
+    | '/media/$type/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiRoute: typeof AiRoute
+  ExploreRoute: typeof ExploreRoute
+  IptvRoute: typeof IptvRoute
+  SearchRoute: typeof SearchRoute
+  SettingsRoute: typeof SettingsRoute
+  WatchlistRoute: typeof WatchlistRoute
+  LiveIdRoute: typeof LiveIdRoute
+  PersonIdRoute: typeof PersonIdRoute
+  WatchIdRoute: typeof WatchIdRoute
+  ApiPublicDownloadRoute: typeof ApiPublicDownloadRoute
+  ApiPublicFebboxProxyRoute: typeof ApiPublicFebboxProxyRoute
+  ApiPublicIptvProxyRoute: typeof ApiPublicIptvProxyRoute
+  ApiPublicSubtitleRoute: typeof ApiPublicSubtitleRoute
+  MediaTypeIdRoute: typeof MediaTypeIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/watchlist': {
+      id: '/watchlist'
+      path: '/watchlist'
+      fullPath: '/watchlist'
+      preLoaderRoute: typeof WatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iptv': {
+      id: '/iptv'
+      path: '/iptv'
+      fullPath: '/iptv'
+      preLoaderRoute: typeof IptvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/explore': {
+      id: '/explore'
+      path: '/explore'
+      fullPath: '/explore'
+      preLoaderRoute: typeof ExploreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai': {
+      id: '/ai'
+      path: '/ai'
+      fullPath: '/ai'
+      preLoaderRoute: typeof AiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +276,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/watch/$id': {
+      id: '/watch/$id'
+      path: '/watch/$id'
+      fullPath: '/watch/$id'
+      preLoaderRoute: typeof WatchIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/person/$id': {
+      id: '/person/$id'
+      path: '/person/$id'
+      fullPath: '/person/$id'
+      preLoaderRoute: typeof PersonIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live/$id': {
+      id: '/live/$id'
+      path: '/live/$id'
+      fullPath: '/live/$id'
+      preLoaderRoute: typeof LiveIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/media/$type/$id': {
+      id: '/media/$type/$id'
+      path: '/media/$type/$id'
+      fullPath: '/media/$type/$id'
+      preLoaderRoute: typeof MediaTypeIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/subtitle': {
+      id: '/api/public/subtitle'
+      path: '/api/public/subtitle'
+      fullPath: '/api/public/subtitle'
+      preLoaderRoute: typeof ApiPublicSubtitleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/iptv-proxy': {
+      id: '/api/public/iptv-proxy'
+      path: '/api/public/iptv-proxy'
+      fullPath: '/api/public/iptv-proxy'
+      preLoaderRoute: typeof ApiPublicIptvProxyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/febbox-proxy': {
+      id: '/api/public/febbox-proxy'
+      path: '/api/public/febbox-proxy'
+      fullPath: '/api/public/febbox-proxy'
+      preLoaderRoute: typeof ApiPublicFebboxProxyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/download': {
+      id: '/api/public/download'
+      path: '/api/public/download'
+      fullPath: '/api/public/download'
+      preLoaderRoute: typeof ApiPublicDownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiRoute: AiRoute,
+  ExploreRoute: ExploreRoute,
+  IptvRoute: IptvRoute,
+  SearchRoute: SearchRoute,
+  SettingsRoute: SettingsRoute,
+  WatchlistRoute: WatchlistRoute,
+  LiveIdRoute: LiveIdRoute,
+  PersonIdRoute: PersonIdRoute,
+  WatchIdRoute: WatchIdRoute,
+  ApiPublicDownloadRoute: ApiPublicDownloadRoute,
+  ApiPublicFebboxProxyRoute: ApiPublicFebboxProxyRoute,
+  ApiPublicIptvProxyRoute: ApiPublicIptvProxyRoute,
+  ApiPublicSubtitleRoute: ApiPublicSubtitleRoute,
+  MediaTypeIdRoute: MediaTypeIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
