@@ -27,7 +27,10 @@ function SportsPage() {
     refetchInterval: 120_000,
   });
 
-  const all = useMemo(() => (data ? flattenEvents(data) : []), [data]);
+  const all = useMemo(
+    () => (data ? flattenEvents(data).filter((e) => e.category !== "24/7 Streams") : []),
+    [data],
+  );
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,6 +53,11 @@ function SportsPage() {
     return ["all", ...Array.from(s).sort()];
   }, [all]);
 
+  const liveCount = useMemo(() => {
+    const now = Date.now() / 1000;
+    return all.filter((e) => isEventLive(e, now)).length;
+  }, [all]);
+
   return (
     <div className="relative min-h-screen pb-32 pt-20 md:pb-12 md:pt-12 animate-page-in">
       <header className="mx-auto max-w-7xl px-6 md:px-10">
@@ -69,17 +77,21 @@ function SportsPage() {
         <div className="mt-5 rounded-2xl border border-glass-border bg-card/40 p-2 backdrop-blur">
           <div className="flex flex-col gap-2 md:flex-row md:items-center">
             <div className="inline-flex shrink-0 rounded-xl bg-white/5 p-1 ring-1 ring-white/10">
-              {(["live", "upcoming"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
-                    tab === t ? "bg-primary text-primary-foreground" : "text-white/70 hover:text-white"
-                  }`}
-                >
-                  {t === "live" ? "Live now" : "Upcoming"}
-                </button>
-              ))}
+              {(["live", "upcoming"] as const).map((t) => {
+                const count = t === "live" ? liveCount : all.length - liveCount;
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
+                      tab === t ? "bg-primary text-primary-foreground" : "text-white/70 hover:text-white"
+                    }`}
+                  >
+                    {t === "live" ? "Live now" : "Upcoming"}
+                    <span className={`rounded px-1 text-[10px] ${tab === t ? "bg-black/20" : "bg-white/10"}`}>{count}</span>
+                  </button>
+                );
+              })}
             </div>
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -187,7 +199,6 @@ function BigMatchCard({ e }: { e: FlatEvent }) {
     </div>
   );
 
-  if (!live) return <div className="opacity-70 cursor-not-allowed">{inner}</div>;
   return (
     <Link to="/sports/$id" params={{ id: String(e.id) }}>
       {inner}
