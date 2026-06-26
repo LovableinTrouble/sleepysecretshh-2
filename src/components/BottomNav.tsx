@@ -34,7 +34,7 @@ export function BottomNav() {
   const loc = useLocation();
   // Don't render over the immersive player — it covers the bottom control bar.
   // Use exact "/watch/" prefix so /watchlist still gets the nav.
-  if (loc.pathname === "/watch" || loc.pathname.startsWith("/watch/")) return null;
+  if (loc.pathname === "/watch" || loc.pathname.startsWith("/watch/") || loc.pathname.startsWith("/sports/")) return null;
   return (
     <nav className="fixed bottom-3 left-1/2 z-40 w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 animate-fade-in md:bottom-6 md:w-auto">
       <div className="glass-strong flex items-center justify-between gap-0.5 rounded-2xl px-1.5 py-1.5 shadow-[var(--shadow-glow)] md:gap-1 md:rounded-full md:px-2.5 md:py-2.5">
