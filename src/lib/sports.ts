@@ -29,14 +29,28 @@ export interface PpvCategory {
   streams: PpvEvent[];
 }
 
-// Routed through our own server proxy to avoid CORS / referrer issues with ppv.to.
-const PROXY = "/api/ppv/streams";
+// Prefer our server proxy, then fall back to PPV's documented JSON hosts.
+const PPV_ENDPOINTS = ["/api/ppv/streams", "https://api.ppv.to/api/streams", "https://api.ppv.st/api/streams"] as const;
 
 export async function fetchPpvAll(): Promise<PpvCategory[]> {
-  const r = await fetch(PROXY, { headers: { accept: "application/json" } });
-  if (!r.ok) throw new Error(`ppv api ${r.status}`);
-  const j = (await r.json()) as { success: boolean; streams?: PpvCategory[] };
-  return j.streams ?? [];
+  let lastError = "Could not load PPV streams";
+
+  for (const endpoint of PPV_ENDPOINTS) {
+    try {
+      const r = await fetch(endpoint, { headers: { accept: "application/json" } });
+      if (!r.ok) {
+        lastError = `ppv api ${r.status}`;
+        continue;
+      }
+      const j = (await r.json()) as { success?: boolean; streams?: PpvCategory[] };
+      if (Array.isArray(j.streams)) return j.streams;
+      lastError = "ppv api missing streams";
+    } catch (e) {
+      lastError = String((e as Error).message || e);
+    }
+  }
+
+  throw new Error(lastError);
 }
 
 export interface FlatEvent extends PpvEvent { category: string }
