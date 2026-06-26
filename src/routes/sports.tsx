@@ -136,7 +136,8 @@ function SportsPage() {
 }
 
 function BigMatchCard({ m }: { m: SportsMatch }) {
-  const src = m.sources[0];
+  const src = m.sources.find((s) => s.source === "admin") ?? m.sources[0];
+  const sourcesStr = JSON.stringify(m.sources);
   const icon = SPORT_ICONS[m.category] ?? "🏅";
   const poster = sportsImage(m.poster);
   const home = m.teams?.home?.name;
@@ -180,12 +181,12 @@ function BigMatchCard({ m }: { m: SportsMatch }) {
     </div>
   );
 
-  if (!isLive) return <div className="opacity-70 cursor-not-allowed">{inner}</div>;
+  if (!isLive || !src) return <div className="opacity-70 cursor-not-allowed">{inner}</div>;
   return (
     <Link
       to="/sports/$source/$id"
       params={{ source: src.source, id: src.id }}
-      search={{ title: m.title, category: m.category }}
+      search={{ title: m.title, category: m.category, sources: sourcesStr }}
     >
       {inner}
     </Link>
