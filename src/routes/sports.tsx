@@ -153,10 +153,9 @@ function BigMatchCard({ m }: { m: SportsMatch }) {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-black/40 to-amber-500/10" />
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/30" />
-      <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1
-        ${isLive ? 'bg-red-500/90 text-white ring-red-300/40' : 'bg-white/10 text-white/80 ring-white/15'}"
-        style={{}}
-      >
+      <div className={`absolute left-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1 ${
+        isLive ? "bg-red-500/90 text-white ring-red-300/40" : "bg-white/10 text-white/80 ring-white/15"
+      }`}>
         {isLive ? (
           <><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> LIVE</>
         ) : (

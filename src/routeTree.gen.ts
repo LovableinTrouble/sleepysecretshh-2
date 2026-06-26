@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
+import { Route as SportsRouteImport } from './routes/sports'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as IptvRouteImport } from './routes/iptv'
@@ -28,6 +29,11 @@ import { Route as ApiPublicDownloadRouteImport } from './routes/api/public/downl
 const WatchlistRoute = WatchlistRouteImport.update({
   id: '/watchlist',
   path: '/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SportsRoute = SportsRouteImport.update({
+  id: '/sports',
+  path: '/sports',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/iptv': typeof IptvRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/sports': typeof SportsRoute
   '/watchlist': typeof WatchlistRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/iptv': typeof IptvRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/sports': typeof SportsRoute
   '/watchlist': typeof WatchlistRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/iptv': typeof IptvRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/sports': typeof SportsRoute
   '/watchlist': typeof WatchlistRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/iptv'
     | '/search'
     | '/settings'
+    | '/sports'
     | '/watchlist'
     | '/live/$id'
     | '/person/$id'
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/iptv'
     | '/search'
     | '/settings'
+    | '/sports'
     | '/watchlist'
     | '/live/$id'
     | '/person/$id'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/iptv'
     | '/search'
     | '/settings'
+    | '/sports'
     | '/watchlist'
     | '/live/$id'
     | '/person/$id'
@@ -214,6 +226,7 @@ export interface RootRouteChildren {
   IptvRoute: typeof IptvRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
+  SportsRoute: typeof SportsRoute
   WatchlistRoute: typeof WatchlistRoute
   LiveIdRoute: typeof LiveIdRoute
   PersonIdRoute: typeof PersonIdRoute
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       path: '/watchlist'
       fullPath: '/watchlist'
       preLoaderRoute: typeof WatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sports': {
+      id: '/sports'
+      path: '/sports'
+      fullPath: '/sports'
+      preLoaderRoute: typeof SportsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -342,6 +362,7 @@ const rootRouteChildren: RootRouteChildren = {
   IptvRoute: IptvRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
+  SportsRoute: SportsRoute,
   WatchlistRoute: WatchlistRoute,
   LiveIdRoute: LiveIdRoute,
   PersonIdRoute: PersonIdRoute,
