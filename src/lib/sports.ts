@@ -93,6 +93,18 @@ export function flattenEvents(cats: PpvCategory[]): FlatEvent[] {
   });
 }
 
+export function flattenUpcoming(cats: PpvCategory[], withinHours = 48): FlatEvent[] {
+  const now = Date.now() / 1000;
+  const limit = now + withinHours * 3600;
+  return cats
+    .flatMap((c) => {
+      if (!isRealSportsCategory(c.category)) return [];
+      return c.streams.map((s) => ({ ...s, category: c.category }));
+    })
+    .filter((e) => !e.always_live && e.starts_at > now && e.starts_at <= limit)
+    .sort((a, b) => a.starts_at - b.starts_at);
+}
+
 export function findEvent(cats: PpvCategory[], id: number): FlatEvent | undefined {
   const now = Date.now() / 1000;
   for (const c of cats) {

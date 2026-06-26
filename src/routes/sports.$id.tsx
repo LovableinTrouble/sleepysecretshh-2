@@ -167,30 +167,28 @@ function SportsMatchPage() {
       )}
 
       {showPopupWarn && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/80 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950 p-6 text-white shadow-2xl">
-            <div className="flex items-start gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-500/15 text-amber-400">
-                <ShieldAlert className="h-5 w-5" />
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/85 px-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-zinc-900 to-zinc-950 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center px-6 pb-2 pt-7 text-center">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30">
+                <ShieldAlert className="h-6 w-6" />
               </div>
-              <div className="min-w-0">
-                <h2 className="text-base font-bold">Heads up — pop-ups & ads</h2>
-                <p className="mt-2 text-sm leading-relaxed text-white/70">
-                  This stream is embedded from a third-party provider. They may open new tabs or show ads on first click — we can't control or block them.
-                </p>
-                <ul className="mt-3 space-y-1.5 text-xs text-white/60">
-                  <li>• Use an ad-blocker (uBlock Origin recommended) for the cleanest experience.</li>
-                  <li>• If a new tab opens, just close it and come back — the stream keeps playing here.</li>
-                  <li>• Never enter passwords or install anything a pop-up asks for.</li>
-                </ul>
-              </div>
+              <h2 className="mt-4 text-lg font-bold tracking-tight text-white">Heads up</h2>
+              <p className="mt-1.5 text-sm leading-relaxed text-white/65">
+                This stream is embedded from a third-party. They may open ads or new tabs on first click — we can't block them.
+              </p>
             </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <Link to="/sports" className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15">
-                Back to matches
+            <div className="mx-6 mt-4 space-y-2 rounded-2xl bg-white/[0.04] p-3 text-[12px] text-white/70 ring-1 ring-white/5">
+              <div className="flex items-start gap-2"><span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" /><span>Use an ad-blocker like uBlock Origin for the cleanest experience.</span></div>
+              <div className="flex items-start gap-2"><span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" /><span>If a new tab opens, just close it — playback continues here.</span></div>
+              <div className="flex items-start gap-2"><span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" /><span>Never log in or install anything a pop-up asks for.</span></div>
+            </div>
+            <div className="flex gap-2 p-5">
+              <Link to="/sports" className="flex-1 rounded-xl bg-white/8 px-4 py-2.5 text-center text-xs font-semibold text-white/85 transition hover:bg-white/12">
+                Go back
               </Link>
-              <button onClick={dismissWarn} className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
-                Got it, continue
+              <button onClick={dismissWarn} className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90">
+                Continue
               </button>
             </div>
           </div>
