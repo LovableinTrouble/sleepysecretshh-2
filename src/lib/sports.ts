@@ -28,12 +28,13 @@ export interface PpvCategory {
   streams: PpvEvent[];
 }
 
-const API = "https://ppv.to";
+// Routed through our own server proxy to avoid CORS / referrer issues with ppv.to.
+const PROXY = "/api/ppv/streams";
 
 export async function fetchPpvAll(): Promise<PpvCategory[]> {
-  const r = await fetch(`${API}/api/streams`, { headers: { accept: "application/json" } });
+  const r = await fetch(PROXY, { headers: { accept: "application/json" } });
   if (!r.ok) throw new Error(`ppv api ${r.status}`);
-  const j = (await r.json()) as { success: boolean; streams: PpvCategory[] };
+  const j = (await r.json()) as { success: boolean; streams?: PpvCategory[] };
   return j.streams ?? [];
 }
 
