@@ -20,7 +20,7 @@ import { loadStashedMedia, stashWatchMedia } from "@/lib/watch-stash";
 
 
 export const Route = createFileRoute("/media/$type/$id")({
-  head: () => ({ meta: [{ title: "Title Details — Sleepy" }] }),
+  head: () => ({ meta: [{ title: "Title Details — VOID" }] }),
   component: MediaPage,
 });
 
@@ -119,7 +119,7 @@ function MediaPage() {
   const handleShare = async () => {
     if (typeof window === "undefined") return;
     const link = window.location.href;
-    const title = media?.title ?? "Watch on Sleepy";
+    const title = media?.title ?? "Watch on VOID";
     if (navigator.share) {
       try { await navigator.share({ title, url: link }); return; } catch {}
     }

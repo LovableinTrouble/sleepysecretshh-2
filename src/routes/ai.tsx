@@ -4,7 +4,7 @@ import { CATALOG, similarTo, type Media } from "@/lib/catalog";
 import { MediaCard } from "@/components/MediaCard";
 
 export const Route = createFileRoute("/ai")({
-  head: () => ({ meta: [{ title: "AI Recommendations — SLEEPY" }, { name: "description", content: "Get personalized AI recommendations from Luna." }] }),
+  head: () => ({ meta: [{ title: "AI Recommendations — VOID" }, { name: "description", content: "Get personalized AI recommendations from Luna." }] }),
   component: AiPage,
 });
 

@@ -8,7 +8,7 @@ import { SportIcon } from "@/components/SportIcon";
 export const Route = createFileRoute("/sports/$id")({
   head: () => ({
     meta: [
-      { title: "Live Match — SLEEPY" },
+      { title: "Live Match — VOID" },
       { name: "description", content: "Watch this live sports match free." },
     ],
   }),

@@ -18,7 +18,7 @@ import type { Media } from "@/lib/catalog";
 export const Route = createFileRoute("/explore")({
   head: () => ({
     meta: [
-      { title: "Explore — SLEEPY" },
+      { title: "Explore — VOID" },
       { name: "description", content: "Browse movies, TV series, and anime in one place. Filter by genre, year, and rating." },
     ],
   }),
