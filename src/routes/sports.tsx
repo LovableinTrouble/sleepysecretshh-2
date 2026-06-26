@@ -57,7 +57,7 @@ function SportsPage() {
 
   return (
     <div className="relative min-h-screen pb-32 pt-20 md:pb-12 md:pt-12 animate-page-in">
-      <header className="px-6 md:px-10">
+      <header className="mx-auto max-w-7xl px-6 md:px-10">
         <Link to="/iptv" className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/60 hover:text-white">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Live TV
         </Link>
@@ -71,29 +71,30 @@ function SportsPage() {
           </div>
         </div>
 
-        <div className="mt-5 inline-flex rounded-full bg-white/5 p-1 ring-1 ring-white/10">
-          {(["live", "today"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${
-                tab === t ? "bg-primary text-primary-foreground" : "text-white/70 hover:text-white"
-              }`}
-            >
-              {t === "live" ? "Live now" : "Today's schedule"}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-glass-border bg-card/40 p-2 backdrop-blur">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search matches, teams…"
-              className="w-full rounded-xl bg-background/40 py-2 pl-9 pr-3 text-sm outline-none ring-1 ring-white/10 transition focus:ring-2 focus:ring-primary/40"
-            />
+        <div className="mt-5 rounded-2xl border border-glass-border bg-card/40 p-2 backdrop-blur">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center">
+            <div className="inline-flex shrink-0 rounded-xl bg-white/5 p-1 ring-1 ring-white/10">
+              {(["live", "today"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
+                    tab === t ? "bg-primary text-primary-foreground" : "text-white/70 hover:text-white"
+                  }`}
+                >
+                  {t === "live" ? "Live now" : "Today"}
+                </button>
+              ))}
+            </div>
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search matches, teams…"
+                className="w-full rounded-xl bg-background/40 py-2 pl-9 pr-3 text-sm outline-none ring-1 ring-white/10 transition focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
           </div>
           <div className="mt-2 -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-thin">
             {categories.map((c) => {
@@ -114,16 +115,16 @@ function SportsPage() {
         </div>
       </header>
 
-      <main className="mt-6 px-6 md:px-10">
+      <main className="mx-auto mt-6 max-w-7xl px-6 md:px-10">
         {!all.length && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-40 animate-pulse rounded-2xl bg-card/40" />
+              <div key={i} className="h-44 animate-pulse rounded-2xl bg-card/40" />
             ))}
           </div>
         )}
         {!!visible.length && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {visible.map((m) => <BigMatchCard key={m.id} m={m} />)}
           </div>
         )}
