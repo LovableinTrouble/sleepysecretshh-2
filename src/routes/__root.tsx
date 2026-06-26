@@ -13,6 +13,8 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import voidOg from "../assets/void-og.jpg.asset.json";
+import voidIcon from "../assets/void-icon.png.asset.json";
 import { AnimatedBackground } from "../components/AnimatedBackground";
 import { BootLoader } from "../components/BootLoader";
 import { BottomNav } from "../components/BottomNav";
@@ -85,20 +87,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" },
-      { title: "VOID" },
-      { name: "description", content: "Stream your favorite movies, tv and more in one beautiful UI" },
+      { title: "VOID — Stream Everything" },
+      { name: "description", content: "VOID — stream movies, TV shows, anime, live sports and IPTV channels in one beautiful, fast UI." },
       { name: "author", content: "VOID" },
-      { property: "og:title", content: "VOID" },
-      { property: "og:description", content: "Stream your favorite movies, tv and more in one beautiful UI" },
+      { name: "theme-color", content: "#0b0b12" },
+      { property: "og:site_name", content: "VOID" },
+      { property: "og:title", content: "VOID — Stream Everything" },
+      { property: "og:description", content: "Stream movies, TV, anime, live sports and IPTV in one beautiful, fast UI." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://xullys.xyz" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "VOID" },
-      { name: "twitter:description", content: "Stream your favorite movies, tv and more in one beautiful UI" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5c7fedab-6d8e-4334-bc61-0259e81ca6d9/id-preview-58b95613--1c6205fc-0ad2-4c96-b540-95c04d82d13f.lovable.app-1782512932262.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5c7fedab-6d8e-4334-bc61-0259e81ca6d9/id-preview-58b95613--1c6205fc-0ad2-4c96-b540-95c04d82d13f.lovable.app-1782512932262.png" },
+      { name: "twitter:title", content: "VOID — Stream Everything" },
+      { name: "twitter:description", content: "Stream movies, TV, anime, live sports and IPTV in one beautiful, fast UI." },
+      { property: "og:image", content: voidOg.url },
+      { property: "og:image:width", content: "1280" },
+      { property: "og:image:height", content: "672" },
+      { name: "twitter:image", content: voidOg.url },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", type: "image/png", href: voidIcon.url },
+      { rel: "apple-touch-icon", href: voidIcon.url },
       // Warm up upstream connections so first image / first stream byte
       // arrives in one RTT instead of three (DNS + TCP + TLS).
       { rel: "preconnect", href: "https://image.tmdb.org", crossOrigin: "anonymous" },
