@@ -8,9 +8,9 @@ import { fetchPpvAll, flattenEvents } from "@/lib/sports";
 export const Route = createFileRoute("/iptv")({
   head: () => ({
     meta: [
-      { title: "Live TV & Sports — SLEEPY" },
+      { title: "Live TV & Sports — VOID" },
       { name: "description", content: "Watch live TV channels and real-time sports matches — free." },
-      { property: "og:title", content: "Live TV & Sports — SLEEPY" },
+      { property: "og:title", content: "Live TV & Sports — VOID" },
       { property: "og:description", content: "Live news, sports games and entertainment — all free." },
     ],
   }),

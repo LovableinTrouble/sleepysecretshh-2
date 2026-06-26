@@ -6,7 +6,7 @@ import { loadStashedMedia } from "@/lib/watch-stash";
 import { fetchMediaById } from "@/lib/tmdb";
 
 export const Route = createFileRoute("/watch/$id")({
-  head: () => ({ meta: [{ title: "Now Playing — Sleepy" }] }),
+  head: () => ({ meta: [{ title: "Now Playing — VOID" }] }),
   validateSearch: (s: Record<string, unknown>) => ({
     s: s.s ? Number(s.s) : undefined,
     e: s.e ? Number(s.e) : undefined,
