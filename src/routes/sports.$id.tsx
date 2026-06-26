@@ -123,7 +123,7 @@ function SportsMatchPage() {
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             allowFullScreen
             referrerPolicy="no-referrer"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            sandbox="allow-scripts allow-same-origin allow-forms"
             className="h-full w-full border-0"
           />
         )}
