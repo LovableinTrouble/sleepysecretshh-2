@@ -1,8 +1,8 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, ArrowLeft, Search, Users, RadioTower } from "lucide-react";
-import { fetchPpvAll, flattenEvents, type FlatEvent } from "@/lib/sports";
+import { Trophy, ArrowLeft, Search, Users, RadioTower, Clock, CalendarDays, Bell, BellRing } from "lucide-react";
+import { fetchPpvAll, flattenEvents, flattenUpcoming, type FlatEvent } from "@/lib/sports";
 import { SportIcon } from "@/components/SportIcon";
 
 export const Route = createFileRoute("/sports")({
@@ -30,6 +30,7 @@ function SportsRoute() {
 function SportsPage() {
   const [cat, setCat] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<"live" | "upcoming">("live");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["ppv", "all"],
@@ -40,23 +41,30 @@ function SportsPage() {
   });
 
   const all = useMemo(() => (data ? flattenEvents(data) : []), [data]);
+  const upcoming = useMemo(() => (data ? flattenUpcoming(data, 72) : []), [data]);
+
+  const source = tab === "live" ? all : upcoming;
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return all
+    return source
       .filter((e) => {
         if (cat !== "all" && e.category !== cat) return false;
         if (q && !`${e.name} ${e.category} ${e.tag || ""}`.toLowerCase().includes(q)) return false;
         return true;
       })
-      .sort((a, b) => Number(b.viewers || 0) - Number(a.viewers || 0) || a.starts_at - b.starts_at);
-  }, [all, cat, query]);
+      .sort((a, b) =>
+        tab === "live"
+          ? Number(b.viewers || 0) - Number(a.viewers || 0) || a.starts_at - b.starts_at
+          : a.starts_at - b.starts_at
+      );
+  }, [source, cat, query, tab]);
 
   const categories = useMemo(() => {
     const s = new Set<string>();
-    for (const e of all) s.add(e.category);
+    for (const e of source) s.add(e.category);
     return ["all", ...Array.from(s).sort()];
-  }, [all]);
+  }, [source]);
 
   return (
     <div className="relative min-h-screen pb-32 pt-20 md:pb-12 md:pt-12 animate-page-in">
@@ -76,16 +84,32 @@ function SportsPage() {
 
         <div className="mt-5 rounded-2xl border border-glass-border bg-card/40 p-2 backdrop-blur">
           <div className="flex flex-col gap-2 md:flex-row md:items-center">
-            <div className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.22em] text-red-200 ring-1 ring-red-500/25">
-              <span className="h-2 w-2 rounded-full bg-red-400 animate-pulse" />
-              {all.length} live now
+            <div className="inline-flex shrink-0 rounded-xl bg-background/40 p-1 ring-1 ring-white/10">
+              <button
+                onClick={() => setTab("live")}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
+                  tab === "live" ? "bg-red-500/90 text-white" : "text-white/60 hover:text-white"
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${tab === "live" ? "bg-white animate-pulse" : "bg-red-400"}`} />
+                Live <span className="opacity-70">{all.length}</span>
+              </button>
+              <button
+                onClick={() => setTab("upcoming")}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
+                  tab === "upcoming" ? "bg-primary text-primary-foreground" : "text-white/60 hover:text-white"
+                }`}
+              >
+                <CalendarDays className="h-3 w-3" />
+                Upcoming <span className="opacity-70">{upcoming.length}</span>
+              </button>
             </div>
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search live matches, teams…"
+                placeholder={tab === "live" ? "Search live matches, teams…" : "Search upcoming matches…"}
                 className="w-full rounded-xl bg-background/40 py-2 pl-9 pr-3 text-sm outline-none ring-1 ring-white/10 transition focus:ring-2 focus:ring-primary/40"
               />
             </div>
@@ -125,17 +149,23 @@ function SportsPage() {
         )}
         {!!visible.length && (
           <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {visible.map((e) => <BigMatchCard key={e.id} e={e} />)}
+            {visible.map((e) =>
+              tab === "live" ? <BigMatchCard key={e.id} e={e} /> : <UpcomingCard key={e.id} e={e} />
+            )}
           </div>
         )}
-        {!isLoading && !error && all.length === 0 && (
+        {!isLoading && !error && source.length === 0 && (
           <div className="grid place-items-center rounded-2xl border border-glass-border bg-card/30 px-6 py-16 text-center">
             <RadioTower className="h-9 w-9 text-muted-foreground" />
-            <p className="mt-3 text-sm font-semibold text-foreground">No live sports streams right now.</p>
-            <p className="mt-1 text-xs text-muted-foreground">This page only shows matches that are live and playable.</p>
+            <p className="mt-3 text-sm font-semibold text-foreground">
+              {tab === "live" ? "No live sports streams right now." : "Nothing scheduled in the next 72 hours."}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {tab === "live" ? "Check the Upcoming tab for what's next." : "Check back soon — new events are added daily."}
+            </p>
           </div>
         )}
-        {!isLoading && !!all.length && visible.length === 0 && (
+        {!isLoading && !!source.length && visible.length === 0 && (
           <div className="py-20 text-center text-sm text-muted-foreground">No live matches match your filters.</div>
         )}
       </main>
