@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Search, Tv2, RadioTower } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, Tv2, RadioTower, Star } from "lucide-react";
 import { CURATED_CHANNELS, CURATED_GROUPS, type CuratedChannel } from "@/lib/iptv-curated";
 
 export const Route = createFileRoute("/iptv")({
@@ -27,6 +27,23 @@ function IptvPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<string>("All");
+  const [favs, setFavs] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("iptv:favs");
+      if (raw) setFavs(new Set(JSON.parse(raw)));
+    } catch {}
+  }, []);
+
+  const toggleFav = (id: string) => {
+    setFavs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem("iptv:favs", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   const channels = useMemo<CuratedChannel[]>(() => CURATED_CHANNELS, []);
 
@@ -37,17 +54,24 @@ function IptvPage() {
     const entries = Array.from(seen.entries()).sort(
       (a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999),
     );
-    return ["All", ...entries.map(([g]) => g)];
-  }, [channels]);
+    const base = ["All", ...entries.map(([g]) => g)];
+    return favs.size > 0 ? ["Favorites", ...base] : base;
+  }, [channels, favs]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return channels.filter((c) => {
-      if (group !== "All" && c.group !== group) return false;
+    const list = channels.filter((c) => {
+      if (group === "Favorites") { if (!favs.has(c.id)) return false; }
+      else if (group !== "All" && c.group !== group) return false;
       if (q && !c.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [channels, group, query]);
+    // Pin favorites to top in "All" view
+    if (group === "All" && favs.size > 0) {
+      return [...list].sort((a, b) => Number(favs.has(b.id)) - Number(favs.has(a.id)));
+    }
+    return list;
+  }, [channels, group, query, favs]);
 
   return (
     <div className="relative min-h-screen pb-32 pt-20 md:pb-12 md:pt-12 animate-page-in">
@@ -61,8 +85,10 @@ function IptvPage() {
             <h1 className="text-3xl font-black md:text-5xl">IPTV</h1>
           </div>
         </div>
-        <p className="mt-3 max-w-xl text-sm text-muted-foreground">
-          {channels.length} hand-picked mainstream channels — direct from each broadcaster's own CDN.
+        <p className="mt-3 max-w-xl text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+          <span className="live-dot" aria-hidden="true" />
+          <span><span className="font-semibold text-foreground">{channels.length}</span> channels streaming live now.</span>
+          {favs.size > 0 && <span className="text-foreground/70">· {favs.size} favorited</span>}
         </p>
 
         <div className="mt-6 rounded-2xl border border-glass-border bg-card/40 p-2 backdrop-blur">
@@ -100,9 +126,11 @@ function IptvPage() {
 
       <main className="mt-8 px-6 md:px-10">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {filtered.map((c) => (
+          {filtered.map((c) => {
+            const isFav = favs.has(c.id);
+            return (
+            <div key={c.id} className="relative">
             <button
-              key={c.id}
               onClick={() =>
                 navigate({
                   to: "/live/$id",
@@ -110,8 +138,11 @@ function IptvPage() {
                   search: { url: c.url, name: c.name, logo: c.logo, group: c.group },
                 })
               }
-              className="group relative flex aspect-[4/3] flex-col items-center justify-between gap-2 overflow-hidden rounded-2xl border border-glass-border bg-card/40 p-3 text-center transition hover:-translate-y-0.5 hover:border-primary/50 hover:bg-card/70"
+              className="group relative flex w-full aspect-[4/3] flex-col items-center justify-between gap-2 overflow-hidden rounded-2xl border border-glass-border bg-card/40 p-3 text-center transition hover:-translate-y-0.5 hover:border-primary/50 hover:bg-card/70"
             >
+              <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white/90 ring-1 ring-white/10 backdrop-blur">
+                <span className="live-dot" style={{ width: 5, height: 5 }} aria-hidden="true" /> Live
+              </span>
               <div className="relative grid h-16 w-16 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-white/10 to-black/30 ring-1 ring-white/10">
                 <span className="absolute text-sm font-black tracking-wide text-white/55">
                   {c.name
@@ -147,7 +178,19 @@ function IptvPage() {
                 {c.name}
               </span>
             </button>
-          ))}
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(c.id); }}
+              aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+              className={`absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full backdrop-blur transition ${
+                isFav
+                  ? "bg-primary/90 text-primary-foreground ring-1 ring-primary/60"
+                  : "bg-black/55 text-white/70 ring-1 ring-white/15 hover:bg-black/80 hover:text-white"
+              }`}
+            >
+              <Star className={`h-3.5 w-3.5 ${isFav ? "fill-current" : ""}`} />
+            </button>
+            </div>
+          );})}
           {filtered.length === 0 && (
             <div className="col-span-full py-16 text-center text-sm text-muted-foreground">
               No channels match your filters.
