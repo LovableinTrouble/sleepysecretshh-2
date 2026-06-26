@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, AlertTriangle, RefreshCw, Maximize2, Users } from "lucide-react";
-import { fetchPpvAll, findEvent, isEventLive } from "@/lib/sports";
+import { fetchPpvAll, findEvent, hasPlayableIframe, isEventLive, normalizeIframeSrc } from "@/lib/sports";
 import { SportIcon } from "@/components/SportIcon";
 
 export const Route = createFileRoute("/sports/$id")({
@@ -32,12 +32,15 @@ function SportsMatchPage() {
 
   const streams = useMemo(() => {
     if (!event) return [];
-    const subs = (event.substreams ?? []).map((s, i) => ({
-      key: `sub-${s.id ?? i}`,
-      name: s.name || `Stream ${i + 2}`,
-      iframe: s.iframe,
-    }));
-    return [{ key: "main", name: event.source_tag || event.tag || "Main", iframe: event.iframe }, ...subs];
+    const subs = (event.substreams ?? [])
+      .map((s, i) => ({
+        key: `sub-${s.id ?? i}`,
+        name: s.name || `Stream ${i + 2}`,
+        iframe: normalizeIframeSrc(s.iframe),
+      }))
+      .filter((s) => /^https?:\/\//i.test(s.iframe));
+    return [{ key: "main", name: event.source_tag || event.tag || "Main", iframe: normalizeIframeSrc(event.iframe) }, ...subs]
+      .filter((s) => /^https?:\/\//i.test(s.iframe));
   }, [event]);
 
   const active = streams[Math.min(pick, streams.length - 1)];
@@ -98,7 +101,7 @@ function SportsMatchPage() {
           </div>
         )}
 
-        {!isLoading && !active && (
+        {!isLoading && (!active || (event && !hasPlayableIframe(event))) && (
           <div className="absolute inset-0 grid place-items-center px-6 text-center">
             <div className="max-w-md">
               <AlertTriangle className="mx-auto h-10 w-10 text-amber-400" />
@@ -122,8 +125,7 @@ function SportsMatchPage() {
             title={event?.name || "Live match"}
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             allowFullScreen
-            referrerPolicy="no-referrer"
-            sandbox="allow-scripts allow-same-origin allow-forms"
+            loading="eager"
             className="h-full w-full border-0"
           />
         )}
