@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Tv2, RadioTower, Star, Trophy, ArrowRight, Users } from "lucide-react";
@@ -29,7 +29,6 @@ function proxyLogo(url?: string): string | undefined {
 }
 
 function IptvPage() {
-  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<string>("All");
   const [favs, setFavs] = useState<Set<string>>(() => new Set());
@@ -145,15 +144,12 @@ function IptvPage() {
             const isFav = favs.has(c.id);
             return (
               <div key={c.id} className="relative">
-                <button
-                  onClick={() =>
-                    navigate({
-                      to: "/live/$id",
-                      params: { id: c.id },
-                      search: { url: c.url, name: c.name, logo: c.logo, group: c.group },
-                    })
-                  }
-                  className="group relative flex w-full aspect-[4/3] flex-col items-center justify-between gap-2 overflow-hidden rounded-2xl border border-glass-border bg-card/40 p-3 text-center transition hover:-translate-y-0.5 hover:border-primary/50 hover:bg-card/70"
+                <Link
+                  to="/live/$id"
+                  params={{ id: c.id }}
+                  search={{ url: c.url, name: c.name, logo: c.logo, group: c.group }}
+                  preload="intent"
+                  className="group relative flex w-full aspect-[4/3] flex-col items-center justify-between gap-2 overflow-hidden rounded-2xl border border-glass-border bg-card/40 p-3 text-center transition active:scale-[0.98] hover:-translate-y-0.5 hover:border-primary/50 hover:bg-card/70"
                 >
                   <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white/90 ring-1 ring-white/10 backdrop-blur">
                     <span className="live-dot" style={{ width: 5, height: 5 }} aria-hidden="true" /> Live
@@ -191,7 +187,7 @@ function IptvPage() {
                   <span className="line-clamp-2 text-xs font-semibold text-foreground/90 group-hover:text-foreground">
                     {c.name}
                   </span>
-                </button>
+                </Link>
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(c.id); }}
                   aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
@@ -232,7 +228,7 @@ function LiveSportsRail() {
       <div className="mb-3 flex items-end justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30">
-            <Trophy className="h-4.5 w-4.5" />
+            <Trophy className="h-4 w-4" />
           </div>
           <div>
             <h2 className="text-xl font-black tracking-tight md:text-2xl">Live Sports</h2>
@@ -243,7 +239,7 @@ function LiveSportsRail() {
         </div>
         <Link
           to="/sports"
-          className="hidden items-center gap-1 rounded-full bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white md:inline-flex"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white"
         >
           See all <ArrowRight className="h-3.5 w-3.5" />
         </Link>
@@ -290,7 +286,8 @@ function LiveSportsRail() {
 }
 
 function MatchCard({ m }: { m: SportsMatch }) {
-  const src = m.sources[0];
+  const src = m.sources.find((s) => s.source === "admin") ?? m.sources[0];
+  const sourcesStr = JSON.stringify(m.sources);
   const icon = SPORT_ICONS[m.category] ?? "🏅";
   const poster = sportsImage(m.poster);
   const home = m.teams?.home?.name;
@@ -299,7 +296,7 @@ function MatchCard({ m }: { m: SportsMatch }) {
     <Link
       to="/sports/$source/$id"
       params={{ source: src.source, id: src.id }}
-      search={{ title: m.title, category: m.category }}
+      search={{ title: m.title, category: m.category, sources: sourcesStr }}
       className="group relative h-36 w-72 shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-card/40 ring-1 ring-white/5 transition hover:-translate-y-0.5 hover:border-primary/50"
     >
       {poster ? (

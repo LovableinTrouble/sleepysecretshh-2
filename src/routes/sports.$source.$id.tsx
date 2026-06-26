@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, AlertTriangle, RefreshCw, Maximize2, Users, Trophy } from "lucide-react";
 import { fetchStreams, type SportsStream } from "@/lib/sports";
 
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/sports/$source/$id")({
   validateSearch: (s: Record<string, unknown>) => ({
     title: typeof s.title === "string" ? s.title : undefined,
     category: typeof s.category === "string" ? s.category : undefined,
+    sources: typeof s.sources === "string" ? s.sources : undefined,
   }),
   component: SportsMatchPage,
 });
@@ -25,13 +26,30 @@ function SportsMatchPage() {
   const [pick, setPick] = useState<number>(0);
   const [reload, setReload] = useState(0);
 
-  const { data: streams, isLoading, error } = useQuery({
-    queryKey: ["sports", "stream", source, id],
-    queryFn: () => fetchStreams(source, id),
-    staleTime: 60_000,
-  });
+  // The primary source may have no active streams. We also try any extra
+  // sources passed via search so the player can fall back automatically.
+  const allSources = useMemo(() => {
+    const list: { source: string; id: string }[] = [{ source, id }];
+    try {
+      const extra = search.sources ? (JSON.parse(search.sources) as { source: string; id: string }[]) : [];
+      for (const s of extra) {
+        if (!list.find((x) => x.source === s.source && x.id === s.id)) list.push(s);
+      }
+    } catch {}
+    return list;
+  }, [source, id, search.sources]);
 
-  const active = streams && streams.length > 0 ? streams[Math.min(pick, streams.length - 1)] : undefined;
+  const results = useQueries({
+    queries: allSources.map((s) => ({
+      queryKey: ["sports", "stream", s.source, s.id],
+      queryFn: () => fetchStreams(s.source, s.id),
+      staleTime: 60_000,
+    })),
+  });
+  const isLoading = results.some((r) => r.isLoading);
+  const error = results.every((r) => r.isError) ? results[0]?.error : undefined;
+  const streams: SportsStream[] = results.flatMap((r) => r.data ?? []);
+  const active = streams.length > 0 ? streams[Math.min(pick, streams.length - 1)] : undefined;
 
   const onBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) window.history.back();
