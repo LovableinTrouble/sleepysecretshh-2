@@ -217,16 +217,8 @@ function LiveSportsRail() {
   });
 
   const events = useMemo(() => {
-    if (!data) return { live: 0, upcoming: 0 };
-    const flat = flattenEvents(data).filter((e) => e.category !== "24/7 Streams");
-    const now = Date.now() / 1000;
-    let live = 0;
-    let upcoming = 0;
-    for (const e of flat) {
-      if (isEventLive(e, now)) live++;
-      else if (e.starts_at > now && e.starts_at - now < 24 * 3600) upcoming++;
-    }
-    return { live, upcoming };
+    if (!data) return { live: 0 };
+    return { live: flattenEvents(data).length };
   }, [data]);
 
   return (
@@ -252,7 +244,6 @@ function LiveSportsRail() {
             {events.live > 0
               ? `${events.live} match${events.live === 1 ? "" : "es"} airing now`
               : "Football, NFL, UFC, MMA, NBA, F1 and more"}
-            {events.upcoming > 0 && ` · ${events.upcoming} upcoming today`}
           </p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15 transition group-hover:bg-white/15">
