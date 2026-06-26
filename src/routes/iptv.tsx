@@ -228,7 +228,7 @@ function LiveSportsRail() {
       <div className="mb-3 flex items-end justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30">
-            <Trophy className="h-4.5 w-4.5" />
+            <Trophy className="h-4 w-4" />
           </div>
           <div>
             <h2 className="text-xl font-black tracking-tight md:text-2xl">Live Sports</h2>
