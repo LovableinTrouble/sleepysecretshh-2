@@ -26,6 +26,7 @@ import { Route as ApiPublicSubtitleRouteImport } from './routes/api/public/subti
 import { Route as ApiPublicIptvProxyRouteImport } from './routes/api/public/iptv-proxy'
 import { Route as ApiPublicFebboxProxyRouteImport } from './routes/api/public/febbox-proxy'
 import { Route as ApiPublicDownloadRouteImport } from './routes/api/public/download'
+import { Route as ApiPpvStreamsRouteImport } from './routes/api/ppv.streams'
 
 const WatchlistRoute = WatchlistRouteImport.update({
   id: '/watchlist',
@@ -112,6 +113,11 @@ const ApiPublicDownloadRoute = ApiPublicDownloadRouteImport.update({
   path: '/api/public/download',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPpvStreamsRoute = ApiPpvStreamsRouteImport.update({
+  id: '/api/ppv/streams',
+  path: '/api/ppv/streams',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
   '/watch/$id': typeof WatchIdRoute
+  '/api/ppv/streams': typeof ApiPpvStreamsRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
   '/watch/$id': typeof WatchIdRoute
+  '/api/ppv/streams': typeof ApiPpvStreamsRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
   '/watch/$id': typeof WatchIdRoute
+  '/api/ppv/streams': typeof ApiPpvStreamsRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
     | '/person/$id'
     | '/sports/$id'
     | '/watch/$id'
+    | '/api/ppv/streams'
     | '/api/public/download'
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/person/$id'
     | '/sports/$id'
     | '/watch/$id'
+    | '/api/ppv/streams'
     | '/api/public/download'
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/person/$id'
     | '/sports/$id'
     | '/watch/$id'
+    | '/api/ppv/streams'
     | '/api/public/download'
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
@@ -243,6 +255,7 @@ export interface RootRouteChildren {
   LiveIdRoute: typeof LiveIdRoute
   PersonIdRoute: typeof PersonIdRoute
   WatchIdRoute: typeof WatchIdRoute
+  ApiPpvStreamsRoute: typeof ApiPpvStreamsRoute
   ApiPublicDownloadRoute: typeof ApiPublicDownloadRoute
   ApiPublicFebboxProxyRoute: typeof ApiPublicFebboxProxyRoute
   ApiPublicIptvProxyRoute: typeof ApiPublicIptvProxyRoute
@@ -371,6 +384,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicDownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ppv/streams': {
+      id: '/api/ppv/streams'
+      path: '/api/ppv/streams'
+      fullPath: '/api/ppv/streams'
+      preLoaderRoute: typeof ApiPpvStreamsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -397,6 +417,7 @@ const rootRouteChildren: RootRouteChildren = {
   LiveIdRoute: LiveIdRoute,
   PersonIdRoute: PersonIdRoute,
   WatchIdRoute: WatchIdRoute,
+  ApiPpvStreamsRoute: ApiPpvStreamsRoute,
   ApiPublicDownloadRoute: ApiPublicDownloadRoute,
   ApiPublicFebboxProxyRoute: ApiPublicFebboxProxyRoute,
   ApiPublicIptvProxyRoute: ApiPublicIptvProxyRoute,
