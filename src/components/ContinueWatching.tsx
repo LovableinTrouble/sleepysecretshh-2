@@ -63,11 +63,12 @@ export function ContinueWatchingRow() {
                 </div>
               </Link>
               <button
-                onClick={(e) => { e.preventDefault(); void removeProgress(it.mediaId, it.season, it.episode); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); void removeProgress(it.mediaId, it.season, it.episode); }}
+                onPointerDown={(e) => e.stopPropagation()}
                 aria-label="Remove from continue watching"
-                className="absolute right-2 top-2 z-10 hidden h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white/80 ring-1 ring-white/15 backdrop-blur transition hover:bg-black hover:text-white group-hover:flex"
+                className="absolute right-2 top-2 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/75 text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-destructive hover:scale-110 active:scale-95 shadow-lg"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
           );
