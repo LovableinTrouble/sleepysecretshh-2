@@ -18,9 +18,9 @@ import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as AiRouteImport } from './routes/ai'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
+import { Route as SportsIdRouteImport } from './routes/sports.$id'
 import { Route as PersonIdRouteImport } from './routes/person.$id'
 import { Route as LiveIdRouteImport } from './routes/live.$id'
-import { Route as SportsSourceIdRouteImport } from './routes/sports.$source.$id'
 import { Route as MediaTypeIdRouteImport } from './routes/media.$type.$id'
 import { Route as ApiPublicSubtitleRouteImport } from './routes/api/public/subtitle'
 import { Route as ApiPublicIptvProxyRouteImport } from './routes/api/public/iptv-proxy'
@@ -72,6 +72,11 @@ const WatchIdRoute = WatchIdRouteImport.update({
   path: '/watch/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SportsIdRoute = SportsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => SportsRoute,
+} as any)
 const PersonIdRoute = PersonIdRouteImport.update({
   id: '/person/$id',
   path: '/person/$id',
@@ -81,11 +86,6 @@ const LiveIdRoute = LiveIdRouteImport.update({
   id: '/live/$id',
   path: '/live/$id',
   getParentRoute: () => rootRouteImport,
-} as any)
-const SportsSourceIdRoute = SportsSourceIdRouteImport.update({
-  id: '/$source/$id',
-  path: '/$source/$id',
-  getParentRoute: () => SportsRoute,
 } as any)
 const MediaTypeIdRoute = MediaTypeIdRouteImport.update({
   id: '/media/$type/$id',
@@ -124,13 +124,13 @@ export interface FileRoutesByFullPath {
   '/watchlist': typeof WatchlistRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
+  '/sports/$id': typeof SportsIdRoute
   '/watch/$id': typeof WatchIdRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
-  '/sports/$source/$id': typeof SportsSourceIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -143,13 +143,13 @@ export interface FileRoutesByTo {
   '/watchlist': typeof WatchlistRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
+  '/sports/$id': typeof SportsIdRoute
   '/watch/$id': typeof WatchIdRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
-  '/sports/$source/$id': typeof SportsSourceIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -163,13 +163,13 @@ export interface FileRoutesById {
   '/watchlist': typeof WatchlistRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
+  '/sports/$id': typeof SportsIdRoute
   '/watch/$id': typeof WatchIdRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
-  '/sports/$source/$id': typeof SportsSourceIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -184,13 +184,13 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/live/$id'
     | '/person/$id'
+    | '/sports/$id'
     | '/watch/$id'
     | '/api/public/download'
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
     | '/media/$type/$id'
-    | '/sports/$source/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -203,13 +203,13 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/live/$id'
     | '/person/$id'
+    | '/sports/$id'
     | '/watch/$id'
     | '/api/public/download'
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
     | '/media/$type/$id'
-    | '/sports/$source/$id'
   id:
     | '__root__'
     | '/'
@@ -222,13 +222,13 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/live/$id'
     | '/person/$id'
+    | '/sports/$id'
     | '/watch/$id'
     | '/api/public/download'
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
     | '/media/$type/$id'
-    | '/sports/$source/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -315,6 +315,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WatchIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sports/$id': {
+      id: '/sports/$id'
+      path: '/$id'
+      fullPath: '/sports/$id'
+      preLoaderRoute: typeof SportsIdRouteImport
+      parentRoute: typeof SportsRoute
+    }
     '/person/$id': {
       id: '/person/$id'
       path: '/person/$id'
@@ -328,13 +335,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/live/$id'
       preLoaderRoute: typeof LiveIdRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/sports/$source/$id': {
-      id: '/sports/$source/$id'
-      path: '/$source/$id'
-      fullPath: '/sports/$source/$id'
-      preLoaderRoute: typeof SportsSourceIdRouteImport
-      parentRoute: typeof SportsRoute
     }
     '/media/$type/$id': {
       id: '/media/$type/$id'
@@ -375,11 +375,11 @@ declare module '@tanstack/react-router' {
 }
 
 interface SportsRouteChildren {
-  SportsSourceIdRoute: typeof SportsSourceIdRoute
+  SportsIdRoute: typeof SportsIdRoute
 }
 
 const SportsRouteChildren: SportsRouteChildren = {
-  SportsSourceIdRoute: SportsSourceIdRoute,
+  SportsIdRoute: SportsIdRoute,
 }
 
 const SportsRouteWithChildren =

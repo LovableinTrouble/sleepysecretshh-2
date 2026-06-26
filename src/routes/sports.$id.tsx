@@ -1,55 +1,47 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, AlertTriangle, RefreshCw, Maximize2, Users, Trophy } from "lucide-react";
-import { fetchStreams, type SportsStream } from "@/lib/sports";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, AlertTriangle, RefreshCw, Maximize2, Users } from "lucide-react";
+import { fetchPpvAll, findEvent, isEventLive } from "@/lib/sports";
+import { SportIcon } from "@/components/SportIcon";
 
-export const Route = createFileRoute("/sports/$source/$id")({
+export const Route = createFileRoute("/sports/$id")({
   head: () => ({
     meta: [
       { title: "Live Match — SLEEPY" },
       { name: "description", content: "Watch this live sports match free." },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>) => ({
-    title: typeof s.title === "string" ? s.title : undefined,
-    category: typeof s.category === "string" ? s.category : undefined,
-    sources: typeof s.sources === "string" ? s.sources : undefined,
-  }),
   component: SportsMatchPage,
 });
 
 function SportsMatchPage() {
-  const { source, id } = Route.useParams();
-  const search = Route.useSearch();
+  const { id } = Route.useParams();
   const navigate = useNavigate();
-  const [pick, setPick] = useState<number>(0);
   const [reload, setReload] = useState(0);
+  const [pick, setPick] = useState(0);
 
-  // The primary source may have no active streams. We also try any extra
-  // sources passed via search so the player can fall back automatically.
-  const allSources = useMemo(() => {
-    const list: { source: string; id: string }[] = [{ source, id }];
-    try {
-      const extra = search.sources ? (JSON.parse(search.sources) as { source: string; id: string }[]) : [];
-      for (const s of extra) {
-        if (!list.find((x) => x.source === s.source && x.id === s.id)) list.push(s);
-      }
-    } catch {}
-    return list;
-  }, [source, id, search.sources]);
-
-  const results = useQueries({
-    queries: allSources.map((s) => ({
-      queryKey: ["sports", "stream", s.source, s.id],
-      queryFn: () => fetchStreams(s.source, s.id),
-      staleTime: 60_000,
-    })),
+  const { data, isLoading } = useQuery({
+    queryKey: ["ppv", "all"],
+    queryFn: fetchPpvAll,
+    staleTime: 60_000,
   });
-  const isLoading = results.some((r) => r.isLoading);
-  const error = results.every((r) => r.isError) ? results[0]?.error : undefined;
-  const streams: SportsStream[] = results.flatMap((r) => r.data ?? []);
-  const active = streams.length > 0 ? streams[Math.min(pick, streams.length - 1)] : undefined;
+
+  const event = useMemo(() => (data ? findEvent(data, Number(id)) : undefined), [data, id]);
+  const live = event ? isEventLive(event) : false;
+
+  const streams = useMemo(() => {
+    if (!event) return [];
+    const subs = (event.substreams ?? []).map((s, i) => ({
+      key: `sub-${s.id ?? i}`,
+      name: s.name || `Stream ${i + 2}`,
+      iframe: s.iframe,
+    }));
+    return [{ key: "main", name: event.source_tag || event.tag || "Main", iframe: event.iframe }, ...subs];
+  }, [event]);
+
+  const active = streams[Math.min(pick, streams.length - 1)];
+  const viewers = event ? (typeof event.viewers === "string" ? parseInt(event.viewers, 10) || 0 : event.viewers ?? 0) : 0;
 
   const onBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) window.history.back();
@@ -63,11 +55,17 @@ function SportsMatchPage() {
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <div className="flex min-w-0 items-center gap-3">
-          <Trophy className="h-5 w-5 text-amber-300" />
+          {event && <SportIcon category={event.category} className="h-5 w-5 text-amber-300" />}
           <div className="min-w-0">
-            <div className="truncate text-sm font-bold">{search.title || "Live match"}</div>
-            <div className="truncate text-[11px] uppercase tracking-[0.16em] text-white/45">
-              {search.category?.replace(/-/g, " ") || "Sports"} · Live
+            <div className="truncate text-sm font-bold">{event?.name || "Live match"}</div>
+            <div className="flex items-center gap-2 truncate text-[11px] uppercase tracking-[0.16em] text-white/45">
+              <span>{event?.category || "Sports"}</span>
+              {live && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/90 px-1.5 py-0 text-[9px] font-bold tracking-wider text-white">
+                  <span className="h-1 w-1 rounded-full bg-white animate-pulse" /> LIVE
+                </span>
+              )}
+              {viewers > 0 && <span className="inline-flex items-center gap-0.5"><Users className="h-3 w-3" />{viewers.toLocaleString()}</span>}
             </div>
           </div>
         </div>
@@ -95,18 +93,16 @@ function SportsMatchPage() {
           <div className="absolute inset-0 grid place-items-center">
             <div className="text-center">
               <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <p className="mt-3 text-xs uppercase tracking-[0.3em] text-white/60">Finding streams…</p>
+              <p className="mt-3 text-xs uppercase tracking-[0.3em] text-white/60">Loading stream…</p>
             </div>
           </div>
         )}
 
-        {!isLoading && (error || !active) && (
+        {!isLoading && !active && (
           <div className="absolute inset-0 grid place-items-center px-6 text-center">
             <div className="max-w-md">
               <AlertTriangle className="mx-auto h-10 w-10 text-amber-400" />
-              <p className="mt-3 text-sm text-white">
-                No live streams available for this match right now.
-              </p>
+              <p className="mt-3 text-sm text-white">This match isn't available right now.</p>
               <div className="mt-5 flex justify-center gap-2">
                 <button onClick={() => setReload((k) => k + 1)} className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground">
                   Try again
@@ -121,9 +117,9 @@ function SportsMatchPage() {
 
         {active && (
           <iframe
-            key={`${active.embedUrl}-${reload}`}
-            src={active.embedUrl}
-            title={search.title || "Live match"}
+            key={`${active.iframe}-${reload}`}
+            src={active.iframe}
+            title={event?.name || "Live match"}
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             allowFullScreen
             referrerPolicy="no-referrer"
@@ -133,34 +129,24 @@ function SportsMatchPage() {
         )}
       </div>
 
-      {streams && streams.length > 1 && (
+      {streams.length > 1 && (
         <div className="border-t border-white/10 bg-black/60 px-4 py-2 backdrop-blur">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin">
             <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-white/45">Streams</span>
             {streams.map((s, i) => (
-              <StreamPill key={`${s.source}-${s.streamNo}`} s={s} active={i === pick} onClick={() => setPick(i)} />
+              <button
+                key={s.key}
+                onClick={() => setPick(i)}
+                className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                  i === pick ? "bg-primary text-primary-foreground" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {s.name}
+              </button>
             ))}
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-function StreamPill({ s, active, onClick }: { s: SportsStream; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition ${
-        active ? "bg-primary text-primary-foreground" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
-      }`}
-    >
-      <span>#{s.streamNo}</span>
-      {s.hd && <span className="rounded bg-white/15 px-1 text-[9px]">HD</span>}
-      <span className="opacity-80">{s.language || s.source}</span>
-      {typeof s.viewers === "number" && (
-        <span className="inline-flex items-center gap-0.5 opacity-70"><Users className="h-3 w-3" />{s.viewers}</span>
-      )}
-    </button>
   );
 }

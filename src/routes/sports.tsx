@@ -2,13 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, ArrowLeft, Search, Users } from "lucide-react";
-import {
-  fetchLiveMatches,
-  fetchTodayMatches,
-  sportsImage,
-  SPORT_ICONS,
-  type SportsMatch,
-} from "@/lib/sports";
+import { fetchPpvAll, flattenEvents, isEventLive, type FlatEvent } from "@/lib/sports";
+import { SportIcon } from "@/components/SportIcon";
 
 export const Route = createFileRoute("/sports")({
   head: () => ({
@@ -21,37 +16,37 @@ export const Route = createFileRoute("/sports")({
 });
 
 function SportsPage() {
-  const [tab, setTab] = useState<"live" | "today">("live");
+  const [tab, setTab] = useState<"live" | "upcoming">("live");
   const [cat, setCat] = useState<string>("all");
   const [query, setQuery] = useState("");
 
-  const { data: live } = useQuery({
-    queryKey: ["sports", "live"],
-    queryFn: fetchLiveMatches,
-    staleTime: 45_000,
-    refetchInterval: 60_000,
-  });
-  const { data: today } = useQuery({
-    queryKey: ["sports", "today"],
-    queryFn: fetchTodayMatches,
-    staleTime: 5 * 60_000,
-    enabled: tab === "today",
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["ppv", "all"],
+    queryFn: fetchPpvAll,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 
-  const all = (tab === "live" ? live : today) ?? [];
+  const all = useMemo(() => (data ? flattenEvents(data) : []), [data]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return all.filter((m) => {
-      if (tab === "live" && (!m.sources || m.sources.length === 0)) return false;
-      if (cat !== "all" && m.category !== cat) return false;
-      if (q && !m.title.toLowerCase().includes(q)) return false;
-      return true;
-    });
+    const now = Date.now() / 1000;
+    return all
+      .filter((e) => {
+        const live = isEventLive(e, now);
+        if (tab === "live" && !live) return false;
+        if (tab === "upcoming" && (live || e.starts_at <= now)) return false;
+        if (cat !== "all" && e.category !== cat) return false;
+        if (q && !e.name.toLowerCase().includes(q)) return false;
+        return true;
+      })
+      .sort((a, b) => a.starts_at - b.starts_at);
   }, [all, cat, query, tab]);
 
   const categories = useMemo(() => {
     const s = new Set<string>();
-    for (const m of all) s.add(m.category);
+    for (const e of all) s.add(e.category);
     return ["all", ...Array.from(s).sort()];
   }, [all]);
 
@@ -74,7 +69,7 @@ function SportsPage() {
         <div className="mt-5 rounded-2xl border border-glass-border bg-card/40 p-2 backdrop-blur">
           <div className="flex flex-col gap-2 md:flex-row md:items-center">
             <div className="inline-flex shrink-0 rounded-xl bg-white/5 p-1 ring-1 ring-white/10">
-              {(["live", "today"] as const).map((t) => (
+              {(["live", "upcoming"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -82,7 +77,7 @@ function SportsPage() {
                     tab === t ? "bg-primary text-primary-foreground" : "text-white/70 hover:text-white"
                   }`}
                 >
-                  {t === "live" ? "Live now" : "Today"}
+                  {t === "live" ? "Live now" : "Upcoming"}
                 </button>
               ))}
             </div>
@@ -103,11 +98,12 @@ function SportsPage() {
                 <button
                   key={c}
                   onClick={() => setCat(c)}
-                  className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold capitalize transition ${
+                  className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold capitalize transition ${
                     active ? "bg-primary text-primary-foreground" : "bg-white/5 text-white/65 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  {c === "all" ? "All" : `${SPORT_ICONS[c] ?? "🏅"} ${c.replace(/-/g, " ")}`}
+                  {c !== "all" && <SportIcon category={c} className="h-3 w-3" />}
+                  <span>{c === "all" ? "All" : c}</span>
                 </button>
               );
             })}
@@ -116,19 +112,24 @@ function SportsPage() {
       </header>
 
       <main className="mx-auto mt-6 max-w-7xl px-6 md:px-10">
-        {!all.length && (
+        {isLoading && !all.length && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="h-44 animate-pulse rounded-2xl bg-card/40" />
             ))}
           </div>
         )}
-        {!!visible.length && (
-          <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {visible.map((m) => <BigMatchCard key={m.id} m={m} />)}
+        {error && (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-200/80">
+            Couldn't load matches. Try again in a moment.
           </div>
         )}
-        {!!all.length && visible.length === 0 && (
+        {!!visible.length && (
+          <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {visible.map((e) => <BigMatchCard key={e.id} e={e} />)}
+          </div>
+        )}
+        {!isLoading && !!all.length && visible.length === 0 && (
           <div className="py-20 text-center text-sm text-muted-foreground">No matches match your filters.</div>
         )}
       </main>
@@ -136,59 +137,59 @@ function SportsPage() {
   );
 }
 
-function BigMatchCard({ m }: { m: SportsMatch }) {
-  const src = m.sources.find((s) => s.source === "admin") ?? m.sources[0];
-  const sourcesStr = JSON.stringify(m.sources);
-  const icon = SPORT_ICONS[m.category] ?? "🏅";
-  const poster = sportsImage(m.poster);
-  const home = m.teams?.home?.name;
-  const away = m.teams?.away?.name;
-  const isLive = !!src;
-  const startsIn = (m.date - Date.now()) / 60000;
+function BigMatchCard({ e }: { e: FlatEvent }) {
+  const live = isEventLive(e);
+  const startsIn = (e.starts_at * 1000 - Date.now()) / 60000;
+  const viewers = typeof e.viewers === "string" ? parseInt(e.viewers, 10) || 0 : e.viewers ?? 0;
 
   const inner = (
     <div className="group relative h-44 w-full overflow-hidden rounded-2xl border border-white/10 bg-card/40 ring-1 ring-white/5 transition hover:-translate-y-0.5 hover:border-primary/50">
-      {poster ? (
-        <img src={poster} alt="" loading="lazy" referrerPolicy="no-referrer"
-          className="absolute inset-0 h-full w-full object-cover opacity-60 transition group-hover:opacity-80" />
+      {e.poster ? (
+        <img
+          src={e.poster}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 h-full w-full object-cover opacity-60 transition group-hover:opacity-80"
+        />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-black/40 to-amber-500/10" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background: e.colors?.length
+              ? `linear-gradient(135deg, ${e.colors[0]} 0%, #000 70%)`
+              : "linear-gradient(135deg, rgba(59,130,246,0.25), rgba(0,0,0,0.6))",
+          }}
+        />
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/30" />
       <div className={`absolute left-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1 ${
-        isLive ? "bg-red-500/90 text-white ring-red-300/40" : "bg-white/10 text-white/80 ring-white/15"
+        live ? "bg-red-500/90 text-white ring-red-300/40" : "bg-white/10 text-white/80 ring-white/15"
       }`}>
-        {isLive ? (
-          <><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> LIVE</>
-        ) : (
-          <>SOON</>
-        )}
+        {live ? (<><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> LIVE</>) : (<>SOON</>)}
       </div>
-      {m.popular && (
-        <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-black">
-          <Users className="h-3 w-3" /> Hot
+      {live && viewers > 50 && (
+        <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/90 ring-1 ring-white/15 backdrop-blur">
+          <Users className="h-3 w-3" /> {viewers.toLocaleString()}
         </div>
       )}
       <div className="absolute inset-x-0 bottom-0 p-3">
-        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/70">
-          <span>{icon}</span>
-          <span>{m.category.replace(/-/g, " ")}</span>
-          {!isLive && startsIn > 0 && <span>· in {Math.round(startsIn)}m</span>}
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/75">
+          <SportIcon category={e.category} className="h-3 w-3" />
+          <span>{e.category}</span>
+          {!live && startsIn > 0 && (
+            <span>· in {startsIn < 60 ? `${Math.round(startsIn)}m` : `${Math.round(startsIn / 60)}h`}</span>
+          )}
+          {e.tag && <span className="rounded bg-white/10 px-1 text-[9px]">{e.tag}</span>}
         </div>
-        <div className="mt-1 line-clamp-2 text-sm font-bold leading-tight text-white">
-          {home && away ? `${home} vs ${away}` : m.title}
-        </div>
+        <div className="mt-1 line-clamp-2 text-sm font-bold leading-tight text-white">{e.name}</div>
       </div>
     </div>
   );
 
-  if (!isLive || !src) return <div className="opacity-70 cursor-not-allowed">{inner}</div>;
+  if (!live) return <div className="opacity-70 cursor-not-allowed">{inner}</div>;
   return (
-    <Link
-      to="/sports/$source/$id"
-      params={{ source: src.source, id: src.id }}
-      search={{ title: m.title, category: m.category, sources: sourcesStr }}
-    >
+    <Link to="/sports/$id" params={{ id: String(e.id) }}>
       {inner}
     </Link>
   );
