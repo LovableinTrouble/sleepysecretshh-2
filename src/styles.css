@@ -495,3 +495,26 @@ button, a, [role="button"] {
 }
 button:active, [role="button"]:active { transform: scale(0.97); }
 
+/* ----------------- Mobile polish ----------------- */
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
+body { overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
+button, a, [role="button"], input, select, textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+/* Prevent iOS zoom on input focus */
+input, select, textarea { font-size: 16px; }
+@media (min-width: 768px) { input, select, textarea { font-size: inherit; } }
+
+/* LIVE pulse dot */
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--destructive) 55%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--destructive) 0%, transparent); }
+}
+.live-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  background: var(--destructive);
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
