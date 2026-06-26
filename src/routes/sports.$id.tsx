@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, AlertTriangle, RefreshCw, Maximize2, Users } from "lucide-react";
+import { ArrowLeft, AlertTriangle, RefreshCw, Maximize2, Users, ShieldAlert } from "lucide-react";
 import { fetchPpvAll, findEvent, hasPlayableIframe, isEventLive, normalizeIframeSrc } from "@/lib/sports";
 import { SportIcon } from "@/components/SportIcon";
 
@@ -20,6 +20,21 @@ function SportsMatchPage() {
   const navigate = useNavigate();
   const [reload, setReload] = useState(0);
   const [pick, setPick] = useState(0);
+  const [showPopupWarn, setShowPopupWarn] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (!sessionStorage.getItem("sleepy:popup-warn-dismissed")) setShowPopupWarn(true);
+    } catch {
+      setShowPopupWarn(true);
+    }
+  }, []);
+
+  const dismissWarn = () => {
+    setShowPopupWarn(false);
+    try { sessionStorage.setItem("sleepy:popup-warn-dismissed", "1"); } catch {}
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["ppv", "all"],
@@ -126,7 +141,6 @@ function SportsMatchPage() {
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             allowFullScreen
             loading="eager"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
             referrerPolicy="no-referrer"
             className="h-full w-full border-0"
           />
@@ -148,6 +162,37 @@ function SportsMatchPage() {
                 {s.name}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {showPopupWarn && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/80 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950 p-6 text-white shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-500/15 text-amber-400">
+                <ShieldAlert className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-base font-bold">Heads up — pop-ups & ads</h2>
+                <p className="mt-2 text-sm leading-relaxed text-white/70">
+                  This stream is embedded from a third-party provider. They may open new tabs or show ads on first click — we can't control or block them.
+                </p>
+                <ul className="mt-3 space-y-1.5 text-xs text-white/60">
+                  <li>• Use an ad-blocker (uBlock Origin recommended) for the cleanest experience.</li>
+                  <li>• If a new tab opens, just close it and come back — the stream keeps playing here.</li>
+                  <li>• Never enter passwords or install anything a pop-up asks for.</li>
+                </ul>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Link to="/sports" className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15">
+                Back to matches
+              </Link>
+              <button onClick={dismissWarn} className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
+                Got it, continue
+              </button>
+            </div>
           </div>
         </div>
       )}
