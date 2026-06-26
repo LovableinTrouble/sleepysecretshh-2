@@ -218,3 +218,76 @@ function BigMatchCard({ e }: { e: FlatEvent }) {
     </Link>
   );
 }
+
+const REMIND_KEY = "sleepy:sports-reminders";
+
+function readReminders(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem(REMIND_KEY) || "{}"); } catch { return {}; }
+}
+
+function writeReminders(v: Record<string, number>) {
+  try { localStorage.setItem(REMIND_KEY, JSON.stringify(v)); } catch {}
+}
+
+function formatStart(ts: number): { day: string; time: string; rel: string } {
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+  const isTomorrow = d.toDateString() === tomorrow.toDateString();
+  const day = sameDay ? "Today" : isTomorrow ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const diffMin = Math.max(0, Math.round((ts * 1000 - Date.now()) / 60000));
+  const rel = diffMin < 60 ? `in ${diffMin}m` : diffMin < 1440 ? `in ${Math.round(diffMin / 60)}h` : `in ${Math.round(diffMin / 1440)}d`;
+  return { day, time, rel };
+}
+
+function UpcomingCard({ e }: { e: FlatEvent }) {
+  const [reminders, setReminders] = useState<Record<string, number>>(() => readReminders());
+  const key = String(e.id);
+  const reminded = !!reminders[key];
+  const { day, time, rel } = formatStart(e.starts_at);
+
+  const toggle = () => {
+    const next = { ...reminders };
+    if (reminded) delete next[key];
+    else next[key] = e.starts_at;
+    writeReminders(next);
+    setReminders(next);
+  };
+
+  return (
+    <div className="group relative flex h-44 w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-card/40 ring-1 ring-white/5 transition hover:border-primary/40">
+      {e.poster ? (
+        <img src={e.poster} alt="" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover opacity-40" />
+      ) : (
+        <div className="absolute inset-0" style={{ background: e.colors?.length ? `linear-gradient(135deg, ${e.colors[0]} 0%, #000 70%)` : "linear-gradient(135deg, rgba(59,130,246,0.2), rgba(0,0,0,0.6))" }} />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/30" />
+
+      <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white ring-1 ring-white/15 backdrop-blur">
+        <Clock className="h-3 w-3" /> {rel}
+      </div>
+      <button
+        onClick={toggle}
+        aria-label={reminded ? "Remove reminder" : "Set reminder"}
+        className={`absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full ring-1 backdrop-blur transition ${
+          reminded ? "bg-primary text-primary-foreground ring-primary/40" : "bg-black/55 text-white/85 ring-white/15 hover:bg-white/15"
+        }`}
+      >
+        {reminded ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+      </button>
+
+      <div className="relative mt-auto p-3">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/75">
+          <SportIcon category={e.category} className="h-3 w-3" />
+          <span>{e.category}</span>
+          {e.tag && <span className="rounded bg-white/10 px-1 text-[9px]">{e.tag}</span>}
+        </div>
+        <div className="mt-1 line-clamp-2 text-sm font-bold leading-tight text-white">{e.name}</div>
+        <div className="mt-1.5 text-[11px] font-semibold text-white/80">{day} · {time}</div>
+      </div>
+    </div>
+  );
+}
