@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Copy, Check, X, Share2, Twitter, Facebook, MessageCircle, Send, Mail } from "lucide-react";
 
 const KEY = "sleepy.share-popup.dismissed.v1";
-const SITE_URL = "https://sleepysecretshh.lovable.app";
+const SITE_URL = "https://xullys.xyz";
 const SHARE_TEXT = "Check out VOID — stream movies, TV, live sports & IPTV in one beautiful UI.";
 
 export function SharePopup() {
