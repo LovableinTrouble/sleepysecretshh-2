@@ -11,7 +11,7 @@ export function Logo({ size = 36, className = "" }: { size?: number; className?:
       aria-label="Sleepy"
     >
       <defs>
-        <linearGradient id="sleepyGrad" x1="6" y1="6" x2="42" y2="44" gradientUnits="userSpaceOnUse">
+        <linearGradient id="sleepyGrad" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="oklch(0.98 0.06 305)" />
           <stop offset="50%" stopColor="oklch(0.78 0.22 305)" />
           <stop offset="100%" stopColor="oklch(0.52 0.24 295)" />
@@ -22,19 +22,16 @@ export function Logo({ size = 36, className = "" }: { size?: number; className?:
         </radialGradient>
         <mask id="sleepyCrescentMask">
           <rect width="48" height="48" fill="white" />
-          <circle cx="30" cy="18" r="13.5" fill="black" />
+          <circle cx="34" cy="16" r="19" fill="black" />
         </mask>
       </defs>
       {/* outer glow */}
-      <circle cx="22" cy="24" r="20" fill="url(#sleepyGlow)" />
-      {/* crescent moon */}
-      <circle cx="22" cy="24" r="16" fill="url(#sleepyGrad)" mask="url(#sleepyCrescentMask)" />
+      <circle cx="24" cy="24" r="24" fill="url(#sleepyGlow)" />
+      {/* crescent moon — fills the viewport */}
+      <circle cx="24" cy="24" r="22" fill="url(#sleepyGrad)" mask="url(#sleepyCrescentMask)" />
       {/* sparkle */}
-      <path d="M37 8.5l1.2 3.4 3.3 1.2-3.3 1.2-1.2 3.4-1.2-3.4-3.3-1.2 3.3-1.2L37 8.5Z" fill="oklch(0.97 0.04 300)" />
-      {/* stars */}
-      <circle cx="41" cy="26" r="1.3" fill="oklch(0.92 0.08 305)" opacity="0.95" />
-      <circle cx="31" cy="6.5" r="0.9" fill="oklch(0.96 0.03 300)" opacity="0.85" />
-      <circle cx="9" cy="14" r="0.7" fill="oklch(0.96 0.03 300)" opacity="0.6" />
+      <path d="M40 10l1.1 3 3 1.1-3 1.1-1.1 3-1.1-3-3-1.1 3-1.1L40 10Z" fill="oklch(0.97 0.04 300)" />
+      <circle cx="44" cy="28" r="1.1" fill="oklch(0.92 0.08 305)" opacity="0.9" />
     </svg>
   );
 }
