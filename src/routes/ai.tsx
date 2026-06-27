@@ -30,7 +30,7 @@ function AiPage() {
   };
 
   return (
-    <main className="min-h-screen px-5 pb-32 pt-20 md:px-10 animate-page-in">
+    <main className="fixed inset-0 z-30 overflow-y-auto bg-background px-5 pb-16 pt-16 md:px-10 md:pt-20 animate-page-in">
       <div className="mx-auto max-w-5xl">
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.4em] text-primary/80">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_oklch(0.72_0.18_305)]" />
