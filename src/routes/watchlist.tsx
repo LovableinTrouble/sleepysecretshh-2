@@ -93,7 +93,7 @@ function WatchlistPage() {
   };
 
   return (
-    <main className="fixed inset-0 z-30 overflow-y-auto bg-background px-5 pb-16 pt-16 md:px-10 md:pt-20 animate-page-in">
+    <main className="fixed inset-0 z-30 overflow-y-auto bg-background px-5 pb-32 pt-16 md:px-10 md:pt-20 animate-page-in">
       <div className="mx-auto max-w-7xl">
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.4em] text-primary/80">
           <Bookmark className="h-3.5 w-3.5" /> Your Library
