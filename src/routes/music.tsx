@@ -533,7 +533,14 @@ function MusicPage() {
                       <div className="truncate text-sm font-medium">{t.title}</div>
                       <div className="truncate text-xs text-white/60">{t.artist}</div>
                     </div>
-                    {view !== "liked" && (
+                    {t.durationMs ? <span className="hidden text-[11px] tabular-nums text-white/40 sm:inline">{fmtMs(t.durationMs)}</span> : null}
+                    {view === "liked" ? (
+                      <span
+                        onClick={(e) => { e.stopPropagation(); toggleLike(t); }}
+                        className="rounded p-1.5 text-pink-300 opacity-0 hover:bg-white/10 group-hover:opacity-100"
+                        aria-label="Unlike"
+                      ><Heart className="h-3.5 w-3.5 fill-current" /></span>
+                    ) : (
                       <span
                         onClick={(e) => { e.stopPropagation(); removeFromPlaylist(view, t.id); }}
                         className="rounded p-1.5 text-white/50 opacity-0 hover:bg-white/10 hover:text-white group-hover:opacity-100"
