@@ -94,6 +94,9 @@ function MusicPage() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [recentPlayed, setRecentPlayed] = useState<Track[]>([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newPlName, setNewPlName] = useState("");
+  const [pickerCreateMode, setPickerCreateMode] = useState(false);
 
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -261,12 +264,21 @@ function MusicPage() {
   };
 
   // playlists
-  const createPlaylist = () => {
-    const name = prompt("Playlist name?")?.trim();
-    if (!name) return;
-    const np = { id: crypto.randomUUID(), name, tracks: [], createdAt: Date.now() };
+  const createPlaylist = (name?: string): Playlist | null => {
+    const n = (name ?? "").trim();
+    if (!n) return null;
+    const np: Playlist = { id: crypto.randomUUID(), name: n, tracks: [], createdAt: Date.now() };
     const next = [np, ...playlists];
     setPlaylists(next); savePlaylists(next);
+    return np;
+  };
+  const openCreate = () => { setNewPlName(""); setCreateOpen(true); };
+  const submitCreate = () => {
+    const np = createPlaylist(newPlName);
+    if (!np) return;
+    setCreateOpen(false);
+    if (pickerFor) { addToPlaylist(np.id, pickerFor); }
+    setPickerCreateMode(false);
   };
   const deletePlaylist = (id: string) => {
     const next = playlists.filter(p => p.id !== id);
