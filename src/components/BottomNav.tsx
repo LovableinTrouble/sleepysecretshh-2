@@ -6,7 +6,6 @@ import {
   Bot,
   Bookmark,
   RadioTower,
-  Music,
   Settings as SettingsIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -15,7 +14,6 @@ const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/", label: "Home", icon: Home },
   { to: "/explore", label: "Explore", icon: Compass },
   { to: "/iptv", label: "Live TV", icon: RadioTower },
-  { to: "/music", label: "Music", icon: Music },
   { to: "/watchlist", label: "Watchlist", icon: Bookmark },
   { to: "/ai", label: "Luna", icon: Bot },
   { to: "/search", label: "Search", icon: Search },
