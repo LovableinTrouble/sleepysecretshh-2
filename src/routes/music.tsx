@@ -310,10 +310,14 @@ function MusicPage() {
     setPlaylists(next); savePlaylists(next);
   };
   const toggleLike = (t: Track) => {
+    if (!t || !t.id) return;
     const has = liked.some(x => x.id === t.id);
-    const next = has ? liked.filter(x => x.id !== t.id) : [t, ...liked];
+    const next = has
+      ? liked.filter(x => x.id !== t.id)
+      : [t, ...liked.filter(x => x.id !== t.id)];
     setLiked(next); saveLiked(next);
   };
+  const clearLiked = () => { setLiked([]); saveLiked([]); };
   const isLiked = (t?: Track | null) => !!t && liked.some(x => x.id === t.id);
 
   const activeList: Track[] = useMemo(() => {
