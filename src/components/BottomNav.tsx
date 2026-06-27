@@ -40,8 +40,6 @@ export function BottomNav() {
     loc.pathname === "/watch" ||
     loc.pathname.startsWith("/watch/") ||
     loc.pathname.startsWith("/sports/") ||
-    loc.pathname === "/watchlist" ||
-    loc.pathname === "/ai" ||
     loc.pathname === "/music"
   ) return null;
   return (
