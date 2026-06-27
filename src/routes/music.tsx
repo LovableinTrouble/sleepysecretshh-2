@@ -427,7 +427,7 @@ function MusicPage() {
 
           <div className="flex items-center justify-between px-2 text-[11px] uppercase tracking-widest text-white/40">
             <span>Playlists</span>
-            <button onClick={createPlaylist} className="rounded p-1 hover:bg-white/10" aria-label="New playlist"><Plus className="h-3.5 w-3.5" /></button>
+            <button onClick={openCreate} className="rounded p-1 hover:bg-white/10" aria-label="New playlist"><Plus className="h-3.5 w-3.5" /></button>
           </div>
           <div className="flex flex-col gap-0.5 overflow-y-auto">
             {playlists.filter(pl => pl.name.toLowerCase().includes(libQuery.toLowerCase())).map(pl => (
@@ -651,7 +651,7 @@ function MusicPage() {
               <button onClick={() => setPickerFor(null)} className="rounded p-1 hover:bg-white/10"><X className="h-4 w-4" /></button>
             </div>
             <div className="mb-3 text-xs text-white/60">{pickerFor.title} — {pickerFor.artist}</div>
-            <button onClick={createPlaylist} className="mb-2 flex w-full items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15">
+            <button onClick={() => { setPickerCreateMode(true); openCreate(); }} className="mb-2 flex w-full items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15">
               <Plus className="h-4 w-4" /> New playlist
             </button>
             <div className="max-h-64 overflow-y-auto">
