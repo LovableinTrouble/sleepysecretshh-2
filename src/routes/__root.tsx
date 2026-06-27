@@ -13,7 +13,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import voidOg from "../assets/void-og.jpg.asset.json";
+import sleepyOg from "../assets/sleepy-og.jpg";
 import voidIcon from "../assets/void-icon.png.asset.json";
 import { AnimatedBackground } from "../components/AnimatedBackground";
 import { BootLoader } from "../components/BootLoader";
@@ -99,10 +99,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Sleepy — Stream Everything" },
       { name: "twitter:description", content: "Stream movies, TV, anime, live sports and IPTV in one beautiful, fast UI." },
-      { property: "og:image", content: voidOg.url },
+      { property: "og:image", content: sleepyOg },
       { property: "og:image:width", content: "1280" },
       { property: "og:image:height", content: "672" },
-      { name: "twitter:image", content: voidOg.url },
+      { name: "twitter:image", content: sleepyOg },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

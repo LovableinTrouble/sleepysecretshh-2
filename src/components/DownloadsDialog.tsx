@@ -39,14 +39,6 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href={src}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:inline-flex h-9 items-center rounded-full bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/15"
-            >
-              Open in new tab
-            </a>
             <button
               type="button"
               onClick={onClose}
