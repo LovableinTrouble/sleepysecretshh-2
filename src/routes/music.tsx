@@ -283,14 +283,11 @@ function MusicPage() {
       <div ref={containerRef} className="absolute -z-10 h-0 w-0 overflow-hidden" />
 
       {/* Top bar */}
-      <header className="flex items-center gap-3 px-4 py-3 md:px-6">
-        <a href="/" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Back">
-          <ChevronLeft className="h-5 w-5" />
-        </a>
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 md:px-6">
         <div className="flex items-center gap-2 text-lg font-bold tracking-tight">
-          <Music2 className="h-5 w-5" /> Music
+          <NoteIcon className="h-5 w-5 text-white/90" /> Music
         </div>
-        <div className="relative ml-auto w-full max-w-md">
+        <div className="relative mx-auto w-full max-w-xl justify-self-center">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
           <input
             ref={searchInputRef}
@@ -356,6 +353,7 @@ function MusicPage() {
             </div>
           )}
         </div>
+        <div />
       </header>
 
       {/* Body */}
