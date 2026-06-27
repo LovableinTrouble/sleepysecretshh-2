@@ -57,7 +57,8 @@ function IptvPage() {
     });
   };
 
-  const channels = CURATED_CHANNELS;
+  const customChannels = useMemo(() => custom.flatMap((p) => p.channels), [custom]);
+  const channels = useMemo(() => [...customChannels, ...CURATED_CHANNELS], [customChannels]);
 
   const groups = useMemo(() => {
     const seen = new Map<string, number>();
@@ -67,13 +68,17 @@ function IptvPage() {
       (a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999),
     );
     const base = ["All", ...entries.map(([g]) => g)];
-    return favs.size > 0 ? ["Favorites", ...base] : base;
-  }, [channels, favs]);
+    const withFavs = favs.size > 0 ? ["Favorites", ...base] : base;
+    return custom.length > 0
+      ? [withFavs[0], "My Playlists", ...withFavs.slice(1)]
+      : withFavs;
+  }, [channels, favs, custom]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = channels.filter((c) => {
       if (group === "Favorites") { if (!favs.has(c.id)) return false; }
+      else if (group === "My Playlists") { if (!c.id.startsWith("custom-")) return false; }
       else if (group !== "All" && c.group !== group) return false;
       if (q && !c.name.toLowerCase().includes(q)) return false;
       return true;
