@@ -47,6 +47,7 @@ function WatchlistPage() {
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
 
   const [pendingRemove, setPendingRemove] = useState<Media | null>(null);
+  const [pendingFolderDelete, setPendingFolderDelete] = useState<WatchFolder | null>(null);
 
 
   const active: WatchFolder | undefined =
@@ -183,8 +184,8 @@ function WatchlistPage() {
           )}
         </div>
 
-        {/* Drag hint */}
-        <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-muted-foreground">
+        {/* Drag hint — desktop only; clutters mobile and drag isn't usable on touch anyway */}
+        <div className="mt-4 hidden md:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-muted-foreground">
           <GripVertical className="h-3.5 w-3.5 text-primary/80" />
           Tip: drag any poster onto a folder tab to move it.
         </div>
@@ -205,12 +206,7 @@ function WatchlistPage() {
               </button>
               {active.id !== "default" && (
                 <button
-                  onClick={() => {
-                    if (confirm(`Delete folder "${active.name}"? Titles inside won't be removed from other folders.`)) {
-                      deleteFolder(active.id);
-                      setActiveId("default");
-                    }
-                  }}
+                  onClick={() => setPendingFolderDelete(active)}
                   className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Delete folder
@@ -272,6 +268,32 @@ function WatchlistPage() {
                 className="bg-rose-500 text-white hover:bg-rose-500/90"
               >
                 Remove
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!pendingFolderDelete} onOpenChange={(o) => { if (!o) setPendingFolderDelete(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete folder "{pendingFolderDelete?.name}"?</AlertDialogTitle>
+              <AlertDialogDescription>
+                The folder will be removed. Titles inside won't be deleted from other folders.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (pendingFolderDelete) {
+                    deleteFolder(pendingFolderDelete.id);
+                    setActiveId("default");
+                  }
+                  setPendingFolderDelete(null);
+                }}
+                className="bg-rose-500 text-white hover:bg-rose-500/90"
+              >
+                Delete folder
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
