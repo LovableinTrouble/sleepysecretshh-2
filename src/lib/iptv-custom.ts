@@ -70,7 +70,7 @@ export function parseM3U(text: string, playlistName: string): CuratedChannel[] {
 export async function fetchAndParsePlaylist(url: string, name: string): Promise<CuratedChannel[]> {
   // Proxy through our iptv-proxy to dodge CORS on the m3u itself.
   const b64 = btoa(url).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-  const proxied = `/api/public/iptv-proxy?u=${b64}`;
+  const proxied = `/api/public/iptv-proxy?u=${b64}&raw=1`;
   let text = "";
   try {
     const res = await fetch(proxied);
