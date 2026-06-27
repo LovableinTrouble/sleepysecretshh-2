@@ -213,8 +213,8 @@ function SiteFooter() {
           </div>
           <div className="text-xs text-white/50 md:text-right">
             <div>DMCA / Takedown</div>
-            <a href="mailto:dmca@example.com" className="text-white/80 hover:text-white underline-offset-4 hover:underline">
-              dmca@example.com
+            <a href="mailto:slinkingtox@outlook.com" className="text-white/80 hover:text-white underline-offset-4 hover:underline">
+              slinkingtox@outlook.com
             </a>
           </div>
         </div>

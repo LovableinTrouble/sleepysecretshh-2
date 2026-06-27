@@ -52,7 +52,7 @@ export function AddToWatchlistButton({ media, className }: Props) {
         type="button"
         onClick={onClick}
         aria-label={inList ? "Remove from watchlist" : "Add to watchlist"}
-        className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-md ring-1 shadow-lg transition active:scale-95 ${
+        className={`pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full opacity-100 backdrop-blur-md ring-1 shadow-lg transition active:scale-95 ${
           inList
             ? "bg-primary text-primary-foreground ring-primary/60 shadow-[0_0_18px_oklch(0.72_0.18_305_/_0.55)] hover:bg-primary/90"
             : "bg-black/65 text-white ring-white/20 hover:bg-black/85 hover:ring-white/50"

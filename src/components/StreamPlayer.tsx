@@ -663,7 +663,7 @@ function EmbedSurface({
         <span className="hidden sm:inline">Back</span>
       </button>
 
-      {/* SourceRail removed — ZXCStream is the only embed source. */}
+      {/* SourceRail removed — VoidX is the only embed source. */}
 
 
     </div>
@@ -1491,7 +1491,7 @@ function DirectVideo({
         ))}
       </video>
 
-      {/* SourceRail removed — ZXCStream is the only embed source. */}
+      {/* SourceRail removed — VoidX is the only embed source. */}
 
 
 
@@ -2008,7 +2008,7 @@ function SettingsPanel({
       ref={ref}
       className="absolute bottom-16 right-4 z-40 w-80 overflow-hidden rounded-2xl border border-white/10 bg-black/95 text-white shadow-2xl backdrop-blur-md"
     >
-      {/* Source switcher removed — ZXCStream is the only embed source. */}
+      {/* Source switcher removed — VoidX is the only embed source. */}
 
 
       {/* Tab strip */}

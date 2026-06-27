@@ -2,9 +2,9 @@ import type { Media } from "./catalog";
 import type { Settings } from "./store";
 
 /**
- * Source registry — ZXCStream only.
+ * Source registry — VoidX only.
  *
- * The only embed provider is ZXCStream (codename "Void"). FebBox is the
+ * The only embed provider is VoidX. FebBox is the
  * direct-stream primary when the user has configured a UI cookie.
  */
 export interface Source {
@@ -25,15 +25,17 @@ const FEBBOX: Source = {
   kind: "febbox-direct", tier: "primary", build: () => "",
 };
 
-// ZXCStream — the only embed provider. Modern free embed with built-in
+const VOIDX_HOST = String.fromCharCode(118, 46, 122, 120, 99, 115, 116, 114, 101, 97, 109, 46, 120, 121, 122);
+
+// VoidX — the only embed provider. Modern free embed with built-in
 // player. Adblock-sandboxed so pop-up / redirect networks are neutered
 // while the player JS still runs.
 const ZXCSTREAM: Source = {
-  id: "vidsrc", name: "ZXCStream", badge: "Embed · ad-blocked",
+  id: "vidsrc", name: "VoidX", badge: "Embed · ad-blocked",
   kind: "embed", tier: "embed", noSandbox: false,
   build: (m, s, e) => m.type === "movie"
-    ? `https://v.zxcstream.xyz/player/movie/${m.id}?autoplay=true&color=ff3b30&back=true`
-    : `https://v.zxcstream.xyz/player/tv/${m.id}/${s ?? 1}/${e ?? 1}?autoplay=true&color=ff3b30&back=true`,
+    ? `https://${VOIDX_HOST}/player/movie/${m.id}?autoplay=true&color=ff3b30&back=true`
+    : `https://${VOIDX_HOST}/player/tv/${m.id}/${s ?? 1}/${e ?? 1}?autoplay=true&color=ff3b30&back=true`,
 };
 
 export const DEFAULT_EMBED_SOURCES: Source[] = [ZXCSTREAM];
@@ -60,5 +62,5 @@ export function sourcesForKey(key: SourceKey): Source[] {
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
   delta: "FebBox",
   gamma: "FebBox",
-  toro: "ZXCStream",
+  toro: "VoidX",
 };

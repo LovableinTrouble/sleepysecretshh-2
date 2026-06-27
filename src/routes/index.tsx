@@ -30,19 +30,6 @@ function Home() {
   const featured = (trending.data ?? []).slice(0, 6);
   const rowSpacing = s.homepageDensity === "compact" ? "space-y-6" : s.homepageDensity === "cinematic" ? "space-y-16" : "space-y-12";
 
-  const surprisePool = [
-    ...(trending.data ?? []),
-    ...(movies.data ?? []),
-    ...(tv.data ?? []),
-    ...(top.data ?? []),
-    ...(anime.data ?? []),
-  ];
-  const surprise = () => {
-    if (!surprisePool.length) return;
-    const pick = surprisePool[Math.floor(Math.random() * surprisePool.length)];
-    openDetails(pick);
-  };
-
   const openDetails = (m: any) => { stashWatchMedia(m); navigate({ to: "/media/$type/$id", params: { type: m.type, id: String(m.id) } }); };
   const play = (m: any) => { stashWatchMedia(m); navigate({ to: "/watch/$id", params: { id: String(m.id) }, search: { t: m.type } }); };
 
@@ -63,19 +50,6 @@ function Home() {
         <Row title="Top Rated Movies" q={top} />
         <Row title="Anime — Trending This Week" q={anime} />
       </main>
-
-      <button
-        type="button"
-        onClick={surprise}
-        disabled={!surprisePool.length}
-        className="group fixed bottom-24 right-5 z-40 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/15 px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_30px_color-mix(in_oklab,var(--primary)_35%,transparent)] backdrop-blur-xl transition hover:scale-[1.03] hover:bg-primary/25 disabled:opacity-40 md:bottom-8 md:right-8"
-        aria-label="Surprise me with a random title"
-      >
-        <svg viewBox="0 0 24 24" className="h-4 w-4 transition group-hover:rotate-180" fill="none" stroke="currentColor" strokeWidth="2.2">
-          <path d="M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7M16 21h5v-5M14 14l7 7M8 3H3v5M3 3l7 7" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-        Surprise me
-      </button>
     </div>
   );
 }

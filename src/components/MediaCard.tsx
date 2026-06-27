@@ -18,8 +18,8 @@ export function MediaCard({ media, size = "md", fill = false }: Props) {
   const radius = s.posterStyle === "circle" ? "rounded-full" : s.posterStyle === "square" ? "rounded-md" : "rounded-xl";
   const width = fill ? "w-full" : size === "sm" ? "w-32" : "w-40 md:w-44";
   return (
-    <div className={`group relative shrink-0 ${width}`}>
-      <AddToWatchlistButton media={media} className="absolute right-2 top-2 z-20" />
+    <div className={`group relative isolate shrink-0 overflow-visible ${width}`}>
+      <AddToWatchlistButton media={media} className="absolute right-2 top-2 z-30" />
       <Link
         to="/media/$type/$id"
         params={{ type: media.type, id: String(media.id) }}
