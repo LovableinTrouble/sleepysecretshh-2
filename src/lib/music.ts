@@ -82,8 +82,11 @@ export async function importInvidiousPlaylist(input: string): Promise<{ name: st
     const videos: any[] = data.videos || [];
       const tracks: Track[] = videos.map((v) => {
         const thumbs = v.videoThumbnails || [];
-        const art = thumbs.find((x: any) => x.quality === "medium")?.url || thumbs[0]?.url || "";
-        const hi = thumbs.find((x: any) => x.quality === "maxresdefault" || x.quality === "high")?.url || art;
+        const vid = v.videoId;
+        // Invidious thumbnail URLs often point to the instance host (which may be
+        // unreachable from the browser). Rebuild directly from YouTube's CDN.
+        const art = vid ? `https://i.ytimg.com/vi/${vid}/mqdefault.jpg` : (thumbs[0]?.url || "");
+        const hi = vid ? `https://i.ytimg.com/vi/${vid}/hqdefault.jpg` : art;
         const raw = String(v.title || "");
         const parts = raw.split(/\s+[-–—]\s+/);
         const artist = parts.length > 1 ? parts[0] : (v.author || "Unknown");
