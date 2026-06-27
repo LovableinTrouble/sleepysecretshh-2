@@ -12,6 +12,7 @@ export type Track = {
   year?: number;
   genre?: string;
   trackUrl?: string;
+  videoId?: string;
 };
 
 const INVIDIOUS_INSTANCES = [
@@ -57,6 +58,55 @@ export function pushRecent(q: string) {
   return next;
 }
 export function clearRecent() { localStorage.removeItem(RECENT_KEY); }
+
+// ---------- Invidious YouTube playlist import ----------
+export function parsePlaylistId(input: string): string | null {
+  const s = input.trim();
+  if (!s) return null;
+  const m = s.match(/[?&]list=([A-Za-z0-9_-]+)/);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9_-]{10,}$/.test(s)) return s;
+  return null;
+}
+
+export async function importInvidiousPlaylist(input: string): Promise<{ name: string; tracks: Track[] } | null> {
+  const plid = parsePlaylistId(input);
+  if (!plid) return null;
+  for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
+    const inst = INVIDIOUS_INSTANCES[(invIdx + i) % INVIDIOUS_INSTANCES.length];
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(`${inst}/api/v1/playlists/${plid}`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      const videos: any[] = data.videos || [];
+      const tracks: Track[] = videos.map((v) => {
+        const thumbs = v.videoThumbnails || [];
+        const art = thumbs.find((x: any) => x.quality === "medium")?.url || thumbs[0]?.url || "";
+        const hi = thumbs.find((x: any) => x.quality === "maxresdefault" || x.quality === "high")?.url || art;
+        const raw = String(v.title || "");
+        const parts = raw.split(/\s+[-–—]\s+/);
+        const artist = parts.length > 1 ? parts[0] : (v.author || "Unknown");
+        const title = parts.length > 1 ? parts.slice(1).join(" - ") : raw;
+        return {
+          id: `yt:${v.videoId}`,
+          title: title.replace(/\(official.*?\)|\[official.*?\]/i, "").trim() || raw,
+          artist,
+          artwork: art,
+          artworkHi: hi,
+          durationMs: (v.lengthSeconds || 0) * 1000,
+          videoId: v.videoId,
+        };
+      }).filter((t) => t.videoId);
+      return { name: data.title || "YouTube Playlist", tracks };
+    } catch {
+      // try next instance
+    }
+  }
+  return null;
+}
 
 let invIdx = 0;
 export async function searchYouTube(query: string): Promise<string | null> {
