@@ -468,7 +468,12 @@ function MusicPage() {
                 <div>
                   <div className="text-xs uppercase tracking-widest text-white/60">Playlist</div>
                   <h1 className="text-3xl font-black md:text-4xl">{view === "liked" ? "Liked Songs" : playlists.find(p=>p.id===view)?.name}</h1>
-                  <div className="mt-1 text-sm text-white/60">{activeList.length} songs</div>
+                  <div className="mt-1 text-sm text-white/60">
+                    {activeList.length} songs
+                    {activeList.some(t => t.durationMs) && (
+                      <> · {fmt(activeList.reduce((s, t) => s + (t.durationMs || 0), 0) / 1000)}</>
+                    )}
+                  </div>
                   <div className="mt-3 flex gap-2">
                     <button disabled={!activeList.length} onClick={() => play(activeList[0], activeList, 0)} className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-black disabled:opacity-40">
                       <Play className="h-4 w-4 fill-current" /> Play
