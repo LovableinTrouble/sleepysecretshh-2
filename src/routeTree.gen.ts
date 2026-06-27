@@ -14,6 +14,7 @@ import { Route as SportsRouteImport } from './routes/sports'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as MusicRouteImport } from './routes/music'
 import { Route as IptvRouteImport } from './routes/iptv'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as AiRouteImport } from './routes/ai'
@@ -52,6 +53,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MusicRoute = MusicRouteImport.update({
+  id: '/music',
+  path: '/music',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IptvRoute = IptvRouteImport.update({
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/ai': typeof AiRoute
   '/explore': typeof ExploreRoute
   '/iptv': typeof IptvRoute
+  '/music': typeof MusicRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByTo {
   '/ai': typeof AiRoute
   '/explore': typeof ExploreRoute
   '/iptv': typeof IptvRoute
+  '/music': typeof MusicRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/ai': typeof AiRoute
   '/explore': typeof ExploreRoute
   '/iptv': typeof IptvRoute
+  '/music': typeof MusicRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -196,6 +205,7 @@ export interface FileRouteTypes {
     | '/ai'
     | '/explore'
     | '/iptv'
+    | '/music'
     | '/search'
     | '/settings'
     | '/sitemap.xml'
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/ai'
     | '/explore'
     | '/iptv'
+    | '/music'
     | '/search'
     | '/settings'
     | '/sitemap.xml'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/ai'
     | '/explore'
     | '/iptv'
+    | '/music'
     | '/search'
     | '/settings'
     | '/sitemap.xml'
@@ -260,6 +272,7 @@ export interface RootRouteChildren {
   AiRoute: typeof AiRoute
   ExploreRoute: typeof ExploreRoute
   IptvRoute: typeof IptvRoute
+  MusicRoute: typeof MusicRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -311,6 +324,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/music': {
+      id: '/music'
+      path: '/music'
+      fullPath: '/music'
+      preLoaderRoute: typeof MusicRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/iptv': {
@@ -430,6 +450,7 @@ const rootRouteChildren: RootRouteChildren = {
   AiRoute: AiRoute,
   ExploreRoute: ExploreRoute,
   IptvRoute: IptvRoute,
+  MusicRoute: MusicRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
