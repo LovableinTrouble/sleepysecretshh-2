@@ -2,12 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   Search, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat,
-  Heart, Plus, Music2, ListMusic, Trash2, X, Shuffle, ChevronLeft, Clock, ExternalLink, ListOrdered,
+  Search as SearchIcon, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat,
+  Heart, Plus, ListMusic, Trash2, X, Shuffle, Clock, ExternalLink, ListOrdered, Download, Loader2,
 } from "lucide-react";
 import {
   searchITunes, searchYouTube, fetchLyrics,
   loadPlaylists, savePlaylists, loadLiked, saveLiked,
   loadRecent, pushRecent, clearRecent,
+  importInvidiousPlaylist,
   type Track, type Playlist,
 } from "@/lib/music";
 
