@@ -516,6 +516,11 @@ function MusicPage() {
                     <button disabled={!activeList.length} onClick={shuffle} className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold ring-1 ring-white/20 hover:bg-white/15 disabled:opacity-40">
                       <Shuffle className="h-4 w-4" /> Shuffle
                     </button>
+                    {view === "liked" && liked.length > 0 && (
+                      <button onClick={clearLiked} className="flex items-center gap-2 rounded-full bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 ring-1 ring-rose-400/30 hover:bg-rose-500/25">
+                        <Trash2 className="h-4 w-4" /> Clear all
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
