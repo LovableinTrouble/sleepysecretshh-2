@@ -100,6 +100,7 @@ function MusicPage() {
 
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
   const [bg, setBg] = useState<[number, number, number]>([40, 40, 60]);
   const artRef = useRef<HTMLImageElement>(null);
 
@@ -140,6 +141,18 @@ function MusicPage() {
     return () => window.removeEventListener("keydown", h);
   }, []);
   const toggleRef = useRef<() => void>(() => {});
+
+  // hide search results when clicking outside
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (!searchWrapperRef.current) return;
+      if (!searchWrapperRef.current.contains(e.target as Node)) {
+        setShowSearch(false);
+      }
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, []);
 
   // YouTube init
   useEffect(() => {
@@ -332,7 +345,7 @@ function MusicPage() {
         <div className="flex items-center gap-2 text-lg font-bold tracking-tight">
           <NoteIcon className="h-5 w-5 text-white/90" /> Music
         </div>
-        <div className="relative mx-auto w-full max-w-xl justify-self-center">
+        <div ref={searchWrapperRef} className="relative mx-auto w-full max-w-xl justify-self-center">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
           <input
             ref={searchInputRef}
