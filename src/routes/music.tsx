@@ -650,25 +650,61 @@ function MusicPage() {
 
       {/* Add-to-playlist picker */}
       {pickerFor && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setPickerFor(null)}>
-          <div className="w-full max-w-sm rounded-2xl bg-zinc-900 p-4 ring-1 ring-white/10" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-semibold">Add to playlist</h3>
-              <button onClick={() => setPickerFor(null)} className="rounded p-1 hover:bg-white/10"><X className="h-4 w-4" /></button>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-150" onClick={() => setPickerFor(null)}>
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-zinc-950/95 shadow-2xl ring-1 ring-white/10 animate-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold">Add to playlist</h3>
+                <p className="mt-0.5 truncate text-xs text-white/55">{pickerFor.title} — {pickerFor.artist}</p>
+              </div>
+              <button onClick={() => setPickerFor(null)} className="shrink-0 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white"><X className="h-4 w-4" /></button>
             </div>
-            <div className="mb-3 text-xs text-white/60">{pickerFor.title} — {pickerFor.artist}</div>
-            <button onClick={() => { setPickerCreateMode(true); openCreate(); }} className="mb-2 flex w-full items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15">
-              <Plus className="h-4 w-4" /> New playlist
-            </button>
-            <div className="max-h-64 overflow-y-auto">
-              {playlists.map(pl => (
-                <button key={pl.id} onClick={() => addToPlaylist(pl.id, pickerFor!)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-white/10">
-                  <ListMusic className="h-4 w-4 text-white/70" />
-                  <span className="truncate">{pl.name}</span>
-                  <span className="ml-auto text-xs text-white/50">{pl.tracks.length}</span>
-                </button>
-              ))}
-              {!playlists.length && <div className="px-3 py-2 text-xs text-white/50">No playlists yet.</div>}
+            <div className="p-3">
+              <button onClick={() => { setPickerCreateMode(true); openCreate(); }} className="mb-2 flex w-full items-center gap-2 rounded-xl bg-gradient-to-r from-pink-500/20 to-purple-500/20 px-3 py-2.5 text-sm font-medium ring-1 ring-white/10 hover:from-pink-500/30 hover:to-purple-500/30">
+                <Plus className="h-4 w-4" /> New playlist
+              </button>
+              <div className="max-h-64 overflow-y-auto">
+                {playlists.map(pl => (
+                  <button key={pl.id} onClick={() => addToPlaylist(pl.id, pickerFor!)} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm hover:bg-white/10">
+                    <ListMusic className="h-4 w-4 text-white/70" />
+                    <span className="truncate">{pl.name}</span>
+                    <span className="ml-auto text-xs text-white/50">{pl.tracks.length}</span>
+                  </button>
+                ))}
+                {!playlists.length && <div className="px-3 py-6 text-center text-xs text-white/50">No playlists yet. Create one above.</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create playlist */}
+      {createOpen && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-150" onClick={() => setCreateOpen(false)}>
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-zinc-950/95 shadow-2xl ring-1 ring-white/10 animate-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+              <div>
+                <h3 className="text-base font-semibold">New playlist</h3>
+                <p className="mt-0.5 text-xs text-white/55">Give it a name. You can add songs anytime.</p>
+              </div>
+              <button onClick={() => setCreateOpen(false)} className="shrink-0 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="px-5 py-4">
+              <label className="mb-1.5 block text-[11px] uppercase tracking-widest text-white/45">Name</label>
+              <input
+                autoFocus
+                value={newPlName}
+                onChange={(e) => setNewPlName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && newPlName.trim()) submitCreate(); }}
+                placeholder="My Vibes"
+                className="w-full rounded-xl bg-white/10 px-3.5 py-2.5 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/40 focus:bg-white/15 focus:ring-white/30"
+              />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-white/10 px-5 py-3">
+              <button onClick={() => setCreateOpen(false)} className="rounded-lg px-3.5 py-2 text-sm text-white/70 hover:bg-white/10">Cancel</button>
+              <button onClick={submitCreate} disabled={!newPlName.trim()} className="flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-black disabled:opacity-50">
+                <Plus className="h-3.5 w-3.5" /> Create
+              </button>
             </div>
           </div>
         </div>
@@ -676,25 +712,30 @@ function MusicPage() {
 
       {/* Import YouTube playlist */}
       {importOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => !importing && setImportOpen(false)}>
-          <div className="w-full max-w-md rounded-2xl bg-zinc-900 p-5 ring-1 ring-white/10" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold">Import YouTube playlist</h3>
-              <button onClick={() => !importing && setImportOpen(false)} className="rounded p-1 hover:bg-white/10"><X className="h-4 w-4" /></button>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-150" onClick={() => !importing && setImportOpen(false)}>
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-zinc-950/95 shadow-2xl ring-1 ring-white/10 animate-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+              <div>
+                <h3 className="text-base font-semibold">Import YouTube playlist</h3>
+                <p className="mt-0.5 text-xs text-white/55">Paste a playlist URL or ID. Fetched via Invidious — no account needed.</p>
+              </div>
+              <button onClick={() => !importing && setImportOpen(false)} className="shrink-0 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white"><X className="h-4 w-4" /></button>
             </div>
-            <p className="mb-3 text-xs text-white/60">Paste a YouTube playlist URL or ID. Fetched anonymously via Invidious — no account needed.</p>
-            <input
-              autoFocus
-              value={importUrl}
-              onChange={(e) => setImportUrl(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleImport(); }}
-              placeholder="https://youtube.com/playlist?list=…"
-              className="mb-2 w-full rounded-lg bg-white/10 px-3 py-2 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/40 focus:ring-white/30"
-            />
-            {importError && <div className="mb-2 text-xs text-red-300">{importError}</div>}
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setImportOpen(false)} disabled={importing} className="rounded-lg px-3 py-1.5 text-sm text-white/70 hover:bg-white/10">Cancel</button>
-              <button onClick={handleImport} disabled={importing || !importUrl.trim()} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-black disabled:opacity-50">
+            <div className="px-5 py-4">
+              <label className="mb-1.5 block text-[11px] uppercase tracking-widest text-white/45">Playlist URL</label>
+              <input
+                autoFocus
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleImport(); }}
+                placeholder="https://youtube.com/playlist?list=…"
+                className="w-full rounded-xl bg-white/10 px-3.5 py-2.5 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/40 focus:bg-white/15 focus:ring-white/30"
+              />
+              {importError && <div className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300 ring-1 ring-red-500/20">{importError}</div>}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-white/10 px-5 py-3">
+              <button onClick={() => setImportOpen(false)} disabled={importing} className="rounded-lg px-3.5 py-2 text-sm text-white/70 hover:bg-white/10">Cancel</button>
+              <button onClick={handleImport} disabled={importing || !importUrl.trim()} className="flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-black disabled:opacity-50">
                 {importing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Importing…</> : <><Download className="h-3.5 w-3.5" /> Import</>}
               </button>
             </div>
