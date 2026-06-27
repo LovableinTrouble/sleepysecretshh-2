@@ -366,7 +366,7 @@ function FailedOverlay({
   onClose: () => void;
 }) {
   const [showLogs, setShowLogs] = useState(false);
-  const [showDownloads, setShowDownloads] = useState(false);
+  const _setShowDownloads = setShowLogs; void _setShowDownloads;
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-6 text-center text-white animate-fade-in">
