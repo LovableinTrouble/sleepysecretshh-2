@@ -80,6 +80,17 @@ function rewritePlaylist(body: string, upstreamUrl: string): string {
   return out.join("\n");
 }
 
+function unavailablePlaylist(): Response {
+  return new Response("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-ENDLIST\n", {
+    status: 200,
+    headers: {
+      ...CORS,
+      "content-type": "application/vnd.apple.mpegurl",
+      "cache-control": "no-store",
+    },
+  });
+}
+
 export const Route = createFileRoute("/api/public/iptv-proxy")({
   server: {
     handlers: {
@@ -144,17 +155,12 @@ async function handle(request: Request, method: "GET" | "HEAD"): Promise<Respons
     }
   } catch (err) {
     console.error("[iptv-proxy] fetch failed", currentUrl, err);
-    return new Response("stream unavailable", {
-      status: 404,
-      headers: CORS,
-    });
+    return unavailablePlaylist();
   }
 
   if (!upstream.ok && upstream.status !== 206) {
-    return new Response(`upstream ${upstream.status}`, {
-      status: upstream.status >= 500 ? 404 : upstream.status,
-      headers: CORS,
-    });
+    console.warn("[iptv-proxy] upstream unavailable", upstream.status, currentUrl);
+    return unavailablePlaylist();
   }
   // Use the final resolved URL for playlist base rewriting.
   parsed = new URL(currentUrl);
