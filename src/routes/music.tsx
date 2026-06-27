@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   Search, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat,
-  Heart, Plus, Music2, ListMusic, Trash2, X, Shuffle, ChevronLeft,
+  Heart, Plus, Music2, ListMusic, Trash2, X, Shuffle, ChevronLeft, Clock, ExternalLink, ListOrdered,
 } from "lucide-react";
 import {
   searchITunes, searchYouTube, fetchLyrics,
   loadPlaylists, savePlaylists, loadLiked, saveLiked,
+  loadRecent, pushRecent, clearRecent,
   type Track, type Playlist,
 } from "@/lib/music";
 
@@ -41,6 +42,13 @@ function fmt(s: number) {
   return `${m}:${sec}`;
 }
 
+function fmtMs(ms?: number) {
+  if (!ms) return "";
+  return fmt(ms / 1000);
+}
+
+const TRENDING = ["Taylor Swift", "The Weeknd", "Drake", "Billie Eilish", "Kendrick Lamar", "SZA"];
+
 function MusicPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Track[]>([]);
@@ -65,13 +73,29 @@ function MusicPage() {
   const [liked, setLiked] = useState<Track[]>([]);
   const [view, setView] = useState<"home" | "liked" | string>("home"); // string = playlist id
   const [pickerFor, setPickerFor] = useState<Track | null>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+  const [showQueue, setShowQueue] = useState(false);
 
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [bg, setBg] = useState<[number, number, number]>([40, 40, 60]);
   const artRef = useRef<HTMLImageElement>(null);
 
-  useEffect(() => { setPlaylists(loadPlaylists()); setLiked(loadLiked()); }, []);
+  useEffect(() => { setPlaylists(loadPlaylists()); setLiked(loadLiked()); setRecent(loadRecent()); }, []);
+
+  // keyboard: space=play/pause, / focus search
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "/") { e.preventDefault(); searchInputRef.current?.focus(); }
+      else if (e.code === "Space") { e.preventDefault(); toggleRef.current?.(); }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, []);
+  const toggleRef = useRef<() => void>(() => {});
 
   // YouTube init
   useEffect(() => {
@@ -143,6 +167,7 @@ function MusicPage() {
     if (list) { setQueue(list); setQueueIdx(idx ?? 0); }
     setShowSearch(false);
     setQuery("");
+    if (query.trim().length >= 2) setRecent(pushRecent(query.trim()));
     // lookup youtube
     const vid = await searchYouTube(`${t.title} ${t.artist} audio`);
     if (vid && playerRef.current?.loadVideoById) {
@@ -172,6 +197,7 @@ function MusicPage() {
     const p = playerRef.current; if (!p) return;
     if (playing) p.pauseVideo(); else p.playVideo();
   };
+  toggleRef.current = toggle;
 
   // ambient color from album art
   const onArtLoad = () => {
@@ -240,7 +266,7 @@ function MusicPage() {
   const grad = `radial-gradient(1200px 800px at 20% 0%, rgba(${r},${g},${b},0.55), transparent 60%), radial-gradient(900px 700px at 100% 100%, rgba(${Math.max(0,r-30)},${Math.max(0,g-30)},${Math.max(0,b-30)},0.55), transparent 60%), #0a0a0f`;
 
   return (
-    <div className="fixed inset-0 z-30 flex flex-col text-foreground transition-[background] duration-700" style={{ background: grad }}>
+    <div className="fixed inset-0 z-30 flex flex-col text-foreground transition-[background] duration-700 overflow-hidden" style={{ background: grad }}>
       <div ref={containerRef} className="absolute -z-10 h-0 w-0 overflow-hidden" />
 
       {/* Top bar */}
@@ -254,15 +280,44 @@ function MusicPage() {
         <div className="relative ml-auto w-full max-w-md">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
           <input
+            ref={searchInputRef}
             value={query}
             onChange={(e) => { setQuery(e.target.value); setShowSearch(true); }}
             onFocus={() => setShowSearch(true)}
-            placeholder="Search songs, artists…"
-            className="w-full rounded-full bg-white/10 py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-white/50 outline-none ring-1 ring-white/10 backdrop-blur focus:bg-white/15 focus:ring-white/30"
+            placeholder="Search songs, artists, albums…"
+            className="w-full rounded-full bg-white/10 py-2.5 pl-10 pr-16 text-sm text-white placeholder:text-white/50 outline-none ring-1 ring-white/10 backdrop-blur focus:bg-white/15 focus:ring-white/30"
           />
-          {showSearch && (results.length > 0 || searching) && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl bg-black/70 p-2 ring-1 ring-white/10 backdrop-blur-xl">
+          {query ? (
+            <button onClick={() => { setQuery(""); setResults([]); searchInputRef.current?.focus(); }} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-white/60 hover:bg-white/10 hover:text-white" aria-label="Clear"><X className="h-3.5 w-3.5" /></button>
+          ) : (
+            <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-white/15 bg-white/5 px-1.5 py-0.5 text-[10px] text-white/50">/</kbd>
+          )}
+          {showSearch && (
+            <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl bg-black/80 p-2 ring-1 ring-white/10 backdrop-blur-xl">
               {searching && <div className="p-3 text-sm text-white/60">Searching…</div>}
+              {!searching && !results.length && (
+                <div className="p-2">
+                  {recent.length > 0 && (
+                    <div className="mb-2">
+                      <div className="mb-1 flex items-center justify-between px-2 text-[11px] uppercase tracking-widest text-white/40">
+                        <span>Recent</span>
+                        <button onClick={() => { clearRecent(); setRecent([]); }} className="text-white/40 hover:text-white">Clear</button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 px-1">
+                        {recent.map(r => (
+                          <button key={r} onClick={() => setQuery(r)} className="rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/15">{r}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="mb-1 px-2 text-[11px] uppercase tracking-widest text-white/40">Trending</div>
+                  <div className="flex flex-wrap gap-1.5 px-1">
+                    {TRENDING.map(r => (
+                      <button key={r} onClick={() => setQuery(r)} className="rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/15">{r}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {results.map((t, i) => (
                 <button
                   key={t.id}
@@ -272,10 +327,15 @@ function MusicPage() {
                   <img src={t.artwork} alt="" className="h-10 w-10 rounded-md" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{t.title}</div>
-                    <div className="truncate text-xs text-white/60">{t.artist}</div>
+                    <div className="truncate text-xs text-white/60">
+                      {t.artist}
+                      {t.year ? <span className="text-white/40"> · {t.year}</span> : null}
+                      {t.genre ? <span className="text-white/40"> · {t.genre}</span> : null}
+                    </div>
                   </div>
+                  {t.durationMs ? <span className="hidden text-[11px] tabular-nums text-white/50 sm:inline">{fmtMs(t.durationMs)}</span> : null}
                   <Plus
-                    className="h-4 w-4 text-white/60 hover:text-white"
+                    className="h-4 w-4 shrink-0 text-white/60 hover:text-white"
                     onClick={(e) => { e.stopPropagation(); setPickerFor(t); }}
                   />
                 </button>
@@ -286,7 +346,7 @@ function MusicPage() {
       </header>
 
       {/* Body */}
-      <div className="flex min-h-0 flex-1 gap-4 px-4 pb-32 md:px-6">
+      <div className="flex min-h-0 flex-1 gap-4 px-4 pb-48 md:px-6 md:pb-52">
         {/* Sidebar */}
         <aside className="hidden w-60 shrink-0 flex-col gap-1 rounded-2xl bg-black/30 p-3 ring-1 ring-white/10 backdrop-blur md:flex">
           <button onClick={() => setView("home")} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${view==="home"?"bg-white/15 font-semibold":"hover:bg-white/10"}`}>
@@ -383,6 +443,16 @@ function MusicPage() {
                 <h1 className="mt-1 text-3xl font-black md:text-5xl">{current.title}</h1>
                 <div className="mt-1 text-lg text-white/70">{current.artist}</div>
                 {current.album && <div className="text-sm text-white/50">{current.album}</div>}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60">
+                  {current.year && <span className="rounded-full bg-white/10 px-2 py-0.5">{current.year}</span>}
+                  {current.genre && <span className="rounded-full bg-white/10 px-2 py-0.5">{current.genre}</span>}
+                  {current.durationMs && <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5"><Clock className="h-3 w-3" />{fmtMs(current.durationMs)}</span>}
+                  {current.trackUrl && (
+                    <a href={current.trackUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 hover:bg-white/15">
+                      <ExternalLink className="h-3 w-3" /> iTunes
+                    </a>
+                  )}
+                </div>
                 <div className="mt-4 flex gap-2">
                   <button onClick={() => toggleLike(current)} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ring-1 ${isLiked(current) ? "bg-pink-500/20 text-pink-300 ring-pink-400/40" : "bg-white/10 ring-white/20 hover:bg-white/15"}`}>
                     <Heart className={`h-4 w-4 ${isLiked(current)?"fill-current":""}`} /> {isLiked(current) ? "Liked" : "Like"}
@@ -399,6 +469,25 @@ function MusicPage() {
                     {lyrics ?? "Loading lyrics…"}
                   </div>
                 )}
+                {queue.length > 1 && (
+                  <div className="mt-5">
+                    <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-widest text-white/50">
+                      <ListOrdered className="h-3.5 w-3.5" /> Up next
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {queue.slice(queueIdx + 1, queueIdx + 6).map((t, i) => (
+                        <button key={t.id} onClick={() => play(t, queue, queueIdx + 1 + i)} className="flex items-center gap-3 rounded-lg p-1.5 text-left hover:bg-white/10">
+                          <img src={t.artwork} alt="" className="h-8 w-8 rounded" />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-xs font-medium">{t.title}</div>
+                            <div className="truncate text-[11px] text-white/55">{t.artist}</div>
+                          </div>
+                          {t.durationMs && <span className="text-[10px] tabular-nums text-white/40">{fmtMs(t.durationMs)}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -406,8 +495,8 @@ function MusicPage() {
       </div>
 
       {/* Player bar */}
-      <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/70 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-3 py-3 md:gap-5 md:px-6">
+      <footer className="fixed inset-x-2 bottom-20 z-30 rounded-2xl border border-white/10 bg-black/75 shadow-2xl backdrop-blur-xl md:inset-x-4 md:bottom-24">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-3 py-2.5 md:gap-5 md:px-5">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             {current ? (
               <>

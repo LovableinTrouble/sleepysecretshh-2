@@ -8,6 +8,10 @@ export type Track = {
   artwork: string;
   artworkHi: string;
   previewUrl?: string;
+  durationMs?: number;
+  year?: number;
+  genre?: string;
+  trackUrl?: string;
 };
 
 const INVIDIOUS_INSTANCES = [
@@ -33,8 +37,26 @@ export async function searchITunes(q: string, limit = 14): Promise<Track[]> {
       artwork: x.artworkUrl100,
       artworkHi: (x.artworkUrl100 || "").replace("100x100", "600x600"),
       previewUrl: x.previewUrl,
+      durationMs: x.trackTimeMillis,
+      year: x.releaseDate ? new Date(x.releaseDate).getFullYear() : undefined,
+      genre: x.primaryGenreName,
+      trackUrl: x.trackViewUrl,
     }));
 }
+
+// ---------- Recent searches ----------
+const RECENT_KEY = "sleepy.music.recent.v1";
+export function loadRecent(): string[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch { return []; }
+}
+export function pushRecent(q: string) {
+  const cur = loadRecent().filter(x => x.toLowerCase() !== q.toLowerCase());
+  const next = [q, ...cur].slice(0, 8);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  return next;
+}
+export function clearRecent() { localStorage.removeItem(RECENT_KEY); }
 
 let invIdx = 0;
 export async function searchYouTube(query: string): Promise<string | null> {
