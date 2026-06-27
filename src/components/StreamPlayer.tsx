@@ -366,7 +366,6 @@ function FailedOverlay({
   onClose: () => void;
 }) {
   const [showLogs, setShowLogs] = useState(false);
-  const _setShowDownloads = setShowLogs; void _setShowDownloads;
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-6 text-center text-white animate-fade-in">
@@ -410,13 +409,6 @@ function FailedOverlay({
         >
           Open Settings
         </a>
-        <button
-          type="button"
-          onClick={() => setShowDownloads(true)}
-          className="rounded-lg bg-white/10 px-5 h-10 inline-flex items-center text-sm font-medium text-white ring-1 ring-white/15 hover:bg-white/20"
-        >
-          Downloads
-        </button>
         <button
           onClick={onClose}
           className="rounded-lg px-4 h-10 text-sm font-medium text-white/60 hover:text-white"
