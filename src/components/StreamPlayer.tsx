@@ -424,11 +424,6 @@ function FailedOverlay({
           Close
         </button>
       </div>
-      {showDownloads && (
-        <div className="mt-3 max-w-sm rounded-lg bg-white/5 px-4 py-3 text-xs text-white/75 ring-1 ring-white/10 animate-fade-in">
-          {DOWNLOADS_NOTICE_TEXT}
-        </div>
-      )}
     </div>
   );
 }
