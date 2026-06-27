@@ -247,6 +247,14 @@ function IptvPage() {
           )}
         </div>
       </section>
+
+      <ImportPlaylistDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        playlists={custom}
+        onSave={handleSavePlaylist}
+        onRemove={handleRemovePlaylist}
+      />
     </div>
   );
 }
@@ -294,5 +302,159 @@ function LiveSportsRail() {
         </span>
       </Link>
     </section>
+  );
+}
+
+function ImportPlaylistDialog({
+  open, onOpenChange, playlists, onSave, onRemove,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  playlists: CustomPlaylist[];
+  onSave: (p: CustomPlaylist) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [mode, setMode] = useState<"url" | "paste">("url");
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = () => { setName(""); setUrl(""); setText(""); setError(null); setBusy(false); };
+
+  const submit = async () => {
+    setError(null);
+    const finalName = name.trim() || "My Playlist";
+    try {
+      setBusy(true);
+      let channels;
+      if (mode === "url") {
+        if (!/^https?:\/\//i.test(url.trim())) throw new Error("Enter a valid http(s) URL.");
+        channels = await fetchAndParsePlaylist(url.trim(), finalName);
+      } else {
+        if (!text.includes("#EXTINF")) throw new Error("This doesn't look like an M3U file (no #EXTINF lines).");
+        channels = parseM3U(text, finalName);
+      }
+      if (channels.length === 0) throw new Error("No channels found in this playlist.");
+      onSave({
+        id: `pl-${Date.now()}`,
+        name: finalName,
+        source: mode === "url" ? url.trim() : "Pasted M3U",
+        addedAt: Date.now(),
+        channels,
+      });
+      reset();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to import playlist.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <Upload className="h-4 w-4 text-primary" /> Import IPTV playlist
+          </DialogTitle>
+          <DialogDescription>
+            Add an M3U / M3U8 playlist by URL or paste its contents. Saved locally on your device — never sent to our servers.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="mt-2 inline-flex rounded-full bg-white/5 p-1 text-xs font-semibold ring-1 ring-white/10">
+          <button
+            onClick={() => setMode("url")}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 transition ${mode === "url" ? "bg-primary text-primary-foreground" : "text-white/65 hover:text-white"}`}
+          >
+            <Link2 className="h-3.5 w-3.5" /> From URL
+          </button>
+          <button
+            onClick={() => setMode("paste")}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 transition ${mode === "paste" ? "bg-primary text-primary-foreground" : "text-white/65 hover:text-white"}`}
+          >
+            <ClipboardPaste className="h-3.5 w-3.5" /> Paste M3U
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground">Playlist name</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="My Playlist"
+              className="w-full rounded-xl bg-background/60 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-primary/40"
+            />
+          </label>
+          {mode === "url" ? (
+            <label className="block">
+              <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground">Playlist URL</span>
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://example.com/playlist.m3u"
+                className="w-full rounded-xl bg-background/60 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-primary/40"
+              />
+            </label>
+          ) : (
+            <label className="block">
+              <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground">M3U contents</span>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={6}
+                placeholder="#EXTM3U&#10;#EXTINF:-1 tvg-logo=&quot;...&quot; group-title=&quot;News&quot;,My Channel&#10;https://example.com/stream.m3u8"
+                className="w-full rounded-xl bg-background/60 px-3 py-2 font-mono text-xs outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-primary/40"
+              />
+            </label>
+          )}
+
+          {error && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={submit}
+            disabled={busy || (mode === "url" ? !url.trim() : !text.trim())}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {busy ? "Importing…" : "Import playlist"}
+          </button>
+        </div>
+
+        {playlists.length > 0 && (
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Your playlists ({playlists.length})
+            </div>
+            <ul className="space-y-2">
+              {playlists.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold">{p.name}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      {p.channels.length} channels · {p.source.length > 40 ? p.source.slice(0, 40) + "…" : p.source}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onRemove(p.id)}
+                    aria-label="Remove playlist"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-red-500/15 text-red-300 transition hover:bg-red-500/25"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
