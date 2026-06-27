@@ -28,7 +28,7 @@ import {
 export const Route = createFileRoute("/watchlist")({
   head: () => ({
     meta: [
-      { title: "Watchlist — VOID" },
+      { title: "Watchlist — Sleepy" },
       { name: "description", content: "Organize what you want to watch into custom folders." },
     ],
   }),

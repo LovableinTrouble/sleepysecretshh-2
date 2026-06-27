@@ -10,8 +10,8 @@ import { stashWatchMedia } from "@/lib/watch-stash";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "VOID — Home" },
-      { name: "description", content: "Discover trending movies, TV shows and anime — beautifully curated on VOID. Continue watching across devices with a single account number." },
+      { title: "Sleepy — Home" },
+      { name: "description", content: "Discover trending movies, TV shows and anime — beautifully curated on Sleepy. Continue watching across devices with a single account number." },
     ],
   }),
   component: Home,
