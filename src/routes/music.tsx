@@ -88,6 +88,12 @@ function MusicPage() {
   const [pickerFor, setPickerFor] = useState<Track | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
   const [showQueue, setShowQueue] = useState(false);
+  const [libQuery, setLibQuery] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [recentPlayed, setRecentPlayed] = useState<Track[]>([]);
 
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -181,8 +187,13 @@ function MusicPage() {
     setShowSearch(false);
     setQuery("");
     if (query.trim().length >= 2) setRecent(pushRecent(query.trim()));
-    // lookup youtube
-    const vid = await searchYouTube(`${t.title} ${t.artist} audio`);
+    setRecentPlayed(prev => {
+      const next = [t, ...prev.filter(x => x.id !== t.id)].slice(0, 12);
+      try { localStorage.setItem("sleepy.music.recentplayed.v1", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    // use direct video id when available (imported YT playlists), else lookup
+    const vid = t.videoId || await searchYouTube(`${t.title} ${t.artist} audio`);
     if (vid && playerRef.current?.loadVideoById) {
       playerRef.current.loadVideoById(vid);
       playerRef.current.playVideo();
