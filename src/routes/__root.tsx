@@ -18,7 +18,7 @@ import voidIcon from "../assets/void-icon.png.asset.json";
 import { AnimatedBackground } from "../components/AnimatedBackground";
 import { BootLoader } from "../components/BootLoader";
 import { BottomNav } from "../components/BottomNav";
-import { LogoWord } from "../components/Logo";
+
 import { SharePopup } from "../components/SharePopup";
 import { useSettings } from "../lib/store";
 
@@ -216,13 +216,6 @@ function AppShell() {
     <div className={animOn ? "" : "no-anim"}>
       <AnimatedBackground />
       <BootLoader />
-      {settings.showLogo && (
-        <header className="fixed left-0 right-0 top-0 z-40 pointer-events-none px-5 py-4 md:hidden">
-          <div className="pointer-events-auto inline-flex rounded-full glass-strong px-2 py-1 shadow-[var(--shadow-glass)]">
-            <LogoWord size={28} />
-          </div>
-        </header>
-      )}
       <Outlet />
       <BottomNav />
       <SiteFooter />
