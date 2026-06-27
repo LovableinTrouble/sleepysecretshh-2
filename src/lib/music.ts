@@ -109,21 +109,28 @@ export async function importInvidiousPlaylist(input: string): Promise<{ name: st
 }
 
 let invIdx = 0;
+/**
+ * Search YouTube via Invidious, biased toward auto-generated "- Topic" channels
+ * (YouTube's official artist channels for music). Falls back to the most-viewed
+ * non-Topic result if no Topic upload exists.
+ */
 export async function searchYouTube(query: string): Promise<string | null> {
-  const enc = encodeURIComponent(query);
+  const enc = encodeURIComponent(`${query} topic`);
   for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
     const inst = INVIDIOUS_INSTANCES[(invIdx + i) % INVIDIOUS_INSTANCES.length];
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(`${inst}/api/v1/search?q=${enc}&type=video&fields=videoId,title,viewCount,lengthSeconds`, { signal: ctrl.signal });
+      const res = await fetch(`${inst}/api/v1/search?q=${enc}&type=video&fields=videoId,title,author,viewCount,lengthSeconds`, { signal: ctrl.signal });
       clearTimeout(t);
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         invIdx = (invIdx + i) % INVIDIOUS_INSTANCES.length;
-        let best = data[0];
-        for (const v of data) if ((v.viewCount || 0) > (best.viewCount || 0)) best = v;
+        const topic = data.filter((v: any) => typeof v.author === "string" && /-\s*Topic\s*$/i.test(v.author));
+        const pool = topic.length ? topic : data;
+        let best = pool[0];
+        for (const v of pool) if ((v.viewCount || 0) > (best.viewCount || 0)) best = v;
         return best.videoId;
       }
     } catch {
@@ -175,8 +182,27 @@ export function savePlaylists(pls: Playlist[]) {
 }
 export function loadLiked(): Track[] {
   if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(LIKE_KEY) || "[]"); } catch { return []; }
+  try {
+    const raw = JSON.parse(localStorage.getItem(LIKE_KEY) || "[]");
+    if (!Array.isArray(raw)) return [];
+    // Dedupe by id and drop malformed entries (missing id/title) — those caused
+    // "random" looking songs to appear in Liked.
+    const seen = new Set<string>();
+    return raw.filter((t: any) => {
+      if (!t || !t.id || !t.title) return false;
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+  } catch { return []; }
 }
 export function saveLiked(t: Track[]) {
-  localStorage.setItem(LIKE_KEY, JSON.stringify(t));
+  const seen = new Set<string>();
+  const clean = t.filter((x) => {
+    if (!x || !x.id || !x.title) return false;
+    if (seen.has(x.id)) return false;
+    seen.add(x.id);
+    return true;
+  });
+  localStorage.setItem(LIKE_KEY, JSON.stringify(clean));
 }

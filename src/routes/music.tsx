@@ -310,10 +310,14 @@ function MusicPage() {
     setPlaylists(next); savePlaylists(next);
   };
   const toggleLike = (t: Track) => {
+    if (!t || !t.id) return;
     const has = liked.some(x => x.id === t.id);
-    const next = has ? liked.filter(x => x.id !== t.id) : [t, ...liked];
+    const next = has
+      ? liked.filter(x => x.id !== t.id)
+      : [t, ...liked.filter(x => x.id !== t.id)];
     setLiked(next); saveLiked(next);
   };
+  const clearLiked = () => { setLiked([]); saveLiked([]); };
   const isLiked = (t?: Track | null) => !!t && liked.some(x => x.id === t.id);
 
   const activeList: Track[] = useMemo(() => {
@@ -512,6 +516,11 @@ function MusicPage() {
                     <button disabled={!activeList.length} onClick={shuffle} className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold ring-1 ring-white/20 hover:bg-white/15 disabled:opacity-40">
                       <Shuffle className="h-4 w-4" /> Shuffle
                     </button>
+                    {view === "liked" && liked.length > 0 && (
+                      <button onClick={clearLiked} className="flex items-center gap-2 rounded-full bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 ring-1 ring-rose-400/30 hover:bg-rose-500/25">
+                        <Trash2 className="h-4 w-4" /> Clear all
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -524,7 +533,14 @@ function MusicPage() {
                       <div className="truncate text-sm font-medium">{t.title}</div>
                       <div className="truncate text-xs text-white/60">{t.artist}</div>
                     </div>
-                    {view !== "liked" && (
+                    {t.durationMs ? <span className="hidden text-[11px] tabular-nums text-white/40 sm:inline">{fmtMs(t.durationMs)}</span> : null}
+                    {view === "liked" ? (
+                      <span
+                        onClick={(e) => { e.stopPropagation(); toggleLike(t); }}
+                        className="rounded p-1.5 text-pink-300 opacity-0 hover:bg-white/10 group-hover:opacity-100"
+                        aria-label="Unlike"
+                      ><Heart className="h-3.5 w-3.5 fill-current" /></span>
+                    ) : (
                       <span
                         onClick={(e) => { e.stopPropagation(); removeFromPlaylist(view, t.id); }}
                         className="rounded p-1.5 text-white/50 opacity-0 hover:bg-white/10 hover:text-white group-hover:opacity-100"
@@ -564,7 +580,7 @@ function MusicPage() {
                     </a>
                   )}
                 </div>
-                <div className="mt-4 flex gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   <button onClick={() => toggleLike(current)} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ring-1 ${isLiked(current) ? "bg-pink-500/20 text-pink-300 ring-pink-400/40" : "bg-white/10 ring-white/20 hover:bg-white/15"}`}>
                     <Heart className={`h-4 w-4 ${isLiked(current)?"fill-current":""}`} /> {isLiked(current) ? "Liked" : "Like"}
                   </button>
@@ -574,10 +590,43 @@ function MusicPage() {
                   <button onClick={() => setShowLyrics(s => !s)} className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm ring-1 ring-white/20 hover:bg-white/15">
                     {showLyrics ? "Hide lyrics" : "Show lyrics"}
                   </button>
+                  <button
+                    onClick={async () => {
+                      const more = await searchITunes(current.artist, 25);
+                      const others = more.filter(t => t.id !== current.id);
+                      if (!others.length) return;
+                      const shuffled = others.sort(() => Math.random() - 0.5);
+                      play(shuffled[0], shuffled, 0);
+                    }}
+                    className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm ring-1 ring-white/20 hover:bg-white/15"
+                    title={`Radio based on ${current.artist}`}
+                  >
+                    <Shuffle className="h-4 w-4" /> Artist radio
+                  </button>
+                  <button
+                    onClick={() => { setQuery(current.artist); setShowSearch(true); searchInputRef.current?.focus(); }}
+                    className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm ring-1 ring-white/20 hover:bg-white/15"
+                  >
+                    <Search className="h-4 w-4" /> More by artist
+                  </button>
                 </div>
                 {showLyrics && (
-                  <div className="mt-5 max-h-[40vh] overflow-y-auto whitespace-pre-wrap rounded-2xl bg-black/40 p-4 text-sm leading-relaxed text-white/85 ring-1 ring-white/10">
-                    {lyrics ?? "Loading lyrics…"}
+                  <div className="mt-5 max-h-[45vh] overflow-y-auto rounded-2xl bg-black/50 p-6 ring-1 ring-white/10 backdrop-blur scrollbar-thin">
+                    {lyrics === null ? (
+                      <div className="flex items-center justify-center gap-2 py-6 text-sm text-white/50">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading lyrics…
+                      </div>
+                    ) : lyrics.trim().length === 0 ? (
+                      <div className="py-6 text-center text-sm text-white/50">No lyrics found for this track.</div>
+                    ) : (
+                      <div className="flex flex-col gap-1.5 text-center text-[15px] leading-relaxed text-white/90">
+                        {lyrics.split("\n").map((line, i) => (
+                          <p key={i} className={line.trim() === "" ? "h-3" : "transition hover:text-white"}>
+                            {line || "\u00A0"}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {queue.length > 1 && (
