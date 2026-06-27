@@ -345,11 +345,11 @@ function MusicPage() {
       <div ref={containerRef} className="absolute -z-10 h-0 w-0 overflow-hidden" />
 
       {/* Top bar */}
-      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 md:px-6">
-        <div className="flex items-center gap-2 text-lg font-bold tracking-tight">
+      <header className="flex items-center gap-3 px-4 py-3 md:grid md:grid-cols-[1fr_auto_1fr] md:px-6">
+        <div className="hidden items-center gap-2 text-lg font-bold tracking-tight md:flex">
           <NoteIcon className="h-5 w-5 text-white/90" /> Music
         </div>
-        <div ref={searchWrapperRef} className="relative mx-auto w-full max-w-xl justify-self-center">
+        <div ref={searchWrapperRef} className="relative mx-auto w-full max-w-xl flex-1 justify-self-center md:flex-none">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
           <input
             ref={searchInputRef}
@@ -415,7 +415,7 @@ function MusicPage() {
             </div>
           )}
         </div>
-        <div />
+        <div className="hidden md:block" />
       </header>
 
       {/* Body */}
