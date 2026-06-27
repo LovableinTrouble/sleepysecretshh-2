@@ -172,6 +172,16 @@ async function handle(request: Request, method: "GET" | "HEAD"): Promise<Respons
     ct.includes("vnd.apple.mpegurl") ||
     /\.m3u8(\?|$)/i.test(parsed.pathname);
 
+  // raw=1 — return upstream text verbatim (used when importing user M3U
+  // playlists so we don't rewrite per-channel stream URLs into proxy URLs).
+  const rawMode = url.searchParams.get("raw") === "1";
+  if (rawMode) {
+    const body = method === "HEAD" ? null : await upstream.text();
+    headers.set("content-type", ct || "text/plain; charset=utf-8");
+    headers.set("cache-control", "no-store");
+    return new Response(body, { status: upstream.status, headers });
+  }
+
   const headers = new Headers(CORS);
   const passthrough = [
     "content-range",
