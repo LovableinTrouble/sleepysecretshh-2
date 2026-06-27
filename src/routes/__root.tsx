@@ -18,7 +18,7 @@ import voidIcon from "../assets/void-icon.png.asset.json";
 import { AnimatedBackground } from "../components/AnimatedBackground";
 import { BootLoader } from "../components/BootLoader";
 import { BottomNav } from "../components/BottomNav";
-import { LogoWord } from "../components/Logo";
+
 import { SharePopup } from "../components/SharePopup";
 import { useSettings } from "../lib/store";
 
