@@ -592,8 +592,22 @@ function MusicPage() {
                   </button>
                 </div>
                 {showLyrics && (
-                  <div className="mt-5 max-h-[40vh] overflow-y-auto whitespace-pre-wrap rounded-2xl bg-black/40 p-4 text-sm leading-relaxed text-white/85 ring-1 ring-white/10">
-                    {lyrics ?? "Loading lyrics…"}
+                  <div className="mt-5 max-h-[45vh] overflow-y-auto rounded-2xl bg-black/50 p-6 ring-1 ring-white/10 backdrop-blur scrollbar-thin">
+                    {lyrics === null ? (
+                      <div className="flex items-center justify-center gap-2 py-6 text-sm text-white/50">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading lyrics…
+                      </div>
+                    ) : lyrics.trim().length === 0 ? (
+                      <div className="py-6 text-center text-sm text-white/50">No lyrics found for this track.</div>
+                    ) : (
+                      <div className="flex flex-col gap-1.5 text-center text-[15px] leading-relaxed text-white/90">
+                        {lyrics.split("\n").map((line, i) => (
+                          <p key={i} className={line.trim() === "" ? "h-3" : "transition hover:text-white"}>
+                            {line || "\u00A0"}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {queue.length > 1 && (
