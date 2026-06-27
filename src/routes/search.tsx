@@ -11,7 +11,7 @@ import {
 } from "@/lib/recent-searches";
 
 export const Route = createFileRoute("/search")({
-  head: () => ({ meta: [{ title: "Search — VOID" }, { name: "description", content: "Search the VOID catalog." }] }),
+  head: () => ({ meta: [{ title: "Search — Sleepy" }, { name: "description", content: "Search the Sleepy catalog." }] }),
   component: Search,
 });
 

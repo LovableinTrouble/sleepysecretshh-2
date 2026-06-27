@@ -3,7 +3,7 @@ import { Copy, Check, X, Share2, Twitter, Facebook, MessageCircle, Send, Mail } 
 
 const KEY = "sleepy.share-popup.dismissed.v1";
 const SITE_URL = "https://xullys.xyz";
-const SHARE_TEXT = "Check out VOID — stream movies, TV, live sports & IPTV in one beautiful UI.";
+const SHARE_TEXT = "Check out Sleepy — stream movies, TV, live sports & IPTV in one beautiful UI.";
 
 export function SharePopup() {
   const [open, setOpen] = useState(false);
@@ -39,7 +39,7 @@ export function SharePopup() {
     { label: "Facebook", icon: Facebook, href: `https://www.facebook.com/sharer/sharer.php?u=${enc(SITE_URL)}` },
     { label: "WhatsApp", icon: MessageCircle, href: `https://wa.me/?text=${enc(SHARE_TEXT + " " + SITE_URL)}` },
     { label: "Telegram", icon: Send, href: `https://t.me/share/url?url=${enc(SITE_URL)}&text=${enc(SHARE_TEXT)}` },
-    { label: "Email", icon: Mail, href: `mailto:?subject=${enc("Check out VOID")}&body=${enc(SHARE_TEXT + "\n\n" + SITE_URL)}` },
+    { label: "Email", icon: Mail, href: `mailto:?subject=${enc("Check out Sleepy")}&body=${enc(SHARE_TEXT + "\n\n" + SITE_URL)}` },
   ];
 
   return (
@@ -64,7 +64,7 @@ export function SharePopup() {
           <div className="relative mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-primary/15 ring-1 ring-primary/30">
             <Share2 className="h-5 w-5 text-primary" />
           </div>
-          <h2 className="relative text-lg font-semibold tracking-tight">Help VOID grow</h2>
+          <h2 className="relative text-lg font-semibold tracking-tight">Help Sleepy grow</h2>
           <p className="relative mt-1 text-sm text-muted-foreground">
             Share with a friend who'd love it. It takes a second and means a lot.
           </p>

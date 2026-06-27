@@ -6,7 +6,7 @@ import { THEMES } from "@/lib/themes";
 import { REGION_OPTIONS, detectRegion, type Region } from "@/lib/detectRegion";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings — VOID" }, { name: "description", content: "Customize every part of your VOID experience." }] }),
+  head: () => ({ meta: [{ title: "Settings — Sleepy" }, { name: "description", content: "Customize every part of your Sleepy experience." }] }),
   component: SettingsPage,
 });
 

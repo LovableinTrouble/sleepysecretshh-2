@@ -24,7 +24,7 @@ export const recommendMedia = createServerFn({ method: "POST" })
       const { text } = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
         system:
-          "You are Luna, a warm, concise movie & TV recommender on VOID. Always respond in 2-4 sentences. Suggest 3-5 titles by name when relevant.",
+          "You are Luna, a warm, concise movie & TV recommender on Sleepy. Always respond in 2-4 sentences. Suggest 3-5 titles by name when relevant.",
         prompt: data.context ? `${data.context}\n\nUser: ${data.query}` : data.query,
       });
       return { text };

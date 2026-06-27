@@ -7,7 +7,7 @@ import { CURATED_CHANNELS } from "@/lib/iptv-curated";
 export const Route = createFileRoute("/live/$id")({
   head: () => ({
     meta: [
-      { title: "Live TV — VOID" },
+      { title: "Live TV — Sleepy" },
       { name: "description", content: "Live IPTV channel player." },
     ],
   }),

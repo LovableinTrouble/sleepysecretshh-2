@@ -5,7 +5,7 @@ import type { Media } from "@/lib/catalog";
 import { MediaCard } from "@/components/MediaCard";
 
 export const Route = createFileRoute("/person/$id")({
-  head: () => ({ meta: [{ title: "Cast Member — VOID" }] }),
+  head: () => ({ meta: [{ title: "Cast Member — Sleepy" }] }),
   component: PersonPage,
 });
 
