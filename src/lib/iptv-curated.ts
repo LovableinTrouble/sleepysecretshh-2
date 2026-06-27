@@ -49,6 +49,9 @@ export const CURATED_CHANNELS: CuratedChannel[] = [
   { id: "pac-12-insider", name: "Pac-12 Insider", group: "Sports", country: "US",
     logo: `${LOGO}/united-states/pac-12-network-us.png`,
     url: "https://pac12-samsungus.amagi.tv/playlist.m3u8" },
+  { id: "outside-tv", name: "Outside TV", group: "Sports", country: "US",
+    logo: `${LOGO}/united-states/outside-tv-us.png`,
+    url: "https://outsidetv-oando.amagi.tv/playlist.m3u8" },
 
   // ── Entertainment ──────────────────────────────────────────────────────
   { id: "comet", name: "Comet TV", group: "Entertainment", country: "US",
@@ -69,15 +72,18 @@ export const CURATED_CHANNELS: CuratedChannel[] = [
     logo: `${LOGO}/united-states/the-pet-collective-us.png`,
     url: "https://the-pet-collective-international-in.samsung.wurl.tv/playlist.m3u8" },
 
-  // ── Music ──────────────────────────────────────────────────────────────
-  { id: "bon-appetit-247", name: "Bon Appétit 24/7", group: "Music", country: "US",
-    logo: `${LOGO}/united-states/bon-appetit-us.png`,
-    url: "https://bonappetit-samsung.amagi.tv/playlist.m3u8" },
+  // ── History / Documentary ──────────────────────────────────────────────
+  { id: "timeline", name: "Timeline", group: "History", country: "UK",
+    logo: `${LOGO}/united-kingdom/timeline-uk.png`,
+    url: "https://lds-timeline-plex.amagi.tv/playlist.m3u8" },
 
   // ── Kids ───────────────────────────────────────────────────────────────
   { id: "pbskids", name: "PBS Kids", group: "Kids", country: "US",
     logo: `${LOGO}/united-states/pbs-kids-us.png`,
     url: "https://livestream.pbskids.org/out/v1/14507d931bbe48a69287e4850e53443c/est.m3u8" },
+  { id: "moonbug", name: "Moonbug Kids", group: "Kids", country: "US",
+    logo: `${LOGO}/united-states/moonbug-us.png`,
+    url: "https://moonbug-rokuus.amagi.tv/playlist.m3u8" },
 ];
 
 export const CURATED_GROUPS = [
@@ -85,6 +91,6 @@ export const CURATED_GROUPS = [
   "Sports",
   "Entertainment",
   "Lifestyle",
-  "Music",
+  "History",
   "Kids",
 ];
