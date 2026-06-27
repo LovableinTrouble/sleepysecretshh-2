@@ -24,6 +24,7 @@ import { Route as SportsIdRouteImport } from './routes/sports.$id'
 import { Route as PersonIdRouteImport } from './routes/person.$id'
 import { Route as LiveIdRouteImport } from './routes/live.$id'
 import { Route as MediaTypeIdRouteImport } from './routes/media.$type.$id'
+import { Route as ApiPublicYtPlaylistRouteImport } from './routes/api/public/yt-playlist'
 import { Route as ApiPublicSubtitleRouteImport } from './routes/api/public/subtitle'
 import { Route as ApiPublicIptvProxyRouteImport } from './routes/api/public/iptv-proxy'
 import { Route as ApiPublicFebboxProxyRouteImport } from './routes/api/public/febbox-proxy'
@@ -105,6 +106,11 @@ const MediaTypeIdRoute = MediaTypeIdRouteImport.update({
   path: '/media/$type/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicYtPlaylistRoute = ApiPublicYtPlaylistRouteImport.update({
+  id: '/api/public/yt-playlist',
+  path: '/api/public/yt-playlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicSubtitleRoute = ApiPublicSubtitleRouteImport.update({
   id: '/api/public/subtitle',
   path: '/api/public/subtitle',
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
+  '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
 }
 export interface FileRoutesByTo {
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
+  '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
 }
 export interface FileRoutesById {
@@ -196,6 +204,7 @@ export interface FileRoutesById {
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
+  '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
 }
 export interface FileRouteTypes {
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
+    | '/api/public/yt-playlist'
     | '/media/$type/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
+    | '/api/public/yt-playlist'
     | '/media/$type/$id'
   id:
     | '__root__'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
+    | '/api/public/yt-playlist'
     | '/media/$type/$id'
   fileRoutesById: FileRoutesById
 }
@@ -286,6 +298,7 @@ export interface RootRouteChildren {
   ApiPublicFebboxProxyRoute: typeof ApiPublicFebboxProxyRoute
   ApiPublicIptvProxyRoute: typeof ApiPublicIptvProxyRoute
   ApiPublicSubtitleRoute: typeof ApiPublicSubtitleRoute
+  ApiPublicYtPlaylistRoute: typeof ApiPublicYtPlaylistRoute
   MediaTypeIdRoute: typeof MediaTypeIdRoute
 }
 
@@ -396,6 +409,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MediaTypeIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/yt-playlist': {
+      id: '/api/public/yt-playlist'
+      path: '/api/public/yt-playlist'
+      fullPath: '/api/public/yt-playlist'
+      preLoaderRoute: typeof ApiPublicYtPlaylistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/subtitle': {
       id: '/api/public/subtitle'
       path: '/api/public/subtitle'
@@ -464,18 +484,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicFebboxProxyRoute: ApiPublicFebboxProxyRoute,
   ApiPublicIptvProxyRoute: ApiPublicIptvProxyRoute,
   ApiPublicSubtitleRoute: ApiPublicSubtitleRoute,
+  ApiPublicYtPlaylistRoute: ApiPublicYtPlaylistRoute,
   MediaTypeIdRoute: MediaTypeIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

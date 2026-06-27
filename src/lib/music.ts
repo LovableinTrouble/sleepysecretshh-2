@@ -72,16 +72,14 @@ export function parsePlaylistId(input: string): string | null {
 export async function importInvidiousPlaylist(input: string): Promise<{ name: string; tracks: Track[] } | null> {
   const plid = parsePlaylistId(input);
   if (!plid) return null;
-  for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
-    const inst = INVIDIOUS_INSTANCES[(invIdx + i) % INVIDIOUS_INSTANCES.length];
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(`${inst}/api/v1/playlists/${plid}`, { signal: ctrl.signal });
-      clearTimeout(t);
-      if (!res.ok) throw new Error(String(res.status));
-      const data = await res.json();
-      const videos: any[] = data.videos || [];
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000);
+    const res = await fetch(`/api/public/yt-playlist?id=${encodeURIComponent(plid)}`, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const videos: any[] = data.videos || [];
       const tracks: Track[] = videos.map((v) => {
         const thumbs = v.videoThumbnails || [];
         const art = thumbs.find((x: any) => x.quality === "medium")?.url || thumbs[0]?.url || "";
@@ -100,12 +98,11 @@ export async function importInvidiousPlaylist(input: string): Promise<{ name: st
           videoId: v.videoId,
         };
       }).filter((t) => t.videoId);
-      return { name: data.title || "YouTube Playlist", tracks };
-    } catch {
-      // try next instance
-    }
+    if (!tracks.length) return null;
+    return { name: data.title || "YouTube Playlist", tracks };
+  } catch {
+    return null;
   }
-  return null;
 }
 
 let invIdx = 0;
