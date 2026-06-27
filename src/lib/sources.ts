@@ -25,7 +25,7 @@ const FEBBOX: Source = {
   kind: "febbox-direct", tier: "primary", build: () => "",
 };
 
-const VOIDX_HOST = atob("di56eGNzdHJlYW0ueHl6");
+const VOIDX_HOST = String.fromCharCode(118, 46, 122, 120, 99, 115, 116, 114, 101, 97, 109, 46, 120, 121, 122);
 
 // VoidX — the only embed provider. Modern free embed with built-in
 // player. Adblock-sandboxed so pop-up / redirect networks are neutered
