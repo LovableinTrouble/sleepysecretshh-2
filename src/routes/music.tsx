@@ -37,8 +37,8 @@ function MusicPage() {
         src="https://monochrome.tf"
         title="Monochrome Music"
         className="h-full w-full border-0"
-        allow="autoplay; encrypted-media; clipboard-write; fullscreen"
-        referrerPolicy="no-referrer"
+        allow="autoplay; encrypted-media; clipboard-read; clipboard-write; fullscreen; microphone; camera; midi; payment; accelerometer; gyroscope; picture-in-picture"
+        allowFullScreen
       />
 
       {showNotice && (

@@ -12,7 +12,6 @@ import {
   PictureInPicture2,
   Cast,
   ChevronLeft,
-  Download,
   RotateCcw,
   RotateCw,
 } from "lucide-react";
@@ -32,21 +31,10 @@ import {
   resolveFebboxStream,
   type ResolvedQuality,
 } from "@/lib/api/streams.functions";
-// Downloads are handled by the primary source (FebBox). Instead of opening
-// any external downloader, we surface a clean in-player notice telling the
-// user to manage downloads from Settings → Downloads.
-const DOWNLOADS_NOTICE_TEXT =
-  "Downloads are handled by your primary source. Open Settings → Downloads to configure.";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
 
 function buildSourceUrl(source: Source, media: Media, season?: number, episode?: number): string {
   return source.build(media, season, episode);
-}
-
-function buildVoidXDownloadUrl(media: Media, season?: number, episode?: number): string {
-  const host = String.fromCharCode(122, 120, 99, 115, 116, 114, 101, 97, 109, 46, 120, 121, 122);
-  if (media.type === "movie") return `https://${host}/download/movie/${media.id}`;
-  return `https://${host}/download/tv/${media.id}/${season ?? 1}/${episode ?? 1}`;
 }
 
 interface Props {
@@ -378,7 +366,6 @@ function FailedOverlay({
   onClose: () => void;
 }) {
   const [showLogs, setShowLogs] = useState(false);
-  const [showDownloads, setShowDownloads] = useState(false);
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-6 text-center text-white animate-fade-in">
@@ -423,24 +410,12 @@ function FailedOverlay({
           Open Settings
         </a>
         <button
-          type="button"
-          onClick={() => setShowDownloads(true)}
-          className="rounded-lg bg-white/10 px-5 h-10 inline-flex items-center text-sm font-medium text-white ring-1 ring-white/15 hover:bg-white/20"
-        >
-          Downloads
-        </button>
-        <button
           onClick={onClose}
           className="rounded-lg px-4 h-10 text-sm font-medium text-white/60 hover:text-white"
         >
           Close
         </button>
       </div>
-      {showDownloads && (
-        <div className="mt-3 max-w-sm rounded-lg bg-white/5 px-4 py-3 text-xs text-white/75 ring-1 ring-white/10 animate-fade-in">
-          {DOWNLOADS_NOTICE_TEXT}
-        </div>
-      )}
     </div>
   );
 }
@@ -590,7 +565,6 @@ function EmbedSurface({
 }) {
   const [settings] = useSettings();
   const [source, setSource] = useState(initialSource);
-  const [showDownloadsNotice, setShowDownloadsNotice] = useState(false);
   const embeds = useMemo(() => {
     const enabled = EMBED_SOURCES.filter((s) => (s.legacy ? Boolean(settings.useLegacyEmbeds) : true));
     const ordered = [initialSource, ...enabled.filter((s) => s.id !== initialSource.id)];
@@ -646,7 +620,6 @@ function EmbedSurface({
   const sandboxValue = "allow-scripts allow-same-origin allow-presentation allow-forms allow-downloads allow-downloads-without-user-activation" as const;
   const iframeSrc = buildSourceUrl(source, media, season, episode);
   const iframeExtra: { sandbox?: string } = source.noSandbox ? {} : { sandbox: sandboxValue };
-  const downloadUrl = buildVoidXDownloadUrl(media, season, episode);
 
   return (
     <div className="relative h-full w-full bg-black">
@@ -670,53 +643,6 @@ function EmbedSurface({
         </svg>
         <span className="hidden sm:inline">Back</span>
       </button>
-
-      <button
-        type="button"
-        onClick={() => setShowDownloadsNotice(true)}
-        className="absolute right-3 top-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/65 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-black/85 md:right-5 md:top-5"
-        aria-label="Downloads"
-        title="Downloads"
-      >
-        <Download className="h-[17px] w-[17px]" strokeWidth={2} />
-      </button>
-
-      {showDownloadsNotice && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm animate-fade-in"
-          onClick={() => setShowDownloadsNotice(false)}
-        >
-          <div
-            className="w-[min(92vw,430px)] rounded-2xl bg-zinc-950/95 p-6 text-center text-white ring-1 ring-white/10 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/30">
-              <Download className="h-5 w-5" strokeWidth={2} />
-            </div>
-            <h3 className="mt-3 text-base font-semibold">Open downloads</h3>
-            <p className="mt-2 text-sm leading-6 text-white/65">
-              The embedded player stays sandboxed to block popups. Use this clean download entry instead so downloads are not blocked by the iframe.
-            </p>
-            <div className="mt-5 flex items-center justify-center gap-2">
-              <a
-                href={downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg bg-primary px-4 h-9 inline-flex items-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-              >
-                Open download page
-              </a>
-              <button
-                type="button"
-                onClick={() => setShowDownloadsNotice(false)}
-                className="rounded-lg px-4 h-9 text-sm font-medium text-white/65 hover:text-white"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* SourceRail removed — VoidX is the only embed source. */}
 
@@ -847,7 +773,6 @@ function DirectVideo({
   const failedUrlsRef = useRef<Set<string>>(new Set());
   const playRequestRef = useRef(0);
   const playPendingRef = useRef(false);
-  const [showDownloadsNotice, setShowDownloadsNotice] = useState(false);
 
   const [error, setError] = useState(false);
   const [buffering, setBuffering] = useState(false);
@@ -1579,54 +1504,8 @@ function DirectVideo({
             {SOURCE_TIER_LABEL[sourceKey]}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowDownloadsNotice(true)}
-          className="pointer-events-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/15 backdrop-blur-md transition hover:bg-black/75"
-          aria-label="Downloads"
-          title="Downloads"
-        >
-          <Download className="h-[18px] w-[18px]" strokeWidth={2} />
-        </button>
       </div>
 
-
-      {showDownloadsNotice && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in"
-          onClick={() => setShowDownloadsNotice(false)}
-        >
-          <div
-            className="w-[min(92vw,420px)] rounded-2xl bg-zinc-950/95 p-6 text-center text-white ring-1 ring-white/10 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/30">
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <h3 className="mt-3 text-base font-semibold">Downloads handled by primary source</h3>
-            <p className="mt-2 text-sm text-white/65">
-              To manage downloads, head to <span className="font-medium text-white">Settings → Downloads</span> on your primary source.
-            </p>
-            <div className="mt-5 flex items-center justify-center gap-2">
-              <a
-                href="/settings"
-                className="rounded-lg bg-primary px-4 h-9 inline-flex items-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-              >
-                Open Settings
-              </a>
-              <button
-                type="button"
-                onClick={() => setShowDownloadsNotice(false)}
-                className="rounded-lg px-4 h-9 text-sm font-medium text-white/65 hover:text-white"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Subtitle style */}
       <style>{`

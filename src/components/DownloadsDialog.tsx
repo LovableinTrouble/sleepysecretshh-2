@@ -12,10 +12,14 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
   if (!open) return null;
 
   const isSeries = media.type === "tv" || media.type === "anime";
+  const mediaType = isSeries ? "tv" : "movie";
+  const src = isSeries
+    ? `https://www.rivestream.app/download?type=tv&id=${media.id}&season=${season ?? 1}&episode=${episode ?? 1}`
+    : `https://www.rivestream.app/download?type=movie&id=${media.id}`;
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-3 py-6 backdrop-blur-md animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-label="Downloads"
@@ -26,46 +30,44 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
         aria-label="Close downloads"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#050608]/95 p-6 text-center text-white shadow-[0_24px_80px_rgba(0,0,0,0.65)]">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/15 hover:text-white"
-          aria-label="Close downloads"
-        >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4">
-            <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-          </svg>
-        </button>
-
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/30">
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.1">
-            <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+      <div className="relative flex h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#050608]/95 shadow-[0_24px_80px_rgba(0,0,0,0.65)]">
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-white">Download · {media.title}</p>
+            <p className="truncate text-[11px] text-white/45">
+              {isSeries ? `S${season ?? 1} · E${episode ?? 1} · ` : ""}Powered by rivestream.app
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={src}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline-flex h-9 items-center rounded-full bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/15"
+            >
+              Open in new tab
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/15 hover:text-white"
+              aria-label="Close"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
         </div>
-
-        <h2 className="mt-4 text-xl font-black tracking-tight">Downloads handled by primary source</h2>
-        <p className="mt-2 text-sm font-medium text-white/45">
-          {media.title}{isSeries ? ` · S${season ?? 1} E${episode ?? 1}` : ""}
-        </p>
-
-        <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-left">
-          <p className="text-sm leading-6 text-white/72">
-            To download this title, open your primary source controls and go to{" "}
-            <span className="font-semibold text-white">Settings → Downloads</span>.
-          </p>
-          <p className="mt-3 text-xs leading-5 text-white/45">
-            This keeps downloads inside the configured primary source instead of sending you to outside pages.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-5 inline-flex h-10 items-center justify-center rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90"
-        >
-          Got it
-        </button>
+        <iframe
+          key={`${mediaType}-${media.id}-${season ?? 0}-${episode ?? 0}`}
+          src={src}
+          title={`Download ${media.title}`}
+          className="h-full w-full flex-1 border-0 bg-black"
+          allow="fullscreen; clipboard-write"
+          allowFullScreen
+          referrerPolicy="no-referrer"
+        />
       </div>
     </div>
   );
