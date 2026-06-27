@@ -92,19 +92,33 @@ function IptvPage() {
   return (
     <div className="relative min-h-screen pb-32 pt-20 md:pb-12 md:pt-12 animate-page-in">
       <header className="px-6 md:px-10">
-        <div className="flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/30">
-            <RadioTower className="h-6 w-6" strokeWidth={2.2} />
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/30">
+              <RadioTower className="h-6 w-6" strokeWidth={2.2} />
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-[0.4em] text-primary/80">Live · Free</div>
+              <h1 className="text-3xl font-black md:text-5xl">Live TV</h1>
+            </div>
           </div>
-          <div>
-            <div className="text-xs uppercase tracking-[0.4em] text-primary/80">Live · Free</div>
-            <h1 className="text-3xl font-black md:text-5xl">Live TV</h1>
-          </div>
+          <button
+            onClick={() => setImportOpen(true)}
+            className="mt-1 inline-flex shrink-0 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-2 text-xs font-bold text-primary ring-1 ring-primary/20 transition hover:bg-primary/15 md:text-sm"
+          >
+            <Upload className="h-4 w-4" strokeWidth={2.4} />
+            <span className="hidden sm:inline">Import playlist</span>
+            <span className="sm:hidden">Import</span>
+            {custom.length > 0 && (
+              <span className="rounded-full bg-primary/25 px-1.5 text-[10px] font-bold">{custom.length}</span>
+            )}
+          </button>
         </div>
         <p className="mt-3 max-w-xl text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
           <span className="live-dot" aria-hidden="true" />
           <span><span className="font-semibold text-foreground">{channels.length}</span> channels + live sports right now.</span>
           {favs.size > 0 && <span className="text-foreground/70">· {favs.size} favorited</span>}
+          {customChannels.length > 0 && <span className="text-foreground/70">· {customChannels.length} yours</span>}
         </p>
       </header>
 
