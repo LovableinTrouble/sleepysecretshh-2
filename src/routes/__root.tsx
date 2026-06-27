@@ -174,7 +174,38 @@ function AppShell() {
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.setAttribute("data-theme", settings.theme || "midnight-violet");
-  }, [settings.theme]);
+    const root = document.documentElement;
+    const vars = [
+      "--background", "--foreground", "--primary", "--primary-foreground",
+      "--card", "--card-foreground", "--accent", "--accent-foreground",
+      "--secondary", "--popover", "--popover-foreground", "--gradient-primary",
+    ];
+    // Clear any previously injected custom-theme overrides.
+    vars.forEach((v) => root.style.removeProperty(v));
+    if (settings.theme === "custom" && settings.customTheme) {
+      const c = settings.customTheme;
+      const isLight = (hex: string) => {
+        const m = hex.replace("#", "");
+        if (m.length < 6) return false;
+        const r = parseInt(m.slice(0, 2), 16);
+        const g = parseInt(m.slice(2, 4), 16);
+        const b = parseInt(m.slice(4, 6), 16);
+        return (0.299 * r + 0.587 * g + 0.114 * b) > 160;
+      };
+      root.style.setProperty("--background", c.background);
+      root.style.setProperty("--foreground", c.foreground);
+      root.style.setProperty("--card", c.card);
+      root.style.setProperty("--card-foreground", c.foreground);
+      root.style.setProperty("--popover", c.card);
+      root.style.setProperty("--popover-foreground", c.foreground);
+      root.style.setProperty("--secondary", c.card);
+      root.style.setProperty("--primary", c.primary);
+      root.style.setProperty("--primary-foreground", isLight(c.primary) ? "#0a0a0f" : "#ffffff");
+      root.style.setProperty("--accent", c.accent);
+      root.style.setProperty("--accent-foreground", isLight(c.accent) ? "#0a0a0f" : "#ffffff");
+      root.style.setProperty("--gradient-primary", `linear-gradient(135deg, ${c.primary}, ${c.accent})`);
+    }
+  }, [settings.theme, settings.customTheme]);
   useEffect(() => {
     if (typeof navigator === "undefined") return;
     if ("serviceWorker" in navigator) {

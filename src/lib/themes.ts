@@ -19,6 +19,7 @@ export const THEMES: ThemePreset[] = [
   { id: "crimson-ink",     name: "Crimson Ink",      description: "Almost-black with deep red.",           swatch: ["#0f0708", "#1d0c0f", "#ef4444"] },
   { id: "arctic",          name: "Arctic",           description: "Cool slate with icy blue.",             swatch: ["#0f1419", "#1e2731", "#7dd3fc"] },
   { id: "porcelain",       name: "Porcelain (Light)",description: "Bright neutral with cobalt accent.",    swatch: ["#f7f7f5", "#e8e6e1", "#2563eb"] },
+  { id: "custom",          name: "Custom",            description: "Pick your own colors below.",          swatch: ["#1a1a1a", "#2a2a2a", "#ffffff"] },
 ];
 
 export const DEFAULT_THEME_ID = "noir";
