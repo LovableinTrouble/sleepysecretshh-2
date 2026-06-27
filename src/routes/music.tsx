@@ -100,6 +100,7 @@ function MusicPage() {
 
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
   const [bg, setBg] = useState<[number, number, number]>([40, 40, 60]);
   const artRef = useRef<HTMLImageElement>(null);
 
