@@ -1,9 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Tv2, RadioTower, Star, Trophy, ArrowRight } from "lucide-react";
+import { Search, Tv2, RadioTower, Star, Trophy, ArrowRight, Upload, Trash2, Link2, ClipboardPaste, Loader2 } from "lucide-react";
 import { CURATED_CHANNELS, CURATED_GROUPS } from "@/lib/iptv-curated";
 import { fetchPpvAll, flattenEvents } from "@/lib/sports";
+import {
+  loadCustomPlaylists,
+  saveCustomPlaylists,
+  fetchAndParsePlaylist,
+  parseM3U,
+  type CustomPlaylist,
+} from "@/lib/iptv-custom";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/iptv")({
   head: () => ({
@@ -27,12 +37,15 @@ function IptvPage() {
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<string>("All");
   const [favs, setFavs] = useState<Set<string>>(() => new Set());
+  const [custom, setCustom] = useState<CustomPlaylist[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem("iptv:favs");
       if (raw) setFavs(new Set(JSON.parse(raw)));
     } catch {}
+    setCustom(loadCustomPlaylists());
   }, []);
 
   const toggleFav = (id: string) => {
