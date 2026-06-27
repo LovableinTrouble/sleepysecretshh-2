@@ -636,7 +636,7 @@ function EmbedSurface({
     return () => window.removeEventListener("message", handler, { capture: true });
   }, [source.id]);
 
-  const sandboxValue = "allow-scripts allow-same-origin allow-presentation allow-forms" as const;
+  const sandboxValue = "allow-scripts allow-same-origin allow-presentation allow-forms allow-downloads" as const;
   const iframeSrc = buildSourceUrl(source, media, season, episode);
   const iframeExtra: { sandbox?: string } = source.noSandbox ? {} : { sandbox: sandboxValue };
 
