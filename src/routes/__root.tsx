@@ -194,7 +194,34 @@ function AppShell() {
       )}
       <Outlet />
       <BottomNav />
+      <SiteFooter />
       <SharePopup />
     </div>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="relative z-10 mt-16 pb-24 md:pb-10 px-5">
+      <div className="mx-auto max-w-7xl rounded-2xl glass-strong px-6 py-6 text-sm text-white/70">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <div className="text-base font-semibold text-white tracking-tight">Sleepy</div>
+            <p className="max-w-xl text-white/60">
+              Stream movies, TV shows, anime, live sports and IPTV channels in one beautiful, fast UI.
+            </p>
+          </div>
+          <div className="text-xs text-white/50 md:text-right">
+            <div>DMCA / Takedown</div>
+            <a href="mailto:dmca@example.com" className="text-white/80 hover:text-white underline-offset-4 hover:underline">
+              dmca@example.com
+            </a>
+          </div>
+        </div>
+        <div className="mt-4 border-t border-white/10 pt-3 text-xs text-white/40">
+          © {new Date().getFullYear()} Sleepy. All trademarks belong to their respective owners.
+        </div>
+      </div>
+    </footer>
   );
 }
