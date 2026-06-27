@@ -185,6 +185,15 @@ async function handle(request: Request, method: "GET" | "HEAD"): Promise<Respons
     if (v) headers.set(h, v);
   }
 
+  // raw=1 — return upstream text verbatim (used when importing user M3U
+  // playlists so we don't rewrite per-channel stream URLs into proxy URLs).
+  if (url.searchParams.get("raw") === "1") {
+    const body = method === "HEAD" ? null : await upstream.text();
+    headers.set("content-type", ct || "text/plain; charset=utf-8");
+    headers.set("cache-control", "no-store");
+    return new Response(body, { status: upstream.status, headers });
+  }
+
   if (isPlaylist) {
     if (method === "HEAD") {
       headers.set("content-type", "application/vnd.apple.mpegurl");
