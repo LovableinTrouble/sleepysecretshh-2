@@ -2,9 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   Search, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat,
-  Search as SearchIcon, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat,
   Heart, Plus, ListMusic, Trash2, X, Shuffle, Clock, ExternalLink, ListOrdered, Download, Loader2,
 } from "lucide-react";
+
+// Clean custom music note glyph used in the header
+function NoteIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M9 18V6.2a1 1 0 0 1 .8-.98l8-1.6A1 1 0 0 1 19 4.6V16"
+            stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="6.5" cy="18" r="2.5" fill="currentColor"/>
+      <circle cx="16.5" cy="16" r="2.5" fill="currentColor"/>
+    </svg>
+  );
+}
 import {
   searchITunes, searchYouTube, fetchLyrics,
   loadPlaylists, savePlaylists, loadLiked, saveLiked,
