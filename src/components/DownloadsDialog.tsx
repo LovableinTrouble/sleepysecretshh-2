@@ -13,9 +13,11 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
 
   const isSeries = media.type === "tv" || media.type === "anime";
   const mediaType = isSeries ? "tv" : "movie";
+  
+  // Updated source link implementation for cinesrc.st
   const src = isSeries
-    ? `https://www.rivestream.app/download?type=tv&id=${media.id}&season=${season ?? 1}&episode=${episode ?? 1}`
-    : `https://www.rivestream.app/download?type=movie&id=${media.id}`;
+    ? `https://cinesrc.st{media.id}?s=${season ?? 1}&e=${episode ?? 1}`
+    : `https://cinesrc.st{media.id}`;
 
   return (
     <div
