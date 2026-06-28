@@ -122,12 +122,11 @@ function MusicPage() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "/") { e.preventDefault(); searchInputRef.current?.focus(); }
-      else if (e.code === "Space") { e.preventDefault(); toggleRef.current?.(); }
+      else if (e.code === "Space") { e.preventDefault(); mpToggle(); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, []);
-  const toggleRef = useRef<() => void>(() => {});
 
   // hide search results when clicking outside
   useEffect(() => {
@@ -140,57 +139,6 @@ function MusicPage() {
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
   }, []);
-
-  // YouTube init
-  useEffect(() => {
-    let killed = false;
-    loadYT().then(() => {
-      if (killed || !containerRef.current) return;
-      const div = document.createElement("div");
-      div.id = "yt-host";
-      containerRef.current.appendChild(div);
-      playerRef.current = new (window as any).YT.Player("yt-host", {
-        height: "0", width: "0", videoId: "",
-        host: "https://www.youtube-nocookie.com",
-        playerVars: { playsinline: 1, enablejsapi: 1, modestbranding: 1, rel: 0 },
-        events: {
-          onReady: () => playerRef.current?.setVolume(volume),
-          onStateChange: (e: any) => {
-            const YT = (window as any).YT;
-            if (e.data === YT.PlayerState.PLAYING) setPlaying(true);
-            else if (e.data === YT.PlayerState.PAUSED) setPlaying(false);
-            else if (e.data === YT.PlayerState.ENDED) {
-              if (repeatRef.current) { playerRef.current.seekTo(0); playerRef.current.playVideo(); }
-              else nextRef.current?.();
-            }
-          },
-        },
-      });
-    });
-    return () => { killed = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // refs to avoid stale closures in YT callbacks
-  const repeatRef = useRef(repeat);
-  useEffect(() => { repeatRef.current = repeat; }, [repeat]);
-  const nextRef = useRef<() => void>(() => {});
-
-  // progress poll
-  useEffect(() => {
-    const id = setInterval(() => {
-      const p = playerRef.current;
-      if (!p?.getCurrentTime) return;
-      try {
-        setProgress(p.getCurrentTime() || 0);
-        setDuration(p.getDuration() || 0);
-      } catch {}
-    }, 500);
-    return () => clearInterval(id);
-  }, []);
-
-  // volume control
-  useEffect(() => { try { playerRef.current?.setVolume?.(muted ? 0 : volume); } catch {} }, [volume, muted]);
 
   // search (debounced)
   useEffect(() => {
@@ -205,10 +153,8 @@ function MusicPage() {
 
   // play
   const play = useCallback(async (t: Track, list?: Track[], idx?: number) => {
-    setCurrent(t);
     setLyrics(null);
     setShowLyrics(false);
-    if (list) { setQueue(list); setQueueIdx(idx ?? 0); }
     setShowSearch(false);
     setQuery("");
     if (query.trim().length >= 2) setRecent(pushRecent(query.trim()));
@@ -217,36 +163,21 @@ function MusicPage() {
       try { localStorage.setItem("sleepy.music.recentplayed.v1", JSON.stringify(next)); } catch {}
       return next;
     });
-    // use direct video id when available (imported YT playlists), else lookup
-    const vid = t.videoId || await searchYouTube(`${t.title} ${t.artist} audio`);
-    if (vid && playerRef.current?.loadVideoById) {
-      playerRef.current.loadVideoById(vid);
-      playerRef.current.playVideo();
-    }
-    fetchLyrics(t.artist, t.title).then(setLyrics);
-  }, []);
+    await mpPlay(t, list, idx);
+  }, [query]);
 
-  const next = useCallback(() => {
-    if (!queue.length) return;
-    const ni = (queueIdx + 1) % queue.length;
-    setQueueIdx(ni);
-    play(queue[ni], queue, ni);
-  }, [queue, queueIdx, play]);
-  nextRef.current = next;
+  const next = mpNext;
+  const prev = mpPrev;
+  const toggle = mpToggle;
 
-  const prev = useCallback(() => {
-    if (progress > 4 && playerRef.current) { playerRef.current.seekTo(0); return; }
-    if (!queue.length) return;
-    const ni = (queueIdx - 1 + queue.length) % queue.length;
-    setQueueIdx(ni);
-    play(queue[ni], queue, ni);
-  }, [queue, queueIdx, progress, play]);
-
-  const toggle = () => {
-    const p = playerRef.current; if (!p) return;
-    if (playing) p.pauseVideo(); else p.playVideo();
-  };
-  toggleRef.current = toggle;
+  // Load lyrics whenever the globally-current track changes.
+  useEffect(() => {
+    if (!current) { setLyrics(null); return; }
+    let cancelled = false;
+    setLyrics(null);
+    fetchLyrics(current.artist, current.title).then((l) => { if (!cancelled) setLyrics(l); });
+    return () => { cancelled = true; };
+  }, [current?.id]);
 
   // ambient color from album art
   const onArtLoad = () => {
