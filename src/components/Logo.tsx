@@ -2,14 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 export function Logo({ size = 36, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 48 48"
-      fill="none"
-      className={className}
-      aria-label="Sleepy"
-    >
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className} aria-label="Sleepy">
       <defs>
         <linearGradient id="sleepyGrad" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="oklch(0.98 0.06 305)" />
@@ -41,12 +34,13 @@ export function LogoWord({ size = 32 }: { size?: number }) {
     <Link
       to="/"
       aria-label="Sleepy — Home"
-      className="group flex select-none items-center gap-2.5 rounded-full px-2 py-1.5 transition hover:opacity-90"
+      className="hidden group flex select-none items-center gap-2.5 rounded-full px-2 py-1.5 transition hover:opacity-90"
     >
-      <Logo size={size} className="animate-moon-glow drop-shadow-[0_0_12px_rgba(168,85,247,0.35)] transition-transform duration-500 group-hover:rotate-[-12deg] group-hover:scale-105" />
-      <span className="text-sm font-black leading-none tracking-[0.4em] gradient-text md:text-base">
-        Sleepy
-      </span>
+      <Logo
+        size={size}
+        className="animate-moon-glow drop-shadow-[0_0_12px_rgba(168,85,247,0.35)] transition-transform duration-500 group-hover:rotate-[-12deg] group-hover:scale-105"
+      />
+      <span className="text-sm font-black leading-none tracking-[0.4em] gradient-text md:text-base">Sleepy</span>
     </Link>
   );
 }
