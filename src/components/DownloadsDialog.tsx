@@ -35,7 +35,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-white">Download · {media.title}</p>
             <p className="truncate text-[11px] text-white/45">
-              {isSeries ? `S${season ?? 1} · E${episode ?? 1} · ` : ""}Powered by rivestream.app
+              {isSeries ? `S${season ?? 1} · E${episode ?? 1} · ` : ""}Powered by cinesrc
             </p>
           </div>
           <div className="flex items-center gap-2">
