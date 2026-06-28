@@ -105,11 +105,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:image:height", content: "672" },
       { name: "twitter:image", content: sleepyOg },
     ],
-    links: [
+   links: [
   { rel: "stylesheet", href: appCss },
   { rel: "manifest", href: "/manifest.webmanifest" },
-  { rel: "icon", type: "image/png", href: "/favicon.png" },
-  { rel: "apple-touch-icon", href: "/favicon.png" },
+  { rel: "icon", type: "image/png", href: voidIcon.url },
+  { rel: "apple-touch-icon", href: voidIcon.url },
   { rel: "preconnect", href: "https://image.tmdb.org", crossOrigin: "anonymous" },
   { rel: "dns-prefetch", href: "https://image.tmdb.org" },
   { rel: "preconnect", href: "https://api.themoviedb.org" },
