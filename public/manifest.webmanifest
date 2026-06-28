@@ -10,13 +10,13 @@
   "theme_color": "#0b0b12",
   "icons": [
     {
-      "src": "/__l5e/assets-v1/62dc114f-8c0e-4450-96b8-4d71c790f63f/void-icon.png",
+      "src": "/__l5e/assets-v1/6756bc2d-e67d-456a-a802-fd18fe709300/app-icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/__l5e/assets-v1/62dc114f-8c0e-4450-96b8-4d71c790f63f/void-icon.png",
+      "src": "/__l5e/assets-v1/6756bc2d-e67d-456a-a802-fd18fe709300/app-icon.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
