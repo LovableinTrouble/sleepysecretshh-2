@@ -33,7 +33,7 @@ export function MusicMiniPlayer() {
 
   return (
     <div
-      className={`fixed bottom-20 right-3 z-[60] w-[min(360px,calc(100vw-1.5rem))] md:bottom-24 md:right-4 transition-all duration-200 ease-out ${
+      className={`fixed bottom-20 right-3 z-[60] w-[min(340px,calc(100vw-1.5rem))] md:bottom-6 md:right-6 transition-all duration-200 ease-out ${
         closing ? "opacity-0 translate-y-3 scale-95 pointer-events-none" : "opacity-100 translate-y-0 scale-100 animate-fade-in"
       }`}
     >
