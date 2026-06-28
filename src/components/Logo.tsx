@@ -34,7 +34,7 @@ export function LogoWord({ size = 32 }: { size?: number }) {
     <Link
       to="/"
       aria-label="Sleepy — Home"
-      className="hidden group flex select-none items-center gap-2.5 rounded-full px-2 py-1.5 transition hover:opacity-90"
+      className="group flex select-none items-center gap-2.5 rounded-full px-2 py-1.5 transition hover:opacity-90"
     >
       <Logo
         size={size}
