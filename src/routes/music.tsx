@@ -17,7 +17,7 @@ function NoteIcon({ className = "" }: { className?: string }) {
   );
 }
 import {
-  searchITunes, searchYouTube, fetchLyrics,
+  searchITunes, fetchLyrics,
   loadPlaylists, savePlaylists, loadLiked, saveLiked,
   loadRecent, pushRecent, clearRecent,
   importInvidiousPlaylist,
