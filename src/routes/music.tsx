@@ -45,20 +45,6 @@ export const Route = createFileRoute("/music")({
   component: MusicPage,
 });
 
-// ---- YouTube IFrame API loader ----
-let ytReady: Promise<void> | null = null;
-function loadYT(): Promise<void> {
-  if (ytReady) return ytReady;
-  ytReady = new Promise((resolve) => {
-    if ((window as any).YT?.Player) return resolve();
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(tag);
-    (window as any).onYouTubeIframeAPIReady = () => resolve();
-  });
-  return ytReady;
-}
-
 function fmt(s: number) {
   if (!isFinite(s) || s < 0) s = 0;
   const m = Math.floor(s / 60);
