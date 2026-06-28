@@ -14,9 +14,9 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
   const isSeries = media.type === "tv" || media.type === "anime";
   const mediaType = isSeries ? "tv" : "movie";
   
-  // Updated source link implementation for cinesrc.st
+  // Explicitly formatted template strings with correct slash boundaries
   const src = isSeries
-    ? `https://cinesrc.st{media.id}?s=${season ?? 1}&e=${episode ?? 1}`
+    ? `https://cinesrc.st/download/tv/${media.id}?s=${season ?? 1}&e=${episode ?? 1}`
     : `https://cinesrc.st{media.id}`;
 
   return (
