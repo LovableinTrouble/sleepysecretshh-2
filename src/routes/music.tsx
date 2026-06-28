@@ -245,8 +245,7 @@ function MusicPage() {
   }, [view, liked, playlists]);
 
   const seek = (pct: number) => {
-    const p = playerRef.current; if (!p?.getDuration) return;
-    const d = p.getDuration(); p.seekTo(d * pct, true);
+    mpSeek(pct);
   };
 
   const shuffle = () => {
@@ -260,8 +259,6 @@ function MusicPage() {
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col text-foreground transition-[background] duration-700 overflow-hidden" style={{ background: grad }}>
-      <div ref={containerRef} className="absolute -z-10 h-0 w-0 overflow-hidden" />
-
       {/* Top bar */}
       <header className="flex items-center gap-3 px-4 py-3 md:grid md:grid-cols-[1fr_auto_1fr] md:px-6">
         <div className="hidden items-center gap-2 text-lg font-bold tracking-tight md:flex">
@@ -597,7 +594,7 @@ function MusicPage() {
                 {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
               </button>
               <button onClick={next} className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white"><SkipForward className="h-4 w-4" /></button>
-              <button onClick={() => setRepeat(r => !r)} className={`rounded-full p-2 hover:bg-white/10 ${repeat?"text-primary":"text-white/60"}`}><Repeat className="h-4 w-4" /></button>
+              <button onClick={() => mpSetRepeat(!repeat)} className={`rounded-full p-2 hover:bg-white/10 ${repeat?"text-primary":"text-white/60"}`}><Repeat className="h-4 w-4" /></button>
             </div>
             <div className="flex w-full max-w-xl items-center gap-2 text-[11px] text-white/60">
               <span className="w-9 text-right tabular-nums">{fmt(progress)}</span>
@@ -615,12 +612,12 @@ function MusicPage() {
           </div>
 
           <div className="hidden flex-1 items-center justify-end gap-2 md:flex">
-            <button onClick={() => setMuted(m => !m)} className="rounded-full p-2 text-white/70 hover:bg-white/10 hover:text-white">
+            <button onClick={() => mpSetMuted(!muted)} className="rounded-full p-2 text-white/70 hover:bg-white/10 hover:text-white">
               {muted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
             <input
               type="range" min={0} max={100} value={muted ? 0 : volume}
-              onChange={(e) => { setMuted(false); setVolume(Number(e.target.value)); }}
+              onChange={(e) => { mpSetMuted(false); mpSetVolume(Number(e.target.value)); }}
               className="h-1 w-24 cursor-pointer accent-white"
               aria-label="Volume"
             />
