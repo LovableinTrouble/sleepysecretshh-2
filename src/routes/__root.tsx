@@ -107,9 +107,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "icon", type: "image/png", href: voidIcon.url },
-      { rel: "apple-touch-icon", href: voidIcon.url },
+     { rel: "icon", type: "image/png", href: "/favicon.png" },
+{ rel: "apple-touch-icon", href: "/favicon.png" },
       // Warm up upstream connections so first image / first stream byte
       // arrives in one RTT instead of three (DNS + TCP + TLS).
       { rel: "preconnect", href: "https://image.tmdb.org", crossOrigin: "anonymous" },
