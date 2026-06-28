@@ -1,9 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import {
-  Search, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat,
-  Heart, Plus, ListMusic, Trash2, X, Shuffle, Clock, ExternalLink, ListOrdered, Download, Loader2,
-} from "lucide-react";
+import { Search, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Heart, Plus, ListMusic, Trash2, X, Shuffle, Clock, ExternalLink, ListOrdered, Download, Loader as Loader2 } from "lucide-react";
 
 // Clean custom music note glyph used in the header
 function NoteIcon({ className = "" }: { className?: string }) {
@@ -17,12 +14,23 @@ function NoteIcon({ className = "" }: { className?: string }) {
   );
 }
 import {
-  searchITunes, searchYouTube, fetchLyrics,
+  searchITunes, fetchLyrics,
   loadPlaylists, savePlaylists, loadLiked, saveLiked,
   loadRecent, pushRecent, clearRecent,
   importInvidiousPlaylist,
   type Track, type Playlist,
 } from "@/lib/music";
+import {
+  useMusicPlayer,
+  play as globalPlay,
+  toggle as globalToggle,
+  next as globalNext,
+  prev as globalPrev,
+  seek as globalSeek,
+  setVolume as globalSetVolume,
+  setMuted as globalSetMuted,
+  setRepeat as globalSetRepeat,
+} from "@/lib/music-player";
 
 export const Route = createFileRoute("/music")({
   head: () => ({
@@ -33,20 +41,6 @@ export const Route = createFileRoute("/music")({
   }),
   component: MusicPage,
 });
-
-// ---- YouTube IFrame API loader ----
-let ytReady: Promise<void> | null = null;
-function loadYT(): Promise<void> {
-  if (ytReady) return ytReady;
-  ytReady = new Promise((resolve) => {
-    if ((window as any).YT?.Player) return resolve();
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(tag);
-    (window as any).onYouTubeIframeAPIReady = () => resolve();
-  });
-  return ytReady;
-}
 
 function fmt(s: number) {
   if (!isFinite(s) || s < 0) s = 0;
@@ -63,21 +57,13 @@ function fmtMs(ms?: number) {
 const TRENDING = ["Taylor Swift", "The Weeknd", "Drake", "Billie Eilish", "Kendrick Lamar", "SZA"];
 
 function MusicPage() {
+  const player = useMusicPlayer();
+  const { current, queue, queueIdx, playing, progress, duration, volume, muted, repeat, loading } = player;
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Track[]>([]);
   const [searching, setSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-
-  const [current, setCurrent] = useState<Track | null>(null);
-  const [queue, setQueue] = useState<Track[]>([]);
-  const [queueIdx, setQueueIdx] = useState(0);
-
-  const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [repeat, setRepeat] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(80);
 
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [showLyrics, setShowLyrics] = useState(false);
@@ -87,7 +73,6 @@ function MusicPage() {
   const [view, setView] = useState<"home" | "liked" | string>("home"); // string = playlist id
   const [pickerFor, setPickerFor] = useState<Track | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
-  const [showQueue, setShowQueue] = useState(false);
   const [libQuery, setLibQuery] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -98,8 +83,6 @@ function MusicPage() {
   const [newPlName, setNewPlName] = useState("");
   const [pickerCreateMode, setPickerCreateMode] = useState(false);
 
-  const playerRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const [bg, setBg] = useState<[number, number, number]>([40, 40, 60]);
   const artRef = useRef<HTMLImageElement>(null);
@@ -108,10 +91,6 @@ function MusicPage() {
 
   useEffect(() => {
     try { setRecentPlayed(JSON.parse(localStorage.getItem("sleepy.music.recentplayed.v1") || "[]")); } catch {}
-  }, []);
-
-  const totalActiveMs = useMemo(() => {
-    return 0; // computed via activeList below; placeholder so refs resolve
   }, []);
 
   async function handleImport() {
@@ -135,12 +114,11 @@ function MusicPage() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "/") { e.preventDefault(); searchInputRef.current?.focus(); }
-      else if (e.code === "Space") { e.preventDefault(); toggleRef.current?.(); }
+      else if (e.code === "Space") { e.preventDefault(); globalToggle(); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, []);
-  const toggleRef = useRef<() => void>(() => {});
 
   // hide search results when clicking outside
   useEffect(() => {
@@ -154,57 +132,6 @@ function MusicPage() {
     return () => window.removeEventListener("mousedown", onDown);
   }, []);
 
-  // YouTube init
-  useEffect(() => {
-    let killed = false;
-    loadYT().then(() => {
-      if (killed || !containerRef.current) return;
-      const div = document.createElement("div");
-      div.id = "yt-host";
-      containerRef.current.appendChild(div);
-      playerRef.current = new (window as any).YT.Player("yt-host", {
-        height: "0", width: "0", videoId: "",
-        host: "https://www.youtube-nocookie.com",
-        playerVars: { playsinline: 1, enablejsapi: 1, modestbranding: 1, rel: 0 },
-        events: {
-          onReady: () => playerRef.current?.setVolume(volume),
-          onStateChange: (e: any) => {
-            const YT = (window as any).YT;
-            if (e.data === YT.PlayerState.PLAYING) setPlaying(true);
-            else if (e.data === YT.PlayerState.PAUSED) setPlaying(false);
-            else if (e.data === YT.PlayerState.ENDED) {
-              if (repeatRef.current) { playerRef.current.seekTo(0); playerRef.current.playVideo(); }
-              else nextRef.current?.();
-            }
-          },
-        },
-      });
-    });
-    return () => { killed = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // refs to avoid stale closures in YT callbacks
-  const repeatRef = useRef(repeat);
-  useEffect(() => { repeatRef.current = repeat; }, [repeat]);
-  const nextRef = useRef<() => void>(() => {});
-
-  // progress poll
-  useEffect(() => {
-    const id = setInterval(() => {
-      const p = playerRef.current;
-      if (!p?.getCurrentTime) return;
-      try {
-        setProgress(p.getCurrentTime() || 0);
-        setDuration(p.getDuration() || 0);
-      } catch {}
-    }, 500);
-    return () => clearInterval(id);
-  }, []);
-
-  // volume control
-  useEffect(() => { try { playerRef.current?.setVolume?.(muted ? 0 : volume); } catch {} }, [volume, muted]);
-
   // search (debounced)
   useEffect(() => {
     const q = query.trim();
@@ -216,50 +143,36 @@ function MusicPage() {
     return () => clearTimeout(t);
   }, [query]);
 
-  // play
+  // play wrapper that integrates with global player and local UI state
   const play = useCallback(async (t: Track, list?: Track[], idx?: number) => {
-    setCurrent(t);
     setLyrics(null);
     setShowLyrics(false);
-    if (list) { setQueue(list); setQueueIdx(idx ?? 0); }
     setShowSearch(false);
-    setQuery("");
-    if (query.trim().length >= 2) setRecent(pushRecent(query.trim()));
+    setQuery(t.title);
     setRecentPlayed(prev => {
       const next = [t, ...prev.filter(x => x.id !== t.id)].slice(0, 12);
       try { localStorage.setItem("sleepy.music.recentplayed.v1", JSON.stringify(next)); } catch {}
       return next;
     });
-    // use direct video id when available (imported YT playlists), else lookup
-    const vid = t.videoId || await searchYouTube(`${t.title} ${t.artist} audio`);
-    if (vid && playerRef.current?.loadVideoById) {
-      playerRef.current.loadVideoById(vid);
-      playerRef.current.playVideo();
-    }
+    await globalPlay(t, list, idx);
     fetchLyrics(t.artist, t.title).then(setLyrics);
   }, []);
 
   const next = useCallback(() => {
-    if (!queue.length) return;
-    const ni = (queueIdx + 1) % queue.length;
-    setQueueIdx(ni);
-    play(queue[ni], queue, ni);
-  }, [queue, queueIdx, play]);
-  nextRef.current = next;
+    globalNext();
+  }, []);
 
   const prev = useCallback(() => {
-    if (progress > 4 && playerRef.current) { playerRef.current.seekTo(0); return; }
-    if (!queue.length) return;
-    const ni = (queueIdx - 1 + queue.length) % queue.length;
-    setQueueIdx(ni);
-    play(queue[ni], queue, ni);
-  }, [queue, queueIdx, progress, play]);
+    globalPrev();
+  }, []);
 
-  const toggle = () => {
-    const p = playerRef.current; if (!p) return;
-    if (playing) p.pauseVideo(); else p.playVideo();
-  };
-  toggleRef.current = toggle;
+  const toggle = useCallback(() => {
+    globalToggle();
+  }, []);
+
+  const seek = useCallback((pct: number) => {
+    globalSeek(pct);
+  }, []);
 
   // ambient color from album art
   const onArtLoad = () => {
@@ -326,11 +239,6 @@ function MusicPage() {
     return pl?.tracks || [];
   }, [view, liked, playlists]);
 
-  const seek = (pct: number) => {
-    const p = playerRef.current; if (!p?.getDuration) return;
-    const d = p.getDuration(); p.seekTo(d * pct, true);
-  };
-
   const shuffle = () => {
     if (!activeList.length) return;
     const sh = [...activeList].sort(() => Math.random() - 0.5);
@@ -342,7 +250,6 @@ function MusicPage() {
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col text-foreground transition-[background] duration-700 overflow-hidden" style={{ background: grad }}>
-      <div ref={containerRef} className="absolute -z-10 h-0 w-0 overflow-hidden" />
 
       {/* Top bar */}
       <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 md:px-6">
@@ -676,10 +583,10 @@ function MusicPage() {
             <div className="flex items-center gap-2">
               <button onClick={prev} className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white"><SkipBack className="h-4 w-4" /></button>
               <button onClick={toggle} className="grid h-10 w-10 place-items-center rounded-full bg-white text-black hover:scale-105 transition">
-                {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
               </button>
               <button onClick={next} className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white"><SkipForward className="h-4 w-4" /></button>
-              <button onClick={() => setRepeat(r => !r)} className={`rounded-full p-2 hover:bg-white/10 ${repeat?"text-primary":"text-white/60"}`}><Repeat className="h-4 w-4" /></button>
+              <button onClick={() => globalSetRepeat(!repeat)} className={`rounded-full p-2 hover:bg-white/10 ${repeat?"text-primary":"text-white/60"}`}><Repeat className="h-4 w-4" /></button>
             </div>
             <div className="flex w-full max-w-xl items-center gap-2 text-[11px] text-white/60">
               <span className="w-9 text-right tabular-nums">{fmt(progress)}</span>
@@ -697,12 +604,12 @@ function MusicPage() {
           </div>
 
           <div className="hidden flex-1 items-center justify-end gap-2 md:flex">
-            <button onClick={() => setMuted(m => !m)} className="rounded-full p-2 text-white/70 hover:bg-white/10 hover:text-white">
+            <button onClick={() => globalSetMuted(!muted)} className="rounded-full p-2 text-white/70 hover:bg-white/10 hover:text-white">
               {muted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
             <input
               type="range" min={0} max={100} value={muted ? 0 : volume}
-              onChange={(e) => { setMuted(false); setVolume(Number(e.target.value)); }}
+              onChange={(e) => { globalSetMuted(false); globalSetVolume(Number(e.target.value)); }}
               className="h-1 w-24 cursor-pointer accent-white"
               aria-label="Volume"
             />
