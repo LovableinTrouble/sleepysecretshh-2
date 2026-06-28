@@ -65,16 +65,8 @@ function MusicPage() {
   const [searching, setSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
 
-  const [current, setCurrent] = useState<Track | null>(null);
-  const [queue, setQueue] = useState<Track[]>([]);
-  const [queueIdx, setQueueIdx] = useState(0);
-
-  const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [repeat, setRepeat] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(80);
+  const mp = useMusicPlayer();
+  const { current, queue, queueIdx, playing, muted, repeat, progress, duration, volume } = mp;
 
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [showLyrics, setShowLyrics] = useState(false);
@@ -95,8 +87,6 @@ function MusicPage() {
   const [newPlName, setNewPlName] = useState("");
   const [pickerCreateMode, setPickerCreateMode] = useState(false);
 
-  const playerRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const [bg, setBg] = useState<[number, number, number]>([40, 40, 60]);
   const artRef = useRef<HTMLImageElement>(null);
