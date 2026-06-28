@@ -11,21 +11,15 @@
   "icons": [
     {
       "src": "/__l5e/assets-v1/9d776c42-4223-4966-9911-9fb13e7b5f0b/app-icon.png",
-      "sizes": "1024x1024",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/__l5e/assets-v1/9d776c42-4223-4966-9911-9fb13e7b5f0b/app-icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/__l5e/assets-v1/9d776c42-4223-4966-9911-9fb13e7b5f0b/app-icon.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }
