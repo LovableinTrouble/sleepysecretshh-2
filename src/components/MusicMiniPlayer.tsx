@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Play, Pause, SkipBack, SkipForward, X, Loader2 } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, X, Loader as Loader2 } from "lucide-react";
 import { useMusicPlayer, toggle, next, prev, close, seek } from "@/lib/music-player";
 
 const HIDDEN_PREFIXES = ["/music"]; // never show on the music page itself
@@ -13,7 +13,7 @@ export function MusicMiniPlayer() {
 
   // If we land on a "player" route, stop music + remove popup.
   useEffect(() => {
-    if (STOP_PREFIXES.some((p) => loc.pathname.startsWith(p))) {
+    if (STOP_PREFIXES.some((p) => loc.pathname === p || loc.pathname.startsWith(p + "/"))) {
       close();
     }
   }, [loc.pathname]);
