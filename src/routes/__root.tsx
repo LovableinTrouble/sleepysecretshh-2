@@ -55,9 +55,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">This page didn't load</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
@@ -87,34 +85,47 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" },
+      {
+        name: "viewport",
+        content:
+          "width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover",
+      },
       { title: "Sleepy — Stream Everything" },
-      { name: "description", content: "Sleepy — stream movies, TV shows, anime, live sports and IPTV channels in one beautiful, fast UI." },
+      {
+        name: "description",
+        content: "Sleepy — stream movies, TV shows, anime, live sports and IPTV channels in one beautiful, fast UI.",
+      },
       { name: "author", content: "Sleepy" },
       { name: "theme-color", content: "#0b0b12" },
       { property: "og:site_name", content: "Sleepy" },
       { property: "og:title", content: "Sleepy — Stream Everything" },
-      { property: "og:description", content: "Stream movies, TV, anime, live sports and IPTV in one beautiful, fast UI." },
+      {
+        property: "og:description",
+        content: "Stream movies, TV, anime, live sports and IPTV in one beautiful, fast UI.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://xullys.xyz" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Sleepy — Stream Everything" },
-      { name: "twitter:description", content: "Stream movies, TV, anime, live sports and IPTV in one beautiful, fast UI." },
+      {
+        name: "twitter:description",
+        content: "Stream movies, TV, anime, live sports and IPTV in one beautiful, fast UI.",
+      },
       { property: "og:image", content: sleepyOg },
       { property: "og:image:width", content: "1280" },
       { property: "og:image:height", content: "672" },
       { name: "twitter:image", content: sleepyOg },
     ],
-   links: [
-  { rel: "stylesheet", href: appCss },
-  { rel: "manifest", href: "/manifest.webmanifest" },
-  { rel: "icon", type: "image/png", href: voidIcon.url },
-  { rel: "apple-touch-icon", href: voidIcon.url },
-  { rel: "preconnect", href: "https://image.tmdb.org", crossOrigin: "anonymous" },
-  { rel: "dns-prefetch", href: "https://image.tmdb.org" },
-  { rel: "preconnect", href: "https://api.themoviedb.org" },
-  { rel: "dns-prefetch", href: "https://api.themoviedb.org" },
-],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", type: "image/png", href: voidIcon.url },
+      { rel: "apple-touch-icon", href: voidIcon.url },
+      { rel: "preconnect", href: "https://image.tmdb.org", crossOrigin: "anonymous" },
+      { rel: "dns-prefetch", href: "https://image.tmdb.org" },
+      { rel: "preconnect", href: "https://api.themoviedb.org" },
+      { rel: "dns-prefetch", href: "https://api.themoviedb.org" },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -164,7 +175,10 @@ function AppShell() {
       const t = e.target as HTMLElement | null;
       const isTyping = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
       if (isTyping) return;
-      if (e.key === "/") { e.preventDefault(); navigate({ to: "/search" }); }
+      if (e.key === "/") {
+        e.preventDefault();
+        navigate({ to: "/search" });
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -184,13 +198,6 @@ function AppShell() {
     <div className={animOn ? "" : "no-anim"}>
       <AnimatedBackground />
       <BootLoader />
-      {settings.showLogo && (
-        <header className="fixed left-0 right-0 top-0 z-40 pointer-events-none px-5 py-4 md:hidden">
-          <div className="pointer-events-auto inline-flex rounded-full glass-strong px-2 py-1 shadow-[var(--shadow-glass)]">
-            <LogoWord size={28} />
-          </div>
-        </header>
-      )}
       <Outlet />
       <BottomNav />
       <SiteFooter />
@@ -213,7 +220,10 @@ function SiteFooter() {
           </div>
           <div className="text-xs text-white/50 md:text-right">
             <div>DMCA / Takedown</div>
-            <a href="mailto:slinkingtox@outlook.com" className="text-white/80 hover:text-white underline-offset-4 hover:underline">
+            <a
+              href="mailto:slinkingtox@outlook.com"
+              className="text-white/80 hover:text-white underline-offset-4 hover:underline"
+            >
               slinkingtox@outlook.com
             </a>
           </div>
