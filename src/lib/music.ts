@@ -109,21 +109,28 @@ export async function importInvidiousPlaylist(input: string): Promise<{ name: st
 }
 
 let invIdx = 0;
+/**
+ * Search YouTube via Invidious, biased toward auto-generated "- Topic" channels
+ * (YouTube's official artist channels for music). Falls back to the most-viewed
+ * non-Topic result if no Topic upload exists.
+ */
 export async function searchYouTube(query: string): Promise<string | null> {
-  const enc = encodeURIComponent(query);
+  const enc = encodeURIComponent(`${query} topic`);
   for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
     const inst = INVIDIOUS_INSTANCES[(invIdx + i) % INVIDIOUS_INSTANCES.length];
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 3500);
+      const t = setTimeout(() => ctrl.abort(), 5000);
       const res = await fetch(`${inst}/api/v1/search?q=${enc}&type=video&fields=videoId,title,author,viewCount,lengthSeconds`, { signal: ctrl.signal });
       clearTimeout(t);
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         invIdx = (invIdx + i) % INVIDIOUS_INSTANCES.length;
-        let best = data[0];
-        for (const v of data) if ((v.viewCount || 0) > (best.viewCount || 0)) best = v;
+        const topic = data.filter((v: any) => typeof v.author === "string" && /-\s*Topic\s*$/i.test(v.author));
+        const pool = topic.length ? topic : data;
+        let best = pool[0];
+        for (const v of pool) if ((v.viewCount || 0) > (best.viewCount || 0)) best = v;
         return best.videoId;
       }
     } catch {

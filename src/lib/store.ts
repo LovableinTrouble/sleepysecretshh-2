@@ -73,14 +73,6 @@ export interface Settings {
   autoDownload: boolean;
   /** Has user dismissed the first-visit uBlock recommendation? */
   ublockNoticeSeen: boolean;
-  /** Custom theme colors applied when `theme === "custom"`. */
-  customTheme: {
-    background: string;
-    foreground: string;
-    primary: string;
-    accent: string;
-    card: string;
-  };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -121,13 +113,6 @@ export const DEFAULT_SETTINGS: Settings = {
   showLogo: true,
   autoDownload: false,
   ublockNoticeSeen: false,
-  customTheme: {
-    background: "#0a0a0f",
-    foreground: "#fafafa",
-    primary: "#b06bff",
-    accent: "#5eead4",
-    card: "#15151c",
-  },
 };
 
 const KEY = "sleepy.settings.v2";

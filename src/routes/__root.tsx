@@ -14,13 +14,12 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import sleepyOg from "../assets/sleepy-og.jpg";
-import appIcon from "../assets/app-icon.png.asset.json";
+import voidIcon from "../assets/void-icon.png.asset.json";
 import { AnimatedBackground } from "../components/AnimatedBackground";
 import { BootLoader } from "../components/BootLoader";
 import { BottomNav } from "../components/BottomNav";
-
+import { LogoWord } from "../components/Logo";
 import { SharePopup } from "../components/SharePopup";
-import { MusicMiniPlayer } from "../components/MusicMiniPlayer";
 import { useSettings } from "../lib/store";
 
 function NotFoundComponent() {
@@ -89,29 +88,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" },
       { title: "Sleepy — Stream Everything" },
-      { name: "description", content: "Sleepy — stream movies, TV shows, anime, live sports, IPTV channels AND music! in one beautiful, fast UI." },
+      { name: "description", content: "Sleepy — stream movies, TV shows, anime, live sports and IPTV channels in one beautiful, fast UI." },
       { name: "author", content: "Sleepy" },
       { name: "theme-color", content: "#0b0b12" },
       { property: "og:site_name", content: "Sleepy" },
       { property: "og:title", content: "Sleepy — Stream Everything" },
-      { property: "og:description", content: "Sleepy — stream movies, TV shows, anime, live sports, IPTV channels AND music! in one beautiful, fast UI." },
+      { property: "og:description", content: "Stream movies, TV, anime, live sports and IPTV in one beautiful, fast UI." },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://xullys.xyz" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Sleepy — Stream Everything" },
-      { name: "twitter:description", content: "Sleepy — stream movies, TV shows, anime, live sports, IPTV channels AND music! in one beautiful, fast UI." },
+      { name: "twitter:description", content: "Stream movies, TV, anime, live sports and IPTV in one beautiful, fast UI." },
       { property: "og:image", content: sleepyOg },
       { property: "og:image:width", content: "1280" },
       { property: "og:image:height", content: "672" },
       { name: "twitter:image", content: sleepyOg },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/402e67e2-83b3-426b-bb07-42383bc0d38b/id-preview-0a05e91c--1c6205fc-0ad2-4c96-b540-95c04d82d13f.lovable.app-1782604124254.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/402e67e2-83b3-426b-bb07-42383bc0d38b/id-preview-0a05e91c--1c6205fc-0ad2-4c96-b540-95c04d82d13f.lovable.app-1782604124254.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "icon", type: "image/png", href: appIcon.url },
-      { rel: "apple-touch-icon", href: appIcon.url },
+      { rel: "icon", type: "image/png", href: voidIcon.url },
+      { rel: "apple-touch-icon", href: voidIcon.url },
       // Warm up upstream connections so first image / first stream byte
       // arrives in one RTT instead of three (DNS + TCP + TLS).
       { rel: "preconnect", href: "https://image.tmdb.org", crossOrigin: "anonymous" },
@@ -177,38 +174,7 @@ function AppShell() {
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.setAttribute("data-theme", settings.theme || "midnight-violet");
-    const root = document.documentElement;
-    const vars = [
-      "--background", "--foreground", "--primary", "--primary-foreground",
-      "--card", "--card-foreground", "--accent", "--accent-foreground",
-      "--secondary", "--popover", "--popover-foreground", "--gradient-primary",
-    ];
-    // Clear any previously injected custom-theme overrides.
-    vars.forEach((v) => root.style.removeProperty(v));
-    if (settings.theme === "custom" && settings.customTheme) {
-      const c = settings.customTheme;
-      const isLight = (hex: string) => {
-        const m = hex.replace("#", "");
-        if (m.length < 6) return false;
-        const r = parseInt(m.slice(0, 2), 16);
-        const g = parseInt(m.slice(2, 4), 16);
-        const b = parseInt(m.slice(4, 6), 16);
-        return (0.299 * r + 0.587 * g + 0.114 * b) > 160;
-      };
-      root.style.setProperty("--background", c.background);
-      root.style.setProperty("--foreground", c.foreground);
-      root.style.setProperty("--card", c.card);
-      root.style.setProperty("--card-foreground", c.foreground);
-      root.style.setProperty("--popover", c.card);
-      root.style.setProperty("--popover-foreground", c.foreground);
-      root.style.setProperty("--secondary", c.card);
-      root.style.setProperty("--primary", c.primary);
-      root.style.setProperty("--primary-foreground", isLight(c.primary) ? "#0a0a0f" : "#ffffff");
-      root.style.setProperty("--accent", c.accent);
-      root.style.setProperty("--accent-foreground", isLight(c.accent) ? "#0a0a0f" : "#ffffff");
-      root.style.setProperty("--gradient-primary", `linear-gradient(135deg, ${c.primary}, ${c.accent})`);
-    }
-  }, [settings.theme, settings.customTheme]);
+  }, [settings.theme]);
   useEffect(() => {
     if (typeof navigator === "undefined") return;
     if ("serviceWorker" in navigator) {
@@ -219,11 +185,17 @@ function AppShell() {
     <div className={animOn ? "" : "no-anim"}>
       <AnimatedBackground />
       <BootLoader />
+      {settings.showLogo && (
+        <header className="fixed left-0 right-0 top-0 z-40 pointer-events-none px-5 py-4 md:hidden">
+          <div className="pointer-events-auto inline-flex rounded-full glass-strong px-2 py-1 shadow-[var(--shadow-glass)]">
+            <LogoWord size={28} />
+          </div>
+        </header>
+      )}
       <Outlet />
       <BottomNav />
       <SiteFooter />
       <SharePopup />
-      <MusicMiniPlayer />
     </div>
   );
 }

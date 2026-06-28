@@ -299,16 +299,7 @@ export async function searchMulti(q: string): Promise<Media[]> {
   ]);
   return remember(d.results
     .filter((r) => r.poster_path && (r.media_type === "movie" || r.media_type === "tv") && isReleased(r) && isSafeForMode(r))
-    .map((r) => {
-      // Tag Japanese animated TV shows as "anime" so the Anime filter surfaces them.
-      const isAnime =
-        r.media_type === "tv" &&
-        r.original_language === "ja" &&
-        Array.isArray(r.genre_ids) &&
-        r.genre_ids.includes(16);
-      const kind: MediaKind = isAnime ? "anime" : r.media_type === "tv" ? "tv" : "movie";
-      return toMedia(r, kind, r.media_type === "tv" ? tg : mg);
-    }));
+    .map((r) => toMedia(r, r.media_type === "tv" ? "tv" : "movie", r.media_type === "tv" ? tg : mg)));
 }
 
 export async function fetchSimilar(media: Media): Promise<Media[]> {

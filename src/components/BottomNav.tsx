@@ -39,7 +39,8 @@ export function BottomNav() {
   if (
     loc.pathname === "/watch" ||
     loc.pathname.startsWith("/watch/") ||
-    loc.pathname.startsWith("/sports/")
+    loc.pathname.startsWith("/sports/") ||
+    loc.pathname === "/music"
   ) return null;
   return (
     <nav className="fixed bottom-3 left-1/2 z-40 w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 animate-fade-in md:bottom-6 md:w-auto">

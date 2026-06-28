@@ -275,11 +275,7 @@ function SettingsPage() {
                   className={`group relative overflow-hidden rounded-2xl border p-3 text-left transition ${active ? "border-primary ring-2 ring-primary/40" : "border-glass-border hover:border-primary/40"}`}
                 >
                   <div className="flex h-14 overflow-hidden rounded-xl">
-                    {t.id === "custom"
-                      ? [s.customTheme.background, s.customTheme.card, s.customTheme.primary, s.customTheme.accent].map((c, i) => (
-                          <div key={i} className="flex-1" style={{ background: c }} />
-                        ))
-                      : t.swatch.map((c, i) => <div key={i} className="flex-1" style={{ background: c }} />)}
+                    {t.swatch.map((c, i) => <div key={i} className="flex-1" style={{ background: c }} />)}
                   </div>
                   <div className="mt-2 truncate text-sm font-semibold">{t.name}</div>
                   <div className="truncate text-[11px] text-muted-foreground">{t.description}</div>
@@ -292,49 +288,6 @@ function SettingsPage() {
               );
             })}
           </div>
-          {s.theme === "custom" && (
-            <div className="mt-4 rounded-2xl border border-glass-border bg-background/40 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-semibold">Custom colors</div>
-                  <div className="text-[11px] text-muted-foreground">Applies live. Use any hex color.</div>
-                </div>
-                <button
-                  onClick={() => set({ customTheme: { background: "#0a0a0f", foreground: "#fafafa", primary: "#b06bff", accent: "#5eead4", card: "#15151c" } })}
-                  className="rounded-full bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground ring-1 ring-white/10 transition hover:bg-white/10 hover:text-foreground"
-                >
-                  Reset
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                {([
-                  ["background", "Background"],
-                  ["card", "Surface"],
-                  ["foreground", "Text"],
-                  ["primary", "Primary"],
-                  ["accent", "Accent"],
-                ] as const).map(([key, label]) => (
-                  <label key={key} className="flex flex-col gap-2 rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/5">
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={s.customTheme[key]}
-                        onChange={(e) => set({ customTheme: { ...s.customTheme, [key]: e.target.value } })}
-                        className="h-9 w-9 cursor-pointer rounded-lg border border-white/10 bg-transparent"
-                      />
-                      <input
-                        type="text"
-                        value={s.customTheme[key]}
-                        onChange={(e) => set({ customTheme: { ...s.customTheme, [key]: e.target.value } })}
-                        className="w-full rounded-lg bg-white/5 px-2 py-1.5 font-mono text-xs outline-none ring-1 ring-white/10 focus:ring-primary/40"
-                      />
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
         </Section>
 
         <Section title="Appearance" desc="Motion and density.">

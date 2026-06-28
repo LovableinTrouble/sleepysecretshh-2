@@ -17,23 +17,12 @@ function NoteIcon({ className = "" }: { className?: string }) {
   );
 }
 import {
-  searchITunes, fetchLyrics,
+  searchITunes, searchYouTube, fetchLyrics,
   loadPlaylists, savePlaylists, loadLiked, saveLiked,
   loadRecent, pushRecent, clearRecent,
   importInvidiousPlaylist,
   type Track, type Playlist,
 } from "@/lib/music";
-import {
-  useMusicPlayer,
-  play as mpPlay,
-  toggle as mpToggle,
-  next as mpNext,
-  prev as mpPrev,
-  seek as mpSeek,
-  setVolume as mpSetVolume,
-  setMuted as mpSetMuted,
-  setRepeat as mpSetRepeat,
-} from "@/lib/music-player";
 
 export const Route = createFileRoute("/music")({
   head: () => ({
@@ -44,6 +33,20 @@ export const Route = createFileRoute("/music")({
   }),
   component: MusicPage,
 });
+
+// ---- YouTube IFrame API loader ----
+let ytReady: Promise<void> | null = null;
+function loadYT(): Promise<void> {
+  if (ytReady) return ytReady;
+  ytReady = new Promise((resolve) => {
+    if ((window as any).YT?.Player) return resolve();
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+    (window as any).onYouTubeIframeAPIReady = () => resolve();
+  });
+  return ytReady;
+}
 
 function fmt(s: number) {
   if (!isFinite(s) || s < 0) s = 0;
@@ -65,8 +68,16 @@ function MusicPage() {
   const [searching, setSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
 
-  const mp = useMusicPlayer();
-  const { current, queue, queueIdx, playing, muted, repeat, progress, duration, volume } = mp;
+  const [current, setCurrent] = useState<Track | null>(null);
+  const [queue, setQueue] = useState<Track[]>([]);
+  const [queueIdx, setQueueIdx] = useState(0);
+
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [repeat, setRepeat] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(80);
 
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [showLyrics, setShowLyrics] = useState(false);
@@ -87,6 +98,8 @@ function MusicPage() {
   const [newPlName, setNewPlName] = useState("");
   const [pickerCreateMode, setPickerCreateMode] = useState(false);
 
+  const playerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const [bg, setBg] = useState<[number, number, number]>([40, 40, 60]);
   const artRef = useRef<HTMLImageElement>(null);
@@ -122,11 +135,12 @@ function MusicPage() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "/") { e.preventDefault(); searchInputRef.current?.focus(); }
-      else if (e.code === "Space") { e.preventDefault(); mpToggle(); }
+      else if (e.code === "Space") { e.preventDefault(); toggleRef.current?.(); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, []);
+  const toggleRef = useRef<() => void>(() => {});
 
   // hide search results when clicking outside
   useEffect(() => {
@@ -139,6 +153,57 @@ function MusicPage() {
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
   }, []);
+
+  // YouTube init
+  useEffect(() => {
+    let killed = false;
+    loadYT().then(() => {
+      if (killed || !containerRef.current) return;
+      const div = document.createElement("div");
+      div.id = "yt-host";
+      containerRef.current.appendChild(div);
+      playerRef.current = new (window as any).YT.Player("yt-host", {
+        height: "0", width: "0", videoId: "",
+        host: "https://www.youtube-nocookie.com",
+        playerVars: { playsinline: 1, enablejsapi: 1, modestbranding: 1, rel: 0 },
+        events: {
+          onReady: () => playerRef.current?.setVolume(volume),
+          onStateChange: (e: any) => {
+            const YT = (window as any).YT;
+            if (e.data === YT.PlayerState.PLAYING) setPlaying(true);
+            else if (e.data === YT.PlayerState.PAUSED) setPlaying(false);
+            else if (e.data === YT.PlayerState.ENDED) {
+              if (repeatRef.current) { playerRef.current.seekTo(0); playerRef.current.playVideo(); }
+              else nextRef.current?.();
+            }
+          },
+        },
+      });
+    });
+    return () => { killed = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // refs to avoid stale closures in YT callbacks
+  const repeatRef = useRef(repeat);
+  useEffect(() => { repeatRef.current = repeat; }, [repeat]);
+  const nextRef = useRef<() => void>(() => {});
+
+  // progress poll
+  useEffect(() => {
+    const id = setInterval(() => {
+      const p = playerRef.current;
+      if (!p?.getCurrentTime) return;
+      try {
+        setProgress(p.getCurrentTime() || 0);
+        setDuration(p.getDuration() || 0);
+      } catch {}
+    }, 500);
+    return () => clearInterval(id);
+  }, []);
+
+  // volume control
+  useEffect(() => { try { playerRef.current?.setVolume?.(muted ? 0 : volume); } catch {} }, [volume, muted]);
 
   // search (debounced)
   useEffect(() => {
@@ -153,8 +218,10 @@ function MusicPage() {
 
   // play
   const play = useCallback(async (t: Track, list?: Track[], idx?: number) => {
+    setCurrent(t);
     setLyrics(null);
     setShowLyrics(false);
+    if (list) { setQueue(list); setQueueIdx(idx ?? 0); }
     setShowSearch(false);
     setQuery("");
     if (query.trim().length >= 2) setRecent(pushRecent(query.trim()));
@@ -163,21 +230,36 @@ function MusicPage() {
       try { localStorage.setItem("sleepy.music.recentplayed.v1", JSON.stringify(next)); } catch {}
       return next;
     });
-    await mpPlay(t, list, idx);
-  }, [query]);
+    // use direct video id when available (imported YT playlists), else lookup
+    const vid = t.videoId || await searchYouTube(`${t.title} ${t.artist} audio`);
+    if (vid && playerRef.current?.loadVideoById) {
+      playerRef.current.loadVideoById(vid);
+      playerRef.current.playVideo();
+    }
+    fetchLyrics(t.artist, t.title).then(setLyrics);
+  }, []);
 
-  const next = mpNext;
-  const prev = mpPrev;
-  const toggle = mpToggle;
+  const next = useCallback(() => {
+    if (!queue.length) return;
+    const ni = (queueIdx + 1) % queue.length;
+    setQueueIdx(ni);
+    play(queue[ni], queue, ni);
+  }, [queue, queueIdx, play]);
+  nextRef.current = next;
 
-  // Load lyrics whenever the globally-current track changes.
-  useEffect(() => {
-    if (!current) { setLyrics(null); return; }
-    let cancelled = false;
-    setLyrics(null);
-    fetchLyrics(current.artist, current.title).then((l) => { if (!cancelled) setLyrics(l); });
-    return () => { cancelled = true; };
-  }, [current?.id]);
+  const prev = useCallback(() => {
+    if (progress > 4 && playerRef.current) { playerRef.current.seekTo(0); return; }
+    if (!queue.length) return;
+    const ni = (queueIdx - 1 + queue.length) % queue.length;
+    setQueueIdx(ni);
+    play(queue[ni], queue, ni);
+  }, [queue, queueIdx, progress, play]);
+
+  const toggle = () => {
+    const p = playerRef.current; if (!p) return;
+    if (playing) p.pauseVideo(); else p.playVideo();
+  };
+  toggleRef.current = toggle;
 
   // ambient color from album art
   const onArtLoad = () => {
@@ -245,7 +327,8 @@ function MusicPage() {
   }, [view, liked, playlists]);
 
   const seek = (pct: number) => {
-    mpSeek(pct);
+    const p = playerRef.current; if (!p?.getDuration) return;
+    const d = p.getDuration(); p.seekTo(d * pct, true);
   };
 
   const shuffle = () => {
@@ -259,12 +342,14 @@ function MusicPage() {
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col text-foreground transition-[background] duration-700 overflow-hidden" style={{ background: grad }}>
+      <div ref={containerRef} className="absolute -z-10 h-0 w-0 overflow-hidden" />
+
       {/* Top bar */}
-      <header className="flex items-center gap-3 px-4 py-3 md:grid md:grid-cols-[1fr_auto_1fr] md:px-6">
-        <div className="hidden items-center gap-2 text-lg font-bold tracking-tight md:flex">
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 md:px-6">
+        <div className="flex items-center gap-2 text-lg font-bold tracking-tight">
           <NoteIcon className="h-5 w-5 text-white/90" /> Music
         </div>
-        <div ref={searchWrapperRef} className="relative mx-auto w-full max-w-xl flex-1 justify-self-center md:flex-none">
+        <div ref={searchWrapperRef} className="relative mx-auto w-full max-w-xl justify-self-center">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
           <input
             ref={searchInputRef}
@@ -330,7 +415,7 @@ function MusicPage() {
             </div>
           )}
         </div>
-        <div className="hidden md:block" />
+        <div />
       </header>
 
       {/* Body */}
@@ -594,7 +679,7 @@ function MusicPage() {
                 {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
               </button>
               <button onClick={next} className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white"><SkipForward className="h-4 w-4" /></button>
-              <button onClick={() => mpSetRepeat(!repeat)} className={`rounded-full p-2 hover:bg-white/10 ${repeat?"text-primary":"text-white/60"}`}><Repeat className="h-4 w-4" /></button>
+              <button onClick={() => setRepeat(r => !r)} className={`rounded-full p-2 hover:bg-white/10 ${repeat?"text-primary":"text-white/60"}`}><Repeat className="h-4 w-4" /></button>
             </div>
             <div className="flex w-full max-w-xl items-center gap-2 text-[11px] text-white/60">
               <span className="w-9 text-right tabular-nums">{fmt(progress)}</span>
@@ -612,12 +697,12 @@ function MusicPage() {
           </div>
 
           <div className="hidden flex-1 items-center justify-end gap-2 md:flex">
-            <button onClick={() => mpSetMuted(!muted)} className="rounded-full p-2 text-white/70 hover:bg-white/10 hover:text-white">
+            <button onClick={() => setMuted(m => !m)} className="rounded-full p-2 text-white/70 hover:bg-white/10 hover:text-white">
               {muted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
             <input
               type="range" min={0} max={100} value={muted ? 0 : volume}
-              onChange={(e) => { mpSetMuted(false); mpSetVolume(Number(e.target.value)); }}
+              onChange={(e) => { setMuted(false); setVolume(Number(e.target.value)); }}
               className="h-1 w-24 cursor-pointer accent-white"
               aria-label="Volume"
             />
