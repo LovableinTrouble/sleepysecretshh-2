@@ -443,7 +443,7 @@ function MusicPage() {
           <div
             ref={searchPanelRef}
             style={searchPanelStyle}
-            className="fixed z-[120] overflow-y-auto rounded-2xl bg-black/90 p-2 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl overscroll-contain"
+            className="fixed z-[120] max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl bg-black/90 p-2 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl overscroll-contain"
           >
             {searching && <div className="p-3 text-sm text-white/60">Searching…</div>}
             {!searching && !results.length && (
