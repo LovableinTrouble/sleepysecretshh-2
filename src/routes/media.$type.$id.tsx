@@ -44,6 +44,7 @@ function MediaPage() {
   const [error, setError] = useState<string | null>(null);
   const [trailerOpen, setTrailerOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const [downloadEpisode, setDownloadEpisode] = useState<number | null>(null);
   const [shareToast, setShareToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -285,27 +286,49 @@ function MediaPage() {
               </div>
               <div className="space-y-2.5">
                 {episodes.slice(0, episodesShown).map((ep, i) => (
-                  <Link
+                  <div
                     key={ep.number}
-                    to="/watch/$id"
-                    params={{ id: String(media.id) }}
-                    search={{ t: media.type, s: season, e: ep.number }}
-                    onClick={() => stashWatchMedia(media)}
                     style={{ animationDelay: `${i * 40}ms` }}
-                    className={`group flex items-center gap-4 rounded-2xl p-3 transition-all duration-200 animate-soft-rise ${ep.number === episode ? "bg-primary/15 ring-1 ring-primary/40 shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--primary)_50%,transparent)]" : "ring-1 ring-white/[0.05] hover:bg-white/[0.05] hover:ring-white/15"}`}
+                    className={`group relative flex items-center gap-4 rounded-2xl p-3 transition-all duration-200 animate-soft-rise ${ep.number === episode ? "bg-primary/15 ring-1 ring-primary/40 shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--primary)_50%,transparent)]" : "ring-1 ring-white/[0.05] hover:bg-white/[0.05] hover:ring-white/15"}`}
                   >
-                    <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
+                    <Link
+                      to="/watch/$id"
+                      params={{ id: String(media.id) }}
+                      search={{ t: media.type, s: season, e: ep.number }}
+                      onClick={() => stashWatchMedia(media)}
+                      className="absolute inset-0 z-0 rounded-2xl"
+                      aria-label={`Play episode ${ep.number}`}
+                    />
+                    <div className="relative z-[1] h-20 w-32 shrink-0 overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10 pointer-events-none">
                       {ep.still && <img src={ep.still} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />}
                       <span className="absolute left-1.5 top-1.5 rounded-md bg-black/75 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white">E{ep.number}</span>
                     </div>
-                    <div className="min-w-0 flex-1">
+                    <div className="relative z-[1] min-w-0 flex-1 pointer-events-none">
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="truncate text-sm font-semibold">{ep.title}</span>
                         <span className="shrink-0 text-xs text-muted-foreground">{ep.runtime}</span>
                       </div>
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{ep.overview}</p>
                     </div>
-                  </Link>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDownloadEpisode(ep.number);
+                        setDownloadsOpen(true);
+                      }}
+                      title={`Download S${season} · E${ep.number}`}
+                      aria-label={`Download episode ${ep.number}`}
+                      className="relative z-[2] grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white/80 ring-1 ring-white/10 transition hover:bg-primary/30 hover:text-white hover:ring-primary/40"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 3v12" />
+                        <path d="m7 10 5 5 5-5" />
+                        <path d="M5 21h14" />
+                      </svg>
+                    </button>
+                  </div>
                 ))}
                 {episodes.length === 0 && (
                   <div className="rounded-2xl border border-white/10 p-8 text-center text-sm text-muted-foreground">Loading episodes…</div>
