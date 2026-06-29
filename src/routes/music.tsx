@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   Play,
@@ -431,11 +432,14 @@ function MusicPage() {
         <div />
       </header>
 
-      {showSearch && (
+      {showSearch &&
+        typeof document !== "undefined" &&
+        createPortal(
+          (
         <div
           ref={searchPanelRef}
           style={searchPanelStyle}
-          className="fixed z-[80] max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl bg-black/90 p-2 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl overscroll-contain"
+          className="fixed z-[120] max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl bg-black/90 p-2 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl overscroll-contain"
         >
           {searching && <div className="p-3 text-sm text-white/60">Searching…</div>}
           {!searching && !results.length && (
@@ -509,7 +513,9 @@ function MusicPage() {
             </button>
           ))}
         </div>
-      )}
+          ),
+          document.body,
+        )}
 
       {/* Body */}
       <div className="flex min-h-0 flex-1 gap-4 px-4 pb-48 md:px-6 md:pb-52">
