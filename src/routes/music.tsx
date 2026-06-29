@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import type { CSSProperties } from "react";
 import {
   Search,
   Play,
@@ -119,7 +120,7 @@ function MusicPage() {
 
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const searchPanelRef = useRef<HTMLDivElement>(null);
-  const [searchPanelStyle, setSearchPanelStyle] = useState<React.CSSProperties>({
+  const [searchPanelStyle, setSearchPanelStyle] = useState<CSSProperties>({
     left: 12,
     top: 92,
     width: "calc(100vw - 24px)",
