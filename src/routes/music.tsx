@@ -144,12 +144,12 @@ function MusicPage() {
       ? Math.max(280, viewportWidth - pad * 2)
       : Math.min(rect.width, viewportWidth - pad * 2);
     const left = isMobile ? pad : Math.max(pad, Math.min(rect.left, viewportWidth - panelWidth - pad));
-    const panelTop = rect.bottom + 8 + viewportTop;
-    const maxTop = viewportTop + viewportHeight - 80;
-    const top = Math.max(pad + viewportTop, Math.min(panelTop, maxTop));
-    const availableHeight = viewportTop + viewportHeight - top - pad;
+    const top = Math.max(
+      pad + viewportTop,
+      Math.min(rect.bottom + 8 + viewportTop, viewportTop + viewportHeight - 180),
+    );
 
-    setSearchPanelStyle({ left, top, width: panelWidth, maxHeight: Math.max(120, availableHeight) });
+    setSearchPanelStyle({ left, top, width: panelWidth });
   }, []);
 
   useEffect(() => {
