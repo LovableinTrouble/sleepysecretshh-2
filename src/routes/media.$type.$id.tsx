@@ -475,7 +475,16 @@ function MediaPage() {
           </div>
         </div>
       )}
-      <DownloadsDialog open={downloadsOpen} media={media} season={isSeries ? season : undefined} episode={isSeries ? episode : undefined} onClose={() => setDownloadsOpen(false)} />
+      <DownloadsDialog
+        open={downloadsOpen}
+        media={media}
+        season={isSeries ? season : undefined}
+        episode={isSeries ? (downloadEpisode ?? episode) : undefined}
+        onClose={() => {
+          setDownloadsOpen(false);
+          setDownloadEpisode(null);
+        }}
+      />
     </main>
   );
 }
