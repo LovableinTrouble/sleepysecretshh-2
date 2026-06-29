@@ -140,11 +140,16 @@ function MusicPage() {
     const viewportHeight = visualViewport?.height ?? window.innerHeight;
     const viewportTop = visualViewport?.offsetTop ?? 0;
     const isMobile = viewportWidth < 768;
-    const panelWidth = isMobile ? Math.max(280, viewportWidth - pad * 2) : Math.min(rect.width, viewportWidth - pad * 2);
+    const panelWidth = isMobile
+      ? Math.max(280, viewportWidth - pad * 2)
+      : Math.min(rect.width, viewportWidth - pad * 2);
     const left = isMobile ? pad : Math.max(pad, Math.min(rect.left, viewportWidth - panelWidth - pad));
-    const top = Math.max(pad + viewportTop, Math.min(rect.bottom + 8 + viewportTop, viewportTop + viewportHeight - 180));
+    const panelTop = rect.bottom + 8 + viewportTop;
+    const maxTop = viewportTop + viewportHeight - 80;
+    const top = Math.max(pad + viewportTop, Math.min(panelTop, maxTop));
+    const availableHeight = viewportTop + viewportHeight - top - pad;
 
-    setSearchPanelStyle({ left, top, width: panelWidth });
+    setSearchPanelStyle({ left, top, width: panelWidth, maxHeight: Math.max(120, availableHeight) });
   }, []);
 
   useEffect(() => {
@@ -435,85 +440,83 @@ function MusicPage() {
       {showSearch &&
         typeof document !== "undefined" &&
         createPortal(
-          (
-        <div
-          ref={searchPanelRef}
-          style={searchPanelStyle}
-          className="fixed z-[120] max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl bg-black/90 p-2 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl overscroll-contain"
-        >
-          {searching && <div className="p-3 text-sm text-white/60">Searching…</div>}
-          {!searching && !results.length && (
-            <div className="p-2">
-              {recent.length > 0 && (
-                <div className="mb-2">
-                  <div className="mb-1 flex items-center justify-between px-2 text-[11px] uppercase tracking-widest text-white/40">
-                    <span>Recent</span>
-                    <button
-                      onClick={() => {
-                        clearRecent();
-                        setRecent([]);
-                      }}
-                      className="text-white/40 hover:text-white"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 px-1">
-                    {recent.map((r) => (
+          <div
+            ref={searchPanelRef}
+            style={searchPanelStyle}
+            className="fixed z-[120] max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl bg-black/90 p-2 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl overscroll-contain"
+          >
+            {searching && <div className="p-3 text-sm text-white/60">Searching…</div>}
+            {!searching && !results.length && (
+              <div className="p-2">
+                {recent.length > 0 && (
+                  <div className="mb-2">
+                    <div className="mb-1 flex items-center justify-between px-2 text-[11px] uppercase tracking-widest text-white/40">
+                      <span>Recent</span>
                       <button
-                        key={r}
-                        onClick={() => setQuery(r)}
-                        className="rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/15"
+                        onClick={() => {
+                          clearRecent();
+                          setRecent([]);
+                        }}
+                        className="text-white/40 hover:text-white"
                       >
-                        {r}
+                        Clear
                       </button>
-                    ))}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 px-1">
+                      {recent.map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => setQuery(r)}
+                          className="rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/15"
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="mb-1 px-2 text-[11px] uppercase tracking-widest text-white/40">Trending</div>
+                <div className="flex flex-wrap gap-1.5 px-1">
+                  {TRENDING.map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setQuery(r)}
+                      className="rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/15"
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {results.map((t, i) => (
+              <button
+                key={t.id}
+                onClick={() => play(t, results, i)}
+                className="flex w-full min-w-0 items-center gap-3 rounded-xl p-2 text-left hover:bg-white/10 active:bg-white/15"
+              >
+                <img src={t.artwork} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{t.title}</div>
+                  <div className="truncate text-xs text-white/60">
+                    {t.artist}
+                    {t.year ? <span className="text-white/40"> · {t.year}</span> : null}
+                    {t.genre ? <span className="text-white/40"> · {t.genre}</span> : null}
                   </div>
                 </div>
-              )}
-              <div className="mb-1 px-2 text-[11px] uppercase tracking-widest text-white/40">Trending</div>
-              <div className="flex flex-wrap gap-1.5 px-1">
-                {TRENDING.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setQuery(r)}
-                    className="rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/15"
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {results.map((t, i) => (
-            <button
-              key={t.id}
-              onClick={() => play(t, results, i)}
-              className="flex w-full min-w-0 items-center gap-3 rounded-xl p-2 text-left hover:bg-white/10 active:bg-white/15"
-            >
-              <img src={t.artwork} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{t.title}</div>
-                <div className="truncate text-xs text-white/60">
-                  {t.artist}
-                  {t.year ? <span className="text-white/40"> · {t.year}</span> : null}
-                  {t.genre ? <span className="text-white/40"> · {t.genre}</span> : null}
-                </div>
-              </div>
-              {t.durationMs ? (
-                <span className="hidden text-[11px] tabular-nums text-white/50 sm:inline">{fmtMs(t.durationMs)}</span>
-              ) : null}
-              <Plus
-                className="h-9 w-9 shrink-0 rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPickerFor(t);
-                }}
-              />
-            </button>
-          ))}
-        </div>
-          ),
+                {t.durationMs ? (
+                  <span className="hidden text-[11px] tabular-nums text-white/50 sm:inline">{fmtMs(t.durationMs)}</span>
+                ) : null}
+                <Plus
+                  className="h-9 w-9 shrink-0 rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPickerFor(t);
+                  }}
+                />
+              </button>
+            ))}
+          </div>,
           document.body,
         )}
 
