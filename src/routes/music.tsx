@@ -118,8 +118,32 @@ function MusicPage() {
   const [pickerCreateMode, setPickerCreateMode] = useState(false);
 
   const searchWrapperRef = useRef<HTMLDivElement>(null);
+  const searchPanelRef = useRef<HTMLDivElement>(null);
+  const [searchPanelStyle, setSearchPanelStyle] = useState<React.CSSProperties>({
+    left: 12,
+    top: 92,
+    width: "calc(100vw - 24px)",
+  });
   const [bg, setBg] = useState<[number, number, number]>([40, 40, 60]);
   const artRef = useRef<HTMLImageElement>(null);
+
+  const positionSearchPanel = useCallback(() => {
+    const el = searchWrapperRef.current;
+    if (!el || typeof window === "undefined") return;
+
+    const rect = el.getBoundingClientRect();
+    const pad = 12;
+    const visualViewport = window.visualViewport;
+    const viewportWidth = visualViewport?.width ?? window.innerWidth;
+    const viewportHeight = visualViewport?.height ?? window.innerHeight;
+    const viewportTop = visualViewport?.offsetTop ?? 0;
+    const isMobile = viewportWidth < 768;
+    const panelWidth = isMobile ? Math.max(280, viewportWidth - pad * 2) : Math.min(rect.width, viewportWidth - pad * 2);
+    const left = isMobile ? pad : Math.max(pad, Math.min(rect.left, viewportWidth - panelWidth - pad));
+    const top = Math.max(pad + viewportTop, Math.min(rect.bottom + 8 + viewportTop, viewportTop + viewportHeight - 180));
+
+    setSearchPanelStyle({ left, top, width: panelWidth });
+  }, []);
 
   useEffect(() => {
     setPlaylists(loadPlaylists());
@@ -183,7 +207,8 @@ function MusicPage() {
     const onDown = (e: PointerEvent) => {
       if (!enabled) return;
       if (!searchWrapperRef.current) return;
-      if (!searchWrapperRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (!searchWrapperRef.current.contains(target) && !searchPanelRef.current?.contains(target)) {
         setShowSearch(false);
       }
     };
@@ -193,6 +218,22 @@ function MusicPage() {
       window.removeEventListener("pointerdown", onDown);
     };
   }, [showSearch]);
+
+  useEffect(() => {
+    if (!showSearch) return;
+    positionSearchPanel();
+    const onMove = () => positionSearchPanel();
+    window.addEventListener("resize", onMove);
+    window.addEventListener("scroll", onMove, true);
+    window.visualViewport?.addEventListener("resize", onMove);
+    window.visualViewport?.addEventListener("scroll", onMove);
+    return () => {
+      window.removeEventListener("resize", onMove);
+      window.removeEventListener("scroll", onMove, true);
+      window.visualViewport?.removeEventListener("resize", onMove);
+      window.visualViewport?.removeEventListener("scroll", onMove);
+    };
+  }, [positionSearchPanel, showSearch]);
 
   // search (debounced)
   useEffect(() => {
@@ -359,8 +400,12 @@ function MusicPage() {
             onChange={(e) => {
               setQuery(e.target.value);
               setShowSearch(true);
+              requestAnimationFrame(positionSearchPanel);
             }}
-            onFocus={() => setShowSearch(true)}
+            onFocus={() => {
+              setShowSearch(true);
+              requestAnimationFrame(positionSearchPanel);
+            }}
             placeholder="Search songs, artists, albums…"
             className="w-full rounded-full bg-white/10 py-2.5 pl-10 pr-16 text-sm text-white placeholder:text-white/50 outline-none ring-1 ring-white/10 backdrop-blur focus:bg-white/15 focus:ring-white/30"
           />
@@ -381,41 +426,35 @@ function MusicPage() {
               /
             </kbd>
           )}
-          {showSearch && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl bg-black/80 p-2 ring-1 ring-white/10 backdrop-blur-xl">
-              {searching && <div className="p-3 text-sm text-white/60">Searching…</div>}
-              {!searching && !results.length && (
-                <div className="p-2">
-                  {recent.length > 0 && (
-                    <div className="mb-2">
-                      <div className="mb-1 flex items-center justify-between px-2 text-[11px] uppercase tracking-widest text-white/40">
-                        <span>Recent</span>
-                        <button
-                          onClick={() => {
-                            clearRecent();
-                            setRecent([]);
-                          }}
-                          className="text-white/40 hover:text-white"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 px-1">
-                        {recent.map((r) => (
-                          <button
-                            key={r}
-                            onClick={() => setQuery(r)}
-                            className="rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/15"
-                          >
-                            {r}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="mb-1 px-2 text-[11px] uppercase tracking-widest text-white/40">Trending</div>
+        </div>
+        <div />
+      </header>
+
+      {showSearch && (
+        <div
+          ref={searchPanelRef}
+          style={searchPanelStyle}
+          className="fixed z-[80] max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl bg-black/90 p-2 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl overscroll-contain"
+        >
+          {searching && <div className="p-3 text-sm text-white/60">Searching…</div>}
+          {!searching && !results.length && (
+            <div className="p-2">
+              {recent.length > 0 && (
+                <div className="mb-2">
+                  <div className="mb-1 flex items-center justify-between px-2 text-[11px] uppercase tracking-widest text-white/40">
+                    <span>Recent</span>
+                    <button
+                      onClick={() => {
+                        clearRecent();
+                        setRecent([]);
+                      }}
+                      className="text-white/40 hover:text-white"
+                    >
+                      Clear
+                    </button>
+                  </div>
                   <div className="flex flex-wrap gap-1.5 px-1">
-                    {TRENDING.map((r) => (
+                    {recent.map((r) => (
                       <button
                         key={r}
                         onClick={() => setQuery(r)}
@@ -427,40 +466,49 @@ function MusicPage() {
                   </div>
                 </div>
               )}
-              {results.map((t, i) => (
-                <button
-                  key={t.id}
-                  onClick={() => play(t, results, i)}
-                  className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-white/10"
-                >
-                  <img src={t.artwork} alt="" className="h-10 w-10 rounded-md" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{t.title}</div>
-                    <div className="truncate text-xs text-white/60">
-                      {t.artist}
-                      {t.year ? <span className="text-white/40"> · {t.year}</span> : null}
-                      {t.genre ? <span className="text-white/40"> · {t.genre}</span> : null}
-                    </div>
-                  </div>
-                  {t.durationMs ? (
-                    <span className="hidden text-[11px] tabular-nums text-white/50 sm:inline">
-                      {fmtMs(t.durationMs)}
-                    </span>
-                  ) : null}
-                  <Plus
-                    className="h-4 w-4 shrink-0 text-white/60 hover:text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPickerFor(t);
-                    }}
-                  />
-                </button>
-              ))}
+              <div className="mb-1 px-2 text-[11px] uppercase tracking-widest text-white/40">Trending</div>
+              <div className="flex flex-wrap gap-1.5 px-1">
+                {TRENDING.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setQuery(r)}
+                    className="rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/15"
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
+          {results.map((t, i) => (
+            <button
+              key={t.id}
+              onClick={() => play(t, results, i)}
+              className="flex w-full min-w-0 items-center gap-3 rounded-xl p-2 text-left hover:bg-white/10 active:bg-white/15"
+            >
+              <img src={t.artwork} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{t.title}</div>
+                <div className="truncate text-xs text-white/60">
+                  {t.artist}
+                  {t.year ? <span className="text-white/40"> · {t.year}</span> : null}
+                  {t.genre ? <span className="text-white/40"> · {t.genre}</span> : null}
+                </div>
+              </div>
+              {t.durationMs ? (
+                <span className="hidden text-[11px] tabular-nums text-white/50 sm:inline">{fmtMs(t.durationMs)}</span>
+              ) : null}
+              <Plus
+                className="h-9 w-9 shrink-0 rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPickerFor(t);
+                }}
+              />
+            </button>
+          ))}
         </div>
-        <div />
-      </header>
+      )}
 
       {/* Body */}
       <div className="flex min-h-0 flex-1 gap-4 px-4 pb-48 md:px-6 md:pb-52">
