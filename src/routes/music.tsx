@@ -347,11 +347,11 @@ function MusicPage() {
       style={{ background: grad }}
     >
       {/* Top bar */}
-      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 md:px-6">
+      <header className="flex flex-col gap-2 px-4 py-3 md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-3 md:px-6">
         <div className="flex items-center gap-2 text-lg font-bold tracking-tight">
           <NoteIcon className="h-5 w-5 text-white/90" /> Music
         </div>
-        <div ref={searchWrapperRef} className="relative mx-auto w-full max-w-xl justify-self-center">
+        <div ref={searchWrapperRef} className="relative w-full md:mx-auto md:max-w-xl md:justify-self-center">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
           <input
             ref={searchInputRef}
