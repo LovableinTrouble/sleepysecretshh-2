@@ -870,7 +870,18 @@ function MusicPage() {
                         {fmtMs(t.durationMs)}
                       </span>
                     ) : null}
-                    {view === "liked" ? (
+                    {typeof view === "string" && (view.startsWith("artist:") || view.startsWith("genre:")) ? (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPickerFor(t);
+                        }}
+                        className="rounded p-1.5 text-white/60 opacity-0 hover:bg-white/10 hover:text-white group-hover:opacity-100"
+                        aria-label="Add to playlist"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </span>
+                    ) : view === "liked" ? (
                       <span
                         onClick={(e) => {
                           e.stopPropagation();
@@ -894,9 +905,16 @@ function MusicPage() {
                     )}
                   </button>
                 ))}
-                {!activeList.length && (
+                {!activeList.length && !dynLoading && (
                   <div className="rounded-xl bg-white/5 p-6 text-center text-sm text-white/60">
-                    No songs yet. Search above and tap + to add.
+                    {typeof view === "string" && (view.startsWith("artist:") || view.startsWith("genre:"))
+                      ? "No results — try a different search."
+                      : "No songs yet. Search above and tap + to add."}
+                  </div>
+                )}
+                {dynLoading && (
+                  <div className="grid place-items-center rounded-xl bg-white/5 p-6 text-sm text-white/60">
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   </div>
                 )}
               </div>
