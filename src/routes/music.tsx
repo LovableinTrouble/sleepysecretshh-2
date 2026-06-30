@@ -92,6 +92,21 @@ function fmtMs(ms?: number) {
 
 const TRENDING = ["Taylor Swift", "The Weeknd", "Drake", "Billie Eilish", "Kendrick Lamar", "SZA"];
 
+const GENRES: { name: string; query: string; gradient: string }[] = [
+  { name: "Pop", query: "pop hits", gradient: "from-pink-500 to-rose-600" },
+  { name: "Hip-Hop", query: "hip hop", gradient: "from-amber-500 to-orange-700" },
+  { name: "R&B", query: "rnb soul", gradient: "from-purple-500 to-fuchsia-700" },
+  { name: "Rock", query: "rock", gradient: "from-red-500 to-zinc-800" },
+  { name: "Electronic", query: "electronic dance", gradient: "from-cyan-400 to-blue-700" },
+  { name: "Indie", query: "indie", gradient: "from-emerald-400 to-teal-700" },
+  { name: "Country", query: "country", gradient: "from-yellow-500 to-amber-800" },
+  { name: "K-Pop", query: "kpop", gradient: "from-pink-400 to-violet-600" },
+  { name: "Latin", query: "latin reggaeton", gradient: "from-orange-400 to-red-700" },
+  { name: "Jazz", query: "jazz", gradient: "from-blue-400 to-indigo-800" },
+  { name: "Classical", query: "classical orchestra", gradient: "from-slate-400 to-zinc-700" },
+  { name: "Lo-fi", query: "lofi chill beats", gradient: "from-violet-400 to-indigo-700" },
+];
+
 function MusicPage() {
   const player = useMusicPlayer();
   const { current, queue, queueIdx, playing, progress, duration, volume, muted, repeat, loading } = player;
@@ -118,6 +133,10 @@ function MusicPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newPlName, setNewPlName] = useState("");
   const [pickerCreateMode, setPickerCreateMode] = useState(false);
+
+  // dynamic list for artist:/genre: views
+  const [dynList, setDynList] = useState<Track[]>([]);
+  const [dynLoading, setDynLoading] = useState(false);
 
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const searchPanelRef = useRef<HTMLDivElement>(null);
@@ -163,6 +182,39 @@ function MusicPage() {
       setRecentPlayed(JSON.parse(localStorage.getItem("sleepy.music.recentplayed.v1") || "[]"));
     } catch {}
   }, []);
+
+  // load tracks for artist:/genre: views
+  useEffect(() => {
+    if (typeof view !== "string") return;
+    if (!view.startsWith("artist:") && !view.startsWith("genre:")) return;
+    const q = view.startsWith("artist:") ? view.slice(7) : view.slice(6);
+    let cancelled = false;
+    setDynLoading(true);
+    setDynList([]);
+    searchITunes(q, 25)
+      .then((rs) => {
+        if (!cancelled) setDynList(rs);
+      })
+      .finally(() => {
+        if (!cancelled) setDynLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
+
+  // suggested artists derived from liked + recently played
+  const suggestedArtists = useMemo(() => {
+    const counts = new Map<string, { name: string; art: string; n: number }>();
+    for (const t of [...liked, ...recentPlayed]) {
+      if (!t.artist) continue;
+      const k = t.artist.toLowerCase();
+      const cur = counts.get(k);
+      if (cur) cur.n++;
+      else counts.set(k, { name: t.artist, art: t.artworkHi || t.artwork, n: 1 });
+    }
+    return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 8);
+  }, [liked, recentPlayed]);
 
   async function handleImport() {
     setImporting(true);
@@ -376,9 +428,10 @@ function MusicPage() {
 
   const activeList: Track[] = useMemo(() => {
     if (view === "liked") return liked;
+    if (typeof view === "string" && (view.startsWith("artist:") || view.startsWith("genre:"))) return dynList;
     const pl = playlists.find((p) => p.id === view);
     return pl?.tracks || [];
-  }, [view, liked, playlists]);
+  }, [view, liked, playlists, dynList]);
 
   const shuffle = () => {
     if (!activeList.length) return;
