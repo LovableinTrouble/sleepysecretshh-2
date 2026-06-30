@@ -2,10 +2,10 @@ import type { Media } from "./catalog";
 import type { Settings } from "./store";
 
 /**
- * Source registry — VoidX only.
+ * Source registry — VidAPI (vaplayer.ru) embed.
  *
- * The only embed provider is VoidX. FebBox is the
- * direct-stream primary when the user has configured a UI cookie.
+ * VidAPI provides embed players for movies and TV shows via vaplayer.ru.
+ * FebBox is the direct-stream primary when the user has configured a UI cookie.
  */
 export interface Source {
   id: string;
@@ -25,42 +25,44 @@ const FEBBOX: Source = {
   kind: "febbox-direct", tier: "primary", build: () => "",
 };
 
-const VOIDX_HOST = String.fromCharCode(118, 46, 122, 120, 99, 115, 116, 114, 101, 97, 109, 46, 120, 121, 122);
-
-// VoidX — the only embed provider. Modern free embed with built-in
-// player. Adblock-sandboxed so pop-up / redirect networks are neutered
-// while the player JS still runs.
-const ZXCSTREAM: Source = {
-  id: "vidsrc", name: "VoidX", badge: "Embed · ad-blocked",
+// VidAPI — modern embed provider via vaplayer.ru
+// Supports IMDB (tt prefix) or TMDB (numeric) IDs
+// URL format: https://vaplayer.ru/embed/movie/{id} or /embed/tv/{id}/{season}/{episode}
+const VIDAPI: Source = {
+  id: "vidapi", name: "VidAPI", badge: "Embed · ad-blocked",
   kind: "embed", tier: "embed", noSandbox: false,
-  build: (m, s, e) => m.type === "movie"
-    ? `https://${VOIDX_HOST}/player/movie/${m.id}?autoplay=true&color=ff3b30&back=false`
-    : `https://${VOIDX_HOST}/player/tv/${m.id}/${s ?? 1}/${e ?? 1}?autoplay=true&color=ff3b30&back=false`,
+  build: (m, s, e) => {
+    const baseParams = "skin=prime&color=9146ff";
+    if (m.type === "movie") {
+      return `https://vaplayer.ru/embed/movie/${m.id}?${baseParams}`;
+    }
+    return `https://vaplayer.ru/embed/tv/${m.id}/${s ?? 1}/${e ?? 1}?${baseParams}`;
+  },
 };
 
-export const DEFAULT_EMBED_SOURCES: Source[] = [ZXCSTREAM];
+export const DEFAULT_EMBED_SOURCES: Source[] = [VIDAPI];
 export const LEGACY_EMBED_SOURCES: Source[] = [];
-export const SOURCES: Source[] = [FEBBOX, ZXCSTREAM];
-export const EMBED_SOURCES: Source[] = [ZXCSTREAM];
+export const SOURCES: Source[] = [FEBBOX, VIDAPI];
+export const EMBED_SOURCES: Source[] = [VIDAPI];
 
 function hasFebboxCookie(settings?: Pick<Settings, "integrations">): boolean {
-  return Boolean(settings?.integrations?.febboxCookie?.trim());
+  return Boolean(settings?.integrations?.feabbixCookie?.trim());
 }
 
 export function getOrderedSources(settings?: Pick<Settings, "integrations">): Source[] {
-  return hasFebboxCookie(settings) ? [FEBBOX, ZXCSTREAM] : [ZXCSTREAM, FEBBOX];
+  return hasFebboxCookie(settings) ? [FEBBOX, VIDAPI] : [VIDAPI, FEBBOX];
 }
 export function getBestSource(settings?: Pick<Settings, "integrations">): Source {
-  return hasFebboxCookie(settings) ? FEBBOX : ZXCSTREAM;
+  return hasFebboxCookie(settings) ? FEBBOX : VIDAPI;
 }
 
 export function sourcesForKey(key: SourceKey): Source[] {
   if (key === "delta" || key === "gamma") return [FEBBOX];
-  return [ZXCSTREAM];
+  return [VIDAPI];
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
   delta: "FebBox",
   gamma: "FebBox",
-  toro: "VoidX",
+  toro: "VidAPI",
 };

@@ -432,9 +432,7 @@ function SourceRail({
   const [open, setOpen] = useState(false);
   const hasFebboxCookie = Boolean(settings.integrations.febboxCookie?.trim());
   const embedItems: { id: string; name: string; hint: string }[] = [
-    { id: "vidsrc", name: "Void", hint: "Embed · ad-blocked" },
-    { id: "vaplayer", name: "Xcv", hint: "Embed · clean" },
-    { id: "cinemaos", name: "Ten", hint: "Embed · backup" },
+    { id: "vidapi", name: "VidAPI", hint: "Embed · ad-blocked" },
   ];
   const primaryItems: { key: SourceKey; name: string; hint: string }[] = hasFebboxCookie
     ? [{ key: "gamma", name: "FebBox", hint: "Direct · up to 4K" }]
@@ -605,7 +603,7 @@ function EmbedSurface({
   }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
 
   useEffect(() => {
-    if (source.id !== "vidsrc") return;
+    if (source.id !== "vidapi") return;
     const handler = (e: MessageEvent) => {
       if (!e.data || typeof e.data !== "object") return;
       const blocked = ["AD_SHOW", "POPUP_OPEN", "open_url", "ad_click", "redirect"];
@@ -618,18 +616,10 @@ function EmbedSurface({
     return () => window.removeEventListener("message", handler, { capture: true });
   }, [source.id]);
 
-  // Route the VoidX embed through our same-origin /api/proxy so we can
-  // strip popunder scripts and apply a tight sandbox. The provider blocks
-  // sandboxed cross-origin iframes, but our proxy serves the player from
-  // OUR origin, where `allow-same-origin` keeps the player JS happy.
-  const iframeSrc =
-    source.id === "vidsrc" && embedUrl
-      ? `/api/proxy?url=${encodeURIComponent(embedUrl)}`
-      : embedUrl || "";
-  const sandboxValue =
-    source.id === "vidsrc"
-      ? "allow-scripts allow-same-origin allow-presentation allow-forms"
-      : "allow-scripts allow-same-origin allow-presentation allow-forms allow-downloads allow-downloads-without-user-activation";
+  // VidAPI uses vaplayer.ru directly — no proxy needed.
+  // Sandbox to block popups while allowing the player to function.
+  const iframeSrc = embedUrl || "";
+  const sandboxValue = "allow-scripts allow-same-origin allow-presentation allow-forms";
   const iframeExtra: { sandbox?: string } = source.noSandbox ? {} : { sandbox: sandboxValue };
 
   return (
@@ -655,7 +645,7 @@ function EmbedSurface({
         <span className="hidden sm:inline">Back</span>
       </button>
 
-      {/* SourceRail removed — VoidX is the only embed source. */}
+      {/* SourceRail removed — VidAPI is the only embed source. */}
 
 
     </div>
@@ -1482,7 +1472,7 @@ function DirectVideo({
         ))}
       </video>
 
-      {/* SourceRail removed — VoidX is the only embed source. */}
+      {/* SourceRail removed — VidAPI is the only embed source. */}
 
 
 
@@ -1953,7 +1943,7 @@ function SettingsPanel({
       ref={ref}
       className="absolute bottom-16 right-4 z-40 w-80 overflow-hidden rounded-2xl border border-white/10 bg-black/95 text-white shadow-2xl backdrop-blur-md"
     >
-      {/* Source switcher removed — VoidX is the only embed source. */}
+      {/* Source switcher removed — VidAPI is the only embed source. */}
 
 
       {/* Tab strip */}
