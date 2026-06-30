@@ -29,21 +29,19 @@ const FEBBOX: Source = {
   build: () => "",
 };
 
-// VidGod — modern embed provider via vidgod.net
-// Supports TMDB (numeric) IDs only.
-// URL format: https://vidgod.net/movie/{id} or /tv/{id}/{season}/{episode}
 const VIDAPI: Source = {
   id: "vidapi",
-  name: "VidGod",
+  name: "VidCore",
   badge: "Embed · ad-blocked",
   kind: "embed",
   tier: "embed",
-  noSandbox: false,
+  noSandbox: true,
   build: (m, s, e) => {
+    const params = "autoPlay=true";
     if (m.type === "movie") {
-      return `https://vidgod.net/movie/${m.id}`;
+      return `https://vidcore.net/movie/${m.id}?${params}`;
     }
-    return `https://vidgod.net/tv/${m.id}/${s ?? 1}/${e ?? 1}`;
+    return `https://vidcore.net/tv/${m.id}/${s ?? 1}/${e ?? 1}?${params}`;
   },
 };
 
