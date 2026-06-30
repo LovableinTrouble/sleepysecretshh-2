@@ -918,7 +918,12 @@ function MusicPage() {
               <div className="min-w-0 flex-1">
                 <div className="text-xs uppercase tracking-widest text-white/60">Now Playing</div>
                 <h1 className="mt-1 text-3xl font-black md:text-5xl">{current.title}</h1>
-                <div className="mt-1 text-lg text-white/70">{current.artist}</div>
+                <button
+                  onClick={() => current && setView(`artist:${current.artist}`)}
+                  className="mt-1 text-left text-lg text-white/70 hover:text-white hover:underline"
+                >
+                  {current.artist}
+                </button>
                 {current.album && <div className="text-sm text-white/50">{current.album}</div>}
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60">
                   {current.year && <span className="rounded-full bg-white/10 px-2 py-0.5">{current.year}</span>}
