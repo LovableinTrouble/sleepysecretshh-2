@@ -140,6 +140,122 @@ export async function searchYouTube(query: string): Promise<string | null> {
   return null;
 }
 
+export type ArtistInfo = {
+  name: string;
+  sortName?: string;
+  disambiguation?: string;
+  type?: string;
+  country?: string;
+  foundedYear?: string;
+  imageUrl?: string;
+  imageUrlHi?: string;
+  bio?: string;
+  tags?: string[];
+  listeners?: number;
+  playCount?: number;
+};
+
+export async function fetchArtistInfo(artistName: string): Promise<ArtistInfo | null> {
+  try {
+    // MusicBrainz search for the artist
+    const mbRes = await fetch(
+      `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(artistName)}&fmt=json&limit=1`,
+      { headers: { "User-Agent": "SleepyApp/1.0 (music-player)" } }
+    );
+    if (!mbRes.ok) return null;
+    const mbData = await mbRes.json();
+    const artist = mbData.artists?.[0];
+    if (!artist) return null;
+
+    const mbid = artist.id;
+    let imageUrl: string | undefined;
+    let imageUrlHi: string | undefined;
+
+    // Fetch cover art from Cover Art Archive for the artist
+    if (mbid) {
+      try {
+        const caaRes = await fetch(`https://coverartarchive.org/artist/${mbid}`, {
+          headers: { "User-Agent": "SleepyApp/1.0 (music-player)" }
+        });
+        if (caaRes.ok) {
+          const caaData = await caaRes.json();
+          const img = caaData.images?.[0];
+          if (img) {
+            imageUrl = img.thumbnails?.["250"] || img.image;
+            imageUrlHi = img.image;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Get bio from Wikipedia via MusicBrainz url relations
+    let bio: string | undefined;
+    const wikiUrl = artist.relations?.find((r: any) => r.type === "wikipedia")?.url?.resource;
+    if (!wikiUrl) {
+      const wikidataId = artist.relations?.find((r: any) => r.type === "wikidata")?.url?.resource?.split("/").pop();
+      if (wikidataId) {
+        try {
+          const wdRes = await fetch(`https://www.wikidata.org/wiki/Special:EntityData/${wikidataId}.json`);
+          if (wdRes.ok) {
+            const wdData = await wdRes.json();
+            const siteLinks = wdData.entities?.[wikidataId]?.sitelinks;
+            const enWiki = siteLinks?.enwiki?.title;
+            if (enWiki) {
+              const wikiExtractRes = await fetch(
+                `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(enWiki)}`
+              );
+              if (wikiExtractRes.ok) {
+                const wikiExtract = await wikiExtractRes.json();
+                bio = wikiExtract.extract;
+                imageUrl = imageUrl || wikiExtract.thumbnail?.source;
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+    } else {
+      // Extract Wikipedia title and get extract
+      const wikiTitle = wikiUrl.split("/wiki/").pop();
+      if (wikiTitle) {
+        try {
+          const wikiExtractRes = await fetch(
+            `https://en.wikipedia.org/api/rest_v1/page/summary/${wikiTitle}`
+          );
+          if (wikiExtractRes.ok) {
+            const wikiExtract = await wikiExtractRes.json();
+            bio = wikiExtract.extract;
+            imageUrl = imageUrl || wikiExtract.thumbnail?.source;
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    // Parse life-span dates
+    let foundedYear: string | undefined;
+    if (artist["life-span"]?.begin) {
+      foundedYear = artist["life-span"].begin.slice(0, 4);
+    }
+
+    // Get tags
+    const tags = artist.tags?.map((t: any) => t.name).filter(Boolean).slice(0, 6) || [];
+
+    return {
+      name: artist.name,
+      sortName: artist["sort-name"],
+      disambiguation: artist.disambiguation,
+      type: artist.type,
+      country: artist.country,
+      foundedYear,
+      imageUrl,
+      imageUrlHi,
+      bio,
+      tags,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchLyrics(artist: string, title: string): Promise<string | null> {
   // Try lrclib (plain) then lyrics.ovh
   try {

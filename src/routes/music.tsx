@@ -51,8 +51,10 @@ import {
   pushRecent,
   clearRecent,
   importInvidiousPlaylist,
+  fetchArtistInfo,
   type Track,
   type Playlist,
+  type ArtistInfo,
 } from "@/lib/music";
 import {
   useMusicPlayer,
@@ -137,6 +139,8 @@ function MusicPage() {
   // dynamic list for artist:/genre: views
   const [dynList, setDynList] = useState<Track[]>([]);
   const [dynLoading, setDynLoading] = useState(false);
+  const [artistInfo, setArtistInfo] = useState<ArtistInfo | null>(null);
+  const [artistInfoLoading, setArtistInfoLoading] = useState(false);
 
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const searchPanelRef = useRef<HTMLDivElement>(null);
@@ -191,6 +195,17 @@ function MusicPage() {
     let cancelled = false;
     setDynLoading(true);
     setDynList([]);
+    setArtistInfo(null);
+    if (view.startsWith("artist:")) {
+      setArtistInfoLoading(true);
+      fetchArtistInfo(q)
+        .then((info) => {
+          if (!cancelled) setArtistInfo(info);
+        })
+        .finally(() => {
+          if (!cancelled) setArtistInfoLoading(false);
+        });
+    }
     searchITunes(q, 25)
       .then((rs) => {
         if (!cancelled) setDynList(rs);
@@ -787,71 +802,166 @@ function MusicPage() {
             playlists.some((p) => p.id === view) ||
             (typeof view === "string" && (view.startsWith("artist:") || view.startsWith("genre:")))) && (
             <div>
-              <div className="mb-4 flex items-end gap-4">
-                <div className="grid h-32 w-32 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-pink-500/50 to-purple-700/50 shadow-xl">
-                  {typeof view === "string" && (view.startsWith("artist:") || view.startsWith("genre:")) ? (
-                    dynList[0]?.artworkHi ? (
-                      <img src={dynList[0].artworkHi} alt="" className="h-full w-full object-cover" />
-                    ) : view.startsWith("artist:") ? (
-                      <NoteIcon className="h-12 w-12" />
+              {typeof view === "string" && view.startsWith("artist:") ? (
+                <div className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-800/80 to-zinc-900/90 p-6 md:p-8">
+                  {/* Background blur from artist image */}
+                  {artistInfo?.imageUrl && (
+                    <div
+                      className="absolute inset-0 bg-cover bg-center opacity-20 blur-2xl"
+                      style={{ backgroundImage: `url(${artistInfo.imageUrl})` }}
+                    />
+                  )}
+                  <div className="relative flex flex-col gap-6 md:flex-row md:items-start">
+                    {/* Artist image */}
+                    <div className="grid h-44 w-44 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500/40 to-amber-600/40 shadow-2xl ring-1 ring-white/10">
+                      {artistInfoLoading ? (
+                        <Loader2 className="h-10 w-10 animate-spin text-white/50" />
+                      ) : artistInfo?.imageUrlHi || artistInfo?.imageUrl ? (
+                        <img
+                          src={artistInfo.imageUrlHi || artistInfo.imageUrl}
+                          alt={artistInfo.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : dynList[0]?.artworkHi ? (
+                        <img src={dynList[0].artworkHi} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <NoteIcon className="h-14 w-14 text-white/70" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+                          Artist
+                        </span>
+                        {artistInfo?.type && (
+                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/60">
+                            {artistInfo.type}
+                          </span>
+                        )}
+                        {artistInfo?.country && (
+                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/60">
+                            {artistInfo.country}
+                          </span>
+                        )}
+                        {artistInfo?.foundedYear && (
+                          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300">
+                            Est. {artistInfo.foundedYear}
+                          </span>
+                        )}
+                      </div>
+                      <h1 className="mt-2 text-3xl font-black md:text-4xl lg:text-5xl">
+                        {view.slice(7)}
+                      </h1>
+                      {artistInfo?.disambiguation && (
+                        <p className="mt-0.5 text-sm text-white/50">{artistInfo.disambiguation}</p>
+                      )}
+                      {artistInfo?.bio ? (
+                        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/70">
+                          {artistInfo.bio.length > 400 ? artistInfo.bio.slice(0, 400) + "…" : artistInfo.bio}
+                        </p>
+                      ) : artistInfoLoading ? (
+                        <div className="mt-3 h-16 w-full max-w-md animate-pulse rounded-lg bg-white/5" />
+                      ) : null}
+                      {artistInfo?.tags && artistInfo.tags.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {artistInfo.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white/60"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-white/60">
+                        <span>{dynLoading ? "…" : activeList.length} songs</span>
+                        {activeList.some((t) => t.durationMs) && (
+                          <span>
+                            {fmt(activeList.reduce((s, t) => s + (t.durationMs || 0), 0) / 1000)} total
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-4 flex gap-2">
+                        <button
+                          disabled={!activeList.length}
+                          onClick={() => play(activeList[0], activeList, 0)}
+                          className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-black transition hover:scale-105 disabled:opacity-40 disabled:hover:scale-100"
+                        >
+                          <Play className="h-4 w-4 fill-current" /> Play
+                        </button>
+                        <button
+                          disabled={!activeList.length}
+                          onClick={shuffle}
+                          className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-sm font-semibold ring-1 ring-white/20 transition hover:bg-white/15 disabled:opacity-40"
+                        >
+                          <Shuffle className="h-4 w-4" /> Shuffle
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-4 flex items-end gap-4">
+                  <div className="grid h-32 w-32 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-pink-500/50 to-purple-700/50 shadow-xl">
+                    {typeof view === "string" && view.startsWith("genre:") ? (
+                      dynList[0]?.artworkHi ? (
+                        <img src={dynList[0].artworkHi} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <ListMusic className="h-12 w-12" />
+                      )
+                    ) : view === "liked" ? (
+                      <Heart className="h-12 w-12" />
                     ) : (
                       <ListMusic className="h-12 w-12" />
-                    )
-                  ) : view === "liked" ? (
-                    <Heart className="h-12 w-12" />
-                  ) : (
-                    <ListMusic className="h-12 w-12" />
-                  )}
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-white/60">
-                    {typeof view === "string" && view.startsWith("artist:")
-                      ? "Artist"
-                      : typeof view === "string" && view.startsWith("genre:")
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-widest text-white/60">
+                      {typeof view === "string" && view.startsWith("genre:")
                         ? "Genre"
                         : "Playlist"}
-                  </div>
-                  <h1 className="text-3xl font-black md:text-4xl">
-                    {typeof view === "string" && view.startsWith("artist:")
-                      ? view.slice(7)
-                      : typeof view === "string" && view.startsWith("genre:")
+                    </div>
+                    <h1 className="text-3xl font-black md:text-4xl">
+                      {typeof view === "string" && view.startsWith("genre:")
                         ? GENRES.find((g) => g.query === view.slice(6))?.name || view.slice(6)
                         : view === "liked"
                           ? "Liked Songs"
                           : playlists.find((p) => p.id === view)?.name}
-                  </h1>
-                  <div className="mt-1 text-sm text-white/60">
-                    {dynLoading ? "Loading…" : `${activeList.length} songs`}
-                    {activeList.some((t) => t.durationMs) && (
-                      <> · {fmt(activeList.reduce((s, t) => s + (t.durationMs || 0), 0) / 1000)}</>
-                    )}
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      disabled={!activeList.length}
-                      onClick={() => play(activeList[0], activeList, 0)}
-                      className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-black disabled:opacity-40"
-                    >
-                      <Play className="h-4 w-4 fill-current" /> Play
-                    </button>
-                    <button
-                      disabled={!activeList.length}
-                      onClick={shuffle}
-                      className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold ring-1 ring-white/20 hover:bg-white/15 disabled:opacity-40"
-                    >
-                      <Shuffle className="h-4 w-4" /> Shuffle
-                    </button>
-                    {view === "liked" && liked.length > 0 && (
+                    </h1>
+                    <div className="mt-1 text-sm text-white/60">
+                      {dynLoading ? "Loading…" : `${activeList.length} songs`}
+                      {activeList.some((t) => t.durationMs) && (
+                        <> · {fmt(activeList.reduce((s, t) => s + (t.durationMs || 0), 0) / 1000)}</>
+                      )}
+                    </div>
+                    <div className="mt-3 flex gap-2">
                       <button
-                        onClick={clearLiked}
-                        className="flex items-center gap-2 rounded-full bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 ring-1 ring-rose-400/30 hover:bg-rose-500/25"
+                        disabled={!activeList.length}
+                        onClick={() => play(activeList[0], activeList, 0)}
+                        className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-black disabled:opacity-40"
                       >
-                        <Trash2 className="h-4 w-4" /> Clear all
+                        <Play className="h-4 w-4 fill-current" /> Play
                       </button>
-                    )}
+                      <button
+                        disabled={!activeList.length}
+                        onClick={shuffle}
+                        className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold ring-1 ring-white/20 hover:bg-white/15 disabled:opacity-40"
+                      >
+                        <Shuffle className="h-4 w-4" /> Shuffle
+                      </button>
+                      {view === "liked" && liked.length > 0 && (
+                        <button
+                          onClick={clearLiked}
+                          className="flex items-center gap-2 rounded-full bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 ring-1 ring-rose-400/30 hover:bg-rose-500/25"
+                        >
+                          <Trash2 className="h-4 w-4" /> Clear all
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
               <div className="flex flex-col gap-1">
                 {activeList.map((t, i) => (
                   <button

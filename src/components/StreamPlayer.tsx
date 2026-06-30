@@ -1,20 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Hls from "hls.js";
-import {
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize,
-  Minimize,
-  Settings as SettingsIcon,
-  Subtitles as SubtitlesIcon,
-  PictureInPicture2,
-  Cast,
-  ChevronLeft,
-  RotateCcw,
-  RotateCw,
-} from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings as SettingsIcon, Bubbles as SubtitlesIcon, PictureInPicture2, Cast, ChevronLeft, RotateCcw, RotateCw } from "lucide-react";
 
 import type { Media } from "@/lib/catalog";
 import { useSettings } from "@/lib/store";
@@ -203,11 +189,16 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
         embedList.find((e) => e.id === preferredEmbedId) ?? embedList[0];
       if (isStale()) return;
       if (embed) {
-        setStatus({ kind: "embed", source: embed, url: embed.build(media, season, episode) });
-        // Notice (if any) stays visible until the embed loads — clearing here
-        // would flash it away before the iframe paints. The Status change
-        // away from "scanning" hides the overlay regardless.
-        setTimeout(() => setFallbackNotice(null), 2500);
+        const embedUrl = embed.build(media, season, episode);
+        if (embedUrl) {
+          setStatus({ kind: "embed", source: embed, url: embedUrl });
+          // Notice (if any) stays visible until the embed loads — clearing here
+          // would flash it away before the iframe paints. The Status change
+          // away from "scanning" hides the overlay regardless.
+          setTimeout(() => setFallbackNotice(null), 2500);
+        } else {
+          setStatus({ kind: "failed", detail: "Embed source returned empty URL." });
+        }
       } else {
         setStatus({ kind: "failed", detail: "No backup embed source available." });
       }
@@ -623,9 +614,9 @@ function EmbedSurface({
   // sandboxed cross-origin iframes, but our proxy serves the player from
   // OUR origin, where `allow-same-origin` keeps the player JS happy.
   const iframeSrc =
-    source.id === "vidsrc"
+    source.id === "vidsrc" && rawSrc
       ? `/api/proxy?url=${encodeURIComponent(rawSrc)}`
-      : rawSrc;
+      : rawSrc || "";
   const sandboxValue =
     source.id === "vidsrc"
       ? "allow-scripts allow-same-origin allow-presentation allow-forms"
