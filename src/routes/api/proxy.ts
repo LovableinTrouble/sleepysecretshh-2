@@ -3,19 +3,48 @@ import { createFileRoute } from "@tanstack/react-router";
 // Hosts we are willing to proxy through. Keep this tight — this endpoint
 // effectively turns our server into an HTML rewriter; only allow embed
 // providers we already trust.
-const ALLOWED_HOSTS = new Set<string>([
-  "zxcstream.xyz",
-  "v.zxcstream.xyz",
-  "vidsrc.cc",
-  "vidsrc.to",
-  "vidsrc.xyz",
-]);
+const ALLOWED_HOSTS = new Set<string>(["zxcstream.xyz", "v.zxcstream.xyz", "vidsrc.cc", "vidsrc.to", "vidsrc.xyz"]);
 
 function hostAllowed(h: string) {
   if (ALLOWED_HOSTS.has(h)) return true;
   for (const allowed of ALLOWED_HOSTS) if (h.endsWith("." + allowed)) return true;
   return false;
 }
+
+// Script injected into proxied HTML. Rewrites same-host fetch()/XHR calls
+// to route back through /api/proxy so the upstream sees a correct Referer
+// (set server-side) instead of bypassing the proxy entirely and dying to
+// CORS / referer checks on the provider's API. Without this, only the
+// initial document goes through the proxy — every subsequent request the
+// player's JS makes (for its API / m3u8 / segments) leaks out as a direct
+// cross-origin request and gets rejected upstream.
+const REQUEST_REWRITE = `(()=>{try{
+const PROXY_BASE='/api/proxy?url=';
+const ALLOWED=${JSON.stringify(Array.from(ALLOWED_HOSTS))};
+function isAllowedHost(h){return ALLOWED.some(a=>h===a||h.endsWith('.'+a));}
+function rewrite(u){
+  try{
+    const abs=new URL(u, document.baseURI);
+    if(/^https?:$/.test(abs.protocol) && isAllowedHost(abs.hostname)){
+      return PROXY_BASE+encodeURIComponent(abs.href);
+    }
+  }catch(_){}
+  return u;
+}
+const origFetch=window.fetch.bind(window);
+window.fetch=function(input, init){
+  try{
+    if(typeof input==='string'){ input=rewrite(input); }
+    else if(input && input.url){ input=new Request(rewrite(input.url), init || input); }
+  }catch(_){}
+  return origFetch(input, init);
+};
+const origOpen=XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open=function(method, url, ...rest){
+  try{ url=rewrite(url); }catch(_){}
+  return origOpen.call(this, method, url, ...rest);
+};
+}catch(_){}})();`;
 
 // Script injected into proxied HTML. Neutralises window.open, popunders
 // disguised as <a target="_blank">, and noopener redirects.
@@ -73,7 +102,7 @@ export const Route = createFileRoute("/api/proxy")({
           }
           let html = await upstream.text();
           const baseHref = target.origin + target.pathname.replace(/[^/]*$/, "");
-          const inject = `<base href="${baseHref}"><meta name="referrer" content="no-referrer"><script>${ANTI_POPUP}</script>`;
+          const inject = `<base href="${baseHref}"><meta name="referrer" content="no-referrer"><script>${REQUEST_REWRITE}</script><script>${ANTI_POPUP}</script>`;
           if (/<head[^>]*>/i.test(html)) {
             html = html.replace(/<head([^>]*)>/i, (_m, attrs) => `<head${attrs}>${inject}`);
           } else if (/<html[^>]*>/i.test(html)) {
