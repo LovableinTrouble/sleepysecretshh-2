@@ -256,6 +256,34 @@ export async function fetchArtistInfo(artistName: string): Promise<ArtistInfo | 
   }
 }
 
+export type ArtistSearchResult = {
+  name: string;
+  mbid: string;
+  type?: string;
+  country?: string;
+  disambiguation?: string;
+};
+
+export async function searchArtists(query: string, limit = 10): Promise<ArtistSearchResult[]> {
+  try {
+    const mbRes = await fetch(
+      `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(query)}&fmt=json&limit=${limit}`,
+      { headers: { "User-Agent": "SleepyApp/1.0 (music-player)" } }
+    );
+    if (!mbRes.ok) return [];
+    const mbData = await mbRes.json();
+    return (mbData.artists || []).map((a: any) => ({
+      name: a.name,
+      mbid: a.id,
+      type: a.type,
+      country: a.country,
+      disambiguation: a.disambiguation,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchLyrics(artist: string, title: string): Promise<string | null> {
   // Try lrclib (plain) then lyrics.ovh
   try {

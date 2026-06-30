@@ -278,6 +278,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             season={season}
             episode={episode}
             initialSource={status.source}
+            initialUrl={status.url}
             sourceKey={sourceKey}
             onSwitchSource={switchSource}
             onPickEmbed={pickEmbed}
@@ -540,6 +541,7 @@ function EmbedSurface({
   season,
   episode,
   initialSource,
+  initialUrl,
   sourceKey,
   onSwitchSource,
   onPickEmbed,
@@ -549,6 +551,7 @@ function EmbedSurface({
   season?: number;
   episode?: number;
   initialSource: Source;
+  initialUrl: string;
   sourceKey: SourceKey;
   onSwitchSource: (k: SourceKey) => void;
   onPickEmbed: (embedId: string) => void;
@@ -556,11 +559,18 @@ function EmbedSurface({
 }) {
   const [settings] = useSettings();
   const [source, setSource] = useState(initialSource);
+  const [embedUrl, setEmbedUrl] = useState(initialUrl);
   const embeds = useMemo(() => {
     const enabled = EMBED_SOURCES.filter((s) => (s.legacy ? Boolean(settings.useLegacyEmbeds) : true));
     const ordered = [initialSource, ...enabled.filter((s) => s.id !== initialSource.id)];
     return ordered.filter((s, i, all) => all.findIndex((x) => x.id === s.id) === i);
   }, [initialSource, settings.useLegacyEmbeds]);
+
+  // Sync URL when source changes (e.g., user picks different embed)
+  useEffect(() => {
+    const newUrl = buildSourceUrl(source, media, season, episode);
+    if (newUrl) setEmbedUrl(newUrl);
+  }, [source, media, season, episode]);
 
   
 
@@ -608,15 +618,14 @@ function EmbedSurface({
     return () => window.removeEventListener("message", handler, { capture: true });
   }, [source.id]);
 
-  const rawSrc = buildSourceUrl(source, media, season, episode);
   // Route the VoidX embed through our same-origin /api/proxy so we can
   // strip popunder scripts and apply a tight sandbox. The provider blocks
   // sandboxed cross-origin iframes, but our proxy serves the player from
   // OUR origin, where `allow-same-origin` keeps the player JS happy.
   const iframeSrc =
-    source.id === "vidsrc" && rawSrc
-      ? `/api/proxy?url=${encodeURIComponent(rawSrc)}`
-      : rawSrc || "";
+    source.id === "vidsrc" && embedUrl
+      ? `/api/proxy?url=${encodeURIComponent(embedUrl)}`
+      : embedUrl || "";
   const sandboxValue =
     source.id === "vidsrc"
       ? "allow-scripts allow-same-origin allow-presentation allow-forms"

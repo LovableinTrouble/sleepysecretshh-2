@@ -52,9 +52,11 @@ import {
   clearRecent,
   importInvidiousPlaylist,
   fetchArtistInfo,
+  searchArtists,
   type Track,
   type Playlist,
   type ArtistInfo,
+  type ArtistSearchResult,
 } from "@/lib/music";
 import {
   useMusicPlayer,
@@ -141,6 +143,10 @@ function MusicPage() {
   const [dynLoading, setDynLoading] = useState(false);
   const [artistInfo, setArtistInfo] = useState<ArtistInfo | null>(null);
   const [artistInfoLoading, setArtistInfoLoading] = useState(false);
+
+  // Artist search results
+  const [artistResults, setArtistResults] = useState<ArtistSearchResult[]>([]);
+  const [artistSearching, setArtistSearching] = useState(false);
 
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const searchPanelRef = useRef<HTMLDivElement>(null);
@@ -314,14 +320,22 @@ function MusicPage() {
     const q = query.trim();
     if (q.length < 2) {
       setResults([]);
+      setArtistResults([]);
       return;
     }
     setSearching(true);
+    setArtistSearching(true);
     const t = setTimeout(async () => {
       try {
-        setResults(await searchITunes(q));
+        const [tracks, artists] = await Promise.all([
+          searchITunes(q),
+          searchArtists(q, 5),
+        ]);
+        setResults(tracks);
+        setArtistResults(artists);
       } finally {
         setSearching(false);
+        setArtistSearching(false);
       }
     }, 350);
     return () => clearTimeout(t);
@@ -513,8 +527,8 @@ function MusicPage() {
             style={searchPanelStyle}
             className="fixed z-[120] max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl bg-black/90 p-2 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl overscroll-contain"
           >
-            {searching && <div className="p-3 text-sm text-white/60">Searching…</div>}
-            {!searching && !results.length && (
+            {(searching || artistSearching) && <div className="p-3 text-sm text-white/60">Searching…</div>}
+            {!searching && !artistSearching && !results.length && !artistResults.length && (
               <div className="p-2">
                 {recent.length > 0 && (
                   <div className="mb-2">
@@ -557,33 +571,66 @@ function MusicPage() {
                 </div>
               </div>
             )}
-            {results.map((t, i) => (
-              <button
-                key={t.id}
-                onClick={() => play(t, results, i)}
-                className="flex w-full min-w-0 items-center gap-3 rounded-xl p-2 text-left hover:bg-white/10 active:bg-white/15"
-              >
-                <img src={t.artwork} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{t.title}</div>
-                  <div className="truncate text-xs text-white/60">
-                    {t.artist}
-                    {t.year ? <span className="text-white/40"> · {t.year}</span> : null}
-                    {t.genre ? <span className="text-white/40"> · {t.genre}</span> : null}
-                  </div>
-                </div>
-                {t.durationMs ? (
-                  <span className="hidden text-[11px] tabular-nums text-white/50 sm:inline">{fmtMs(t.durationMs)}</span>
-                ) : null}
-                <Plus
-                  className="h-9 w-9 shrink-0 rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPickerFor(t);
-                  }}
-                />
-              </button>
-            ))}
+            {artistResults.length > 0 && (
+              <div className="mb-1">
+                <div className="px-2 py-1 text-[11px] uppercase tracking-widest text-white/40">Artists</div>
+                {artistResults.map((a) => (
+                  <button
+                    key={a.mbid}
+                    onClick={() => {
+                      setView(`artist:${a.name}`);
+                      setShowSearch(false);
+                      setQuery("");
+                    }}
+                    className="flex w-full min-w-0 items-center gap-3 rounded-xl p-2 text-left hover:bg-white/10 active:bg-white/15"
+                  >
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-rose-500/50 to-amber-600/50 text-sm font-bold">
+                      {a.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{a.name}</div>
+                      <div className="truncate text-xs text-white/60">
+                        {a.type || "Artist"}
+                        {a.country ? <span className="text-white/40"> · {a.country}</span> : null}
+                        {a.disambiguation ? <span className="text-white/40"> · {a.disambiguation}</span> : null}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {results.length > 0 && (
+              <div>
+                <div className="px-2 py-1 text-[11px] uppercase tracking-widest text-white/40">Songs</div>
+                {results.map((t, i) => (
+                  <button
+                    key={t.id}
+                    onClick={() => play(t, results, i)}
+                    className="flex w-full min-w-0 items-center gap-3 rounded-xl p-2 text-left hover:bg-white/10 active:bg-white/15"
+                  >
+                    <img src={t.artwork} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{t.title}</div>
+                      <div className="truncate text-xs text-white/60">
+                        {t.artist}
+                        {t.year ? <span className="text-white/40"> · {t.year}</span> : null}
+                        {t.genre ? <span className="text-white/40"> · {t.genre}</span> : null}
+                      </div>
+                    </div>
+                    {t.durationMs ? (
+                      <span className="hidden text-[11px] tabular-nums text-white/50 sm:inline">{fmtMs(t.durationMs)}</span>
+                    ) : null}
+                    <Plus
+                      className="h-9 w-9 shrink-0 rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPickerFor(t);
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>,
           document.body,
         )}
