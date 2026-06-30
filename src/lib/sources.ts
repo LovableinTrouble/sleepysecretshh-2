@@ -29,19 +29,19 @@ const FEBBOX: Source = {
   build: () => "",
 };
 
-const VIDAPI: Source = {
-  id: "vidapi",
-  name: "VidCore",
-  badge: "Embed · ad-blocked",
+const VIDSUPER: Source = {
+  id: "vidsuper",
+  name: "Vidsuper",
+  badge: "Embed · 4K",
   kind: "embed",
   tier: "embed",
   noSandbox: true,
   build: (m, s, e) => {
-    const params = "autoPlay=true";
+    const params = "episodeSelector=true&overlay=true&skip_intro=true";
     if (m.type === "movie") {
-      return `https://vidcore.net/movie/${m.id}?${params}`;
+      return `https://vidsuper.net/movie/${m.id}?${params}`;
     }
-    return `https://vidcore.net/tv/${m.id}/${s ?? 1}/${e ?? 1}?${params}`;
+    return `https://vidsuper.net/tv/${m.id}/${s ?? 1}/${e ?? 1}?${params}`;
   },
 };
 
