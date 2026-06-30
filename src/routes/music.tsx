@@ -92,6 +92,21 @@ function fmtMs(ms?: number) {
 
 const TRENDING = ["Taylor Swift", "The Weeknd", "Drake", "Billie Eilish", "Kendrick Lamar", "SZA"];
 
+const GENRES: { name: string; query: string; gradient: string }[] = [
+  { name: "Pop", query: "pop hits", gradient: "from-pink-500 to-rose-600" },
+  { name: "Hip-Hop", query: "hip hop", gradient: "from-amber-500 to-orange-700" },
+  { name: "R&B", query: "rnb soul", gradient: "from-purple-500 to-fuchsia-700" },
+  { name: "Rock", query: "rock", gradient: "from-red-500 to-zinc-800" },
+  { name: "Electronic", query: "electronic dance", gradient: "from-cyan-400 to-blue-700" },
+  { name: "Indie", query: "indie", gradient: "from-emerald-400 to-teal-700" },
+  { name: "Country", query: "country", gradient: "from-yellow-500 to-amber-800" },
+  { name: "K-Pop", query: "kpop", gradient: "from-pink-400 to-violet-600" },
+  { name: "Latin", query: "latin reggaeton", gradient: "from-orange-400 to-red-700" },
+  { name: "Jazz", query: "jazz", gradient: "from-blue-400 to-indigo-800" },
+  { name: "Classical", query: "classical orchestra", gradient: "from-slate-400 to-zinc-700" },
+  { name: "Lo-fi", query: "lofi chill beats", gradient: "from-violet-400 to-indigo-700" },
+];
+
 function MusicPage() {
   const player = useMusicPlayer();
   const { current, queue, queueIdx, playing, progress, duration, volume, muted, repeat, loading } = player;
@@ -118,6 +133,10 @@ function MusicPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newPlName, setNewPlName] = useState("");
   const [pickerCreateMode, setPickerCreateMode] = useState(false);
+
+  // dynamic list for artist:/genre: views
+  const [dynList, setDynList] = useState<Track[]>([]);
+  const [dynLoading, setDynLoading] = useState(false);
 
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const searchPanelRef = useRef<HTMLDivElement>(null);
@@ -163,6 +182,39 @@ function MusicPage() {
       setRecentPlayed(JSON.parse(localStorage.getItem("sleepy.music.recentplayed.v1") || "[]"));
     } catch {}
   }, []);
+
+  // load tracks for artist:/genre: views
+  useEffect(() => {
+    if (typeof view !== "string") return;
+    if (!view.startsWith("artist:") && !view.startsWith("genre:")) return;
+    const q = view.startsWith("artist:") ? view.slice(7) : view.slice(6);
+    let cancelled = false;
+    setDynLoading(true);
+    setDynList([]);
+    searchITunes(q, 25)
+      .then((rs) => {
+        if (!cancelled) setDynList(rs);
+      })
+      .finally(() => {
+        if (!cancelled) setDynLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
+
+  // suggested artists derived from liked + recently played
+  const suggestedArtists = useMemo(() => {
+    const counts = new Map<string, { name: string; art: string; n: number }>();
+    for (const t of [...liked, ...recentPlayed]) {
+      if (!t.artist) continue;
+      const k = t.artist.toLowerCase();
+      const cur = counts.get(k);
+      if (cur) cur.n++;
+      else counts.set(k, { name: t.artist, art: t.artworkHi || t.artwork, n: 1 });
+    }
+    return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 8);
+  }, [liked, recentPlayed]);
 
   async function handleImport() {
     setImporting(true);
@@ -376,9 +428,10 @@ function MusicPage() {
 
   const activeList: Track[] = useMemo(() => {
     if (view === "liked") return liked;
+    if (typeof view === "string" && (view.startsWith("artist:") || view.startsWith("genre:"))) return dynList;
     const pl = playlists.find((p) => p.id === view);
     return pl?.tracks || [];
-  }, [view, liked, playlists]);
+  }, [view, liked, playlists, dynList]);
 
   const shuffle = () => {
     if (!activeList.length) return;
@@ -548,6 +601,21 @@ function MusicPage() {
             <Download className="h-4 w-4" /> Import YouTube playlist
           </button>
 
+          <div className="flex flex-col gap-2">
+            <div className="px-1 text-[11px] uppercase tracking-widest text-white/40">Browse genres</div>
+            <div className="flex flex-wrap gap-1.5">
+              {GENRES.slice(0, 8).map((g) => (
+                <button
+                  key={g.name}
+                  onClick={() => setView(`genre:${g.query}`)}
+                  className={`rounded-full bg-gradient-to-r ${g.gradient} px-2.5 py-1 text-[11px] font-semibold text-white/95 shadow-sm ring-1 ring-white/10 hover:brightness-110`}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/50" />
             <input
@@ -616,29 +684,144 @@ function MusicPage() {
         {/* Main */}
         <main className="min-w-0 flex-1 overflow-y-auto">
           {view === "home" && !current && (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <NoteIcon className="h-12 w-12 text-white/40" />
-              <h1 className="text-2xl font-bold">Search to start listening</h1>
-              <p className="max-w-sm text-sm text-white/60">
-                Songs stream from YouTube via Invidious. Build playlists, like songs, view lyrics — even import full
-                YouTube playlists.
-              </p>
+            <div className="flex flex-col gap-8 pb-6">
+              {/* Hero */}
+              <div className="rounded-3xl bg-gradient-to-br from-pink-500/20 via-purple-600/15 to-indigo-700/20 p-6 ring-1 ring-white/10 md:p-8">
+                <div className="text-[11px] uppercase tracking-widest text-white/60">Welcome back</div>
+                <h1 className="mt-1 text-2xl font-black md:text-4xl">What do you want to hear today?</h1>
+                <p className="mt-1 max-w-xl text-sm text-white/65">
+                  Search, browse genres, dive into an artist, or pick up a playlist.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {TRENDING.slice(0, 6).map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => setView(`artist:${q}`)}
+                      className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium ring-1 ring-white/15 hover:bg-white/20"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Jump back in */}
+              {recentPlayed.length > 0 && (
+                <section>
+                  <h2 className="mb-3 text-lg font-bold">Jump back in</h2>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                    {recentPlayed.slice(0, 12).map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => play(t, recentPlayed, recentPlayed.indexOf(t))}
+                        className="group flex flex-col gap-2 rounded-xl bg-white/5 p-2.5 text-left ring-1 ring-white/5 hover:bg-white/10"
+                      >
+                        <img src={t.artworkHi || t.artwork} alt="" className="aspect-square w-full rounded-lg object-cover" />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold">{t.title}</div>
+                          <div className="truncate text-xs text-white/60">{t.artist}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Made for you - suggested artists */}
+              {suggestedArtists.length > 0 && (
+                <section>
+                  <h2 className="mb-3 text-lg font-bold">Made for you</h2>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {suggestedArtists.map((a) => (
+                      <button
+                        key={a.name}
+                        onClick={() => setView(`artist:${a.name}`)}
+                        className="group flex items-center gap-3 rounded-xl bg-white/5 p-2.5 text-left ring-1 ring-white/5 hover:bg-white/10"
+                      >
+                        <img src={a.art} alt="" className="h-14 w-14 rounded-full object-cover ring-1 ring-white/10" />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold">{a.name}</div>
+                          <div className="text-[11px] text-white/55">Artist radio</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Browse genres */}
+              <section>
+                <h2 className="mb-3 text-lg font-bold">Browse all</h2>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {GENRES.map((g) => (
+                    <button
+                      key={g.name}
+                      onClick={() => setView(`genre:${g.query}`)}
+                      className={`relative h-24 overflow-hidden rounded-2xl bg-gradient-to-br ${g.gradient} p-3 text-left shadow-lg ring-1 ring-white/10 transition hover:brightness-110 active:scale-[0.98]`}
+                    >
+                      <div className="text-base font-black text-white drop-shadow">{g.name}</div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Trending */}
+              <section>
+                <h2 className="mb-3 text-lg font-bold">Trending artists</h2>
+                <div className="flex flex-wrap gap-2">
+                  {TRENDING.map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => setView(`artist:${q}`)}
+                      className="rounded-full bg-white/10 px-3 py-1.5 text-sm font-medium ring-1 ring-white/15 hover:bg-white/20"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
           )}
 
-          {(view === "liked" || playlists.some((p) => p.id === view)) && (
+          {(view === "liked" ||
+            playlists.some((p) => p.id === view) ||
+            (typeof view === "string" && (view.startsWith("artist:") || view.startsWith("genre:")))) && (
             <div>
               <div className="mb-4 flex items-end gap-4">
-                <div className="grid h-32 w-32 place-items-center rounded-2xl bg-gradient-to-br from-pink-500/50 to-purple-700/50 shadow-xl">
-                  {view === "liked" ? <Heart className="h-12 w-12" /> : <ListMusic className="h-12 w-12" />}
+                <div className="grid h-32 w-32 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-pink-500/50 to-purple-700/50 shadow-xl">
+                  {typeof view === "string" && (view.startsWith("artist:") || view.startsWith("genre:")) ? (
+                    dynList[0]?.artworkHi ? (
+                      <img src={dynList[0].artworkHi} alt="" className="h-full w-full object-cover" />
+                    ) : view.startsWith("artist:") ? (
+                      <NoteIcon className="h-12 w-12" />
+                    ) : (
+                      <ListMusic className="h-12 w-12" />
+                    )
+                  ) : view === "liked" ? (
+                    <Heart className="h-12 w-12" />
+                  ) : (
+                    <ListMusic className="h-12 w-12" />
+                  )}
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-widest text-white/60">Playlist</div>
+                  <div className="text-xs uppercase tracking-widest text-white/60">
+                    {typeof view === "string" && view.startsWith("artist:")
+                      ? "Artist"
+                      : typeof view === "string" && view.startsWith("genre:")
+                        ? "Genre"
+                        : "Playlist"}
+                  </div>
                   <h1 className="text-3xl font-black md:text-4xl">
-                    {view === "liked" ? "Liked Songs" : playlists.find((p) => p.id === view)?.name}
+                    {typeof view === "string" && view.startsWith("artist:")
+                      ? view.slice(7)
+                      : typeof view === "string" && view.startsWith("genre:")
+                        ? GENRES.find((g) => g.query === view.slice(6))?.name || view.slice(6)
+                        : view === "liked"
+                          ? "Liked Songs"
+                          : playlists.find((p) => p.id === view)?.name}
                   </h1>
                   <div className="mt-1 text-sm text-white/60">
-                    {activeList.length} songs
+                    {dynLoading ? "Loading…" : `${activeList.length} songs`}
                     {activeList.some((t) => t.durationMs) && (
                       <> · {fmt(activeList.reduce((s, t) => s + (t.durationMs || 0), 0) / 1000)}</>
                     )}
@@ -687,7 +870,18 @@ function MusicPage() {
                         {fmtMs(t.durationMs)}
                       </span>
                     ) : null}
-                    {view === "liked" ? (
+                    {typeof view === "string" && (view.startsWith("artist:") || view.startsWith("genre:")) ? (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPickerFor(t);
+                        }}
+                        className="rounded p-1.5 text-white/60 opacity-0 hover:bg-white/10 hover:text-white group-hover:opacity-100"
+                        aria-label="Add to playlist"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </span>
+                    ) : view === "liked" ? (
                       <span
                         onClick={(e) => {
                           e.stopPropagation();
@@ -711,9 +905,16 @@ function MusicPage() {
                     )}
                   </button>
                 ))}
-                {!activeList.length && (
+                {!activeList.length && !dynLoading && (
                   <div className="rounded-xl bg-white/5 p-6 text-center text-sm text-white/60">
-                    No songs yet. Search above and tap + to add.
+                    {typeof view === "string" && (view.startsWith("artist:") || view.startsWith("genre:"))
+                      ? "No results — try a different search."
+                      : "No songs yet. Search above and tap + to add."}
+                  </div>
+                )}
+                {dynLoading && (
+                  <div className="grid place-items-center rounded-xl bg-white/5 p-6 text-sm text-white/60">
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   </div>
                 )}
               </div>
@@ -735,7 +936,12 @@ function MusicPage() {
               <div className="min-w-0 flex-1">
                 <div className="text-xs uppercase tracking-widest text-white/60">Now Playing</div>
                 <h1 className="mt-1 text-3xl font-black md:text-5xl">{current.title}</h1>
-                <div className="mt-1 text-lg text-white/70">{current.artist}</div>
+                <button
+                  onClick={() => current && setView(`artist:${current.artist}`)}
+                  className="mt-1 text-left text-lg text-white/70 hover:text-white hover:underline"
+                >
+                  {current.artist}
+                </button>
                 {current.album && <div className="text-sm text-white/50">{current.album}</div>}
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60">
                   {current.year && <span className="rounded-full bg-white/10 px-2 py-0.5">{current.year}</span>}
