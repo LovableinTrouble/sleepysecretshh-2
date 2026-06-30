@@ -29,22 +29,21 @@ const FEBBOX: Source = {
   build: () => "",
 };
 
-// VidAPI — modern embed provider via vaplayer.ru
-// Supports IMDB (tt prefix) or TMDB (numeric) IDs
-// URL format: https://vaplayer.ru/embed/movie/{id} or /embed/tv/{id}/{season}/{episode}
+// VidGod — modern embed provider via vidgod.net
+// Supports TMDB (numeric) IDs only.
+// URL format: https://vidgod.net/movie/{id} or /tv/{id}/{season}/{episode}
 const VIDAPI: Source = {
   id: "vidapi",
-  name: "VidAPI",
+  name: "VidGod",
   badge: "Embed · ad-blocked",
   kind: "embed",
   tier: "embed",
   noSandbox: false,
   build: (m, s, e) => {
-    const baseParams = "skin=prime&color=9146ff";
     if (m.type === "movie") {
-      return `https://vaplayer.ru/embed/movie/${m.id}?${baseParams}`;
+      return `https://vidgod.net/movie/${m.id}`;
     }
-    return `https://vaplayer.ru/embed/tv/${m.id}/${s ?? 1}/${e ?? 1}?${baseParams}`;
+    return `https://vidgod.net/tv/${m.id}/${s ?? 1}/${e ?? 1}`;
   },
 };
 
