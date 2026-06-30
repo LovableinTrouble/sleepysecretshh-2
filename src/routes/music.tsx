@@ -601,6 +601,21 @@ function MusicPage() {
             <Download className="h-4 w-4" /> Import YouTube playlist
           </button>
 
+          <div className="flex flex-col gap-2">
+            <div className="px-1 text-[11px] uppercase tracking-widest text-white/40">Browse genres</div>
+            <div className="flex flex-wrap gap-1.5">
+              {GENRES.slice(0, 8).map((g) => (
+                <button
+                  key={g.name}
+                  onClick={() => setView(`genre:${g.query}`)}
+                  className={`rounded-full bg-gradient-to-r ${g.gradient} px-2.5 py-1 text-[11px] font-semibold text-white/95 shadow-sm ring-1 ring-white/10 hover:brightness-110`}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/50" />
             <input
