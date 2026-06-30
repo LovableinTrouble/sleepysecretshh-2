@@ -23,6 +23,7 @@ import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as SportsIdRouteImport } from './routes/sports.$id'
 import { Route as PersonIdRouteImport } from './routes/person.$id'
 import { Route as LiveIdRouteImport } from './routes/live.$id'
+import { Route as ApiProxyRouteImport } from './routes/api/proxy'
 import { Route as MediaTypeIdRouteImport } from './routes/media.$type.$id'
 import { Route as ApiPublicYtPlaylistRouteImport } from './routes/api/public/yt-playlist'
 import { Route as ApiPublicSubtitleRouteImport } from './routes/api/public/subtitle'
@@ -101,6 +102,11 @@ const LiveIdRoute = LiveIdRouteImport.update({
   path: '/live/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProxyRoute = ApiProxyRouteImport.update({
+  id: '/api/proxy',
+  path: '/api/proxy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MediaTypeIdRoute = MediaTypeIdRouteImport.update({
   id: '/media/$type/$id',
   path: '/media/$type/$id',
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/proxy': typeof ApiProxyRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/proxy': typeof ApiProxyRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/proxy': typeof ApiProxyRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
+    | '/api/proxy'
     | '/live/$id'
     | '/person/$id'
     | '/sports/$id'
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
+    | '/api/proxy'
     | '/live/$id'
     | '/person/$id'
     | '/sports/$id'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
+    | '/api/proxy'
     | '/live/$id'
     | '/person/$id'
     | '/sports/$id'
@@ -290,6 +302,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SportsRoute: typeof SportsRouteWithChildren
   WatchlistRoute: typeof WatchlistRoute
+  ApiProxyRoute: typeof ApiProxyRoute
   LiveIdRoute: typeof LiveIdRoute
   PersonIdRoute: typeof PersonIdRoute
   WatchIdRoute: typeof WatchIdRoute
@@ -402,6 +415,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/proxy': {
+      id: '/api/proxy'
+      path: '/api/proxy'
+      fullPath: '/api/proxy'
+      preLoaderRoute: typeof ApiProxyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/media/$type/$id': {
       id: '/media/$type/$id'
       path: '/media/$type/$id'
@@ -476,6 +496,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SportsRoute: SportsRouteWithChildren,
   WatchlistRoute: WatchlistRoute,
+  ApiProxyRoute: ApiProxyRoute,
   LiveIdRoute: LiveIdRoute,
   PersonIdRoute: PersonIdRoute,
   WatchIdRoute: WatchIdRoute,

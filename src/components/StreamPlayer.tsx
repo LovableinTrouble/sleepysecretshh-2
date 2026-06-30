@@ -617,8 +617,19 @@ function EmbedSurface({
     return () => window.removeEventListener("message", handler, { capture: true });
   }, [source.id]);
 
-  const sandboxValue = "allow-scripts allow-same-origin allow-presentation allow-forms allow-downloads allow-downloads-without-user-activation" as const;
-  const iframeSrc = buildSourceUrl(source, media, season, episode);
+  const rawSrc = buildSourceUrl(source, media, season, episode);
+  // Route the VoidX embed through our same-origin /api/proxy so we can
+  // strip popunder scripts and apply a tight sandbox. The provider blocks
+  // sandboxed cross-origin iframes, but our proxy serves the player from
+  // OUR origin, where `allow-same-origin` keeps the player JS happy.
+  const iframeSrc =
+    source.id === "vidsrc"
+      ? `/api/proxy?url=${encodeURIComponent(rawSrc)}`
+      : rawSrc;
+  const sandboxValue =
+    source.id === "vidsrc"
+      ? "allow-scripts allow-same-origin allow-presentation allow-forms"
+      : "allow-scripts allow-same-origin allow-presentation allow-forms allow-downloads allow-downloads-without-user-activation";
   const iframeExtra: { sandbox?: string } = source.noSandbox ? {} : { sandbox: sandboxValue };
 
   return (
