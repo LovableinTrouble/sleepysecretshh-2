@@ -21,16 +21,24 @@ export interface Source {
 export type SourceKey = "delta" | "gamma" | "toro";
 
 const FEBBOX: Source = {
-  id: "febbox", name: "FebBox", badge: "Direct · up to 4K",
-  kind: "febbox-direct", tier: "primary", build: () => "",
+  id: "febbox",
+  name: "FebBox",
+  badge: "Direct · up to 4K",
+  kind: "febbox-direct",
+  tier: "primary",
+  build: () => "",
 };
 
 // VidAPI — modern embed provider via vaplayer.ru
 // Supports IMDB (tt prefix) or TMDB (numeric) IDs
 // URL format: https://vaplayer.ru/embed/movie/{id} or /embed/tv/{id}/{season}/{episode}
 const VIDAPI: Source = {
-  id: "vidapi", name: "VidAPI", badge: "Embed · ad-blocked",
-  kind: "embed", tier: "embed", noSandbox: false,
+  id: "vidapi",
+  name: "VidAPI",
+  badge: "Embed · ad-blocked",
+  kind: "embed",
+  tier: "embed",
+  noSandbox: false,
   build: (m, s, e) => {
     const baseParams = "skin=prime&color=9146ff";
     if (m.type === "movie") {
@@ -46,7 +54,7 @@ export const SOURCES: Source[] = [FEBBOX, VIDAPI];
 export const EMBED_SOURCES: Source[] = [VIDAPI];
 
 function hasFebboxCookie(settings?: Pick<Settings, "integrations">): boolean {
-  return Boolean(settings?.integrations?.feabbixCookie?.trim());
+  return Boolean(settings?.integrations?.febboxCookie?.trim());
 }
 
 export function getOrderedSources(settings?: Pick<Settings, "integrations">): Source[] {
