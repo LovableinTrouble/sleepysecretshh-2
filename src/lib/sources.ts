@@ -68,7 +68,7 @@ const CINEMAOS: Source = {
   badge: "Embed",
   kind: "embed",
   tier: "embed",
-  noSandbox: true,
+  noSandbox: false,
   build: (m, s, e) => {
     if (m.type === "movie") return `https://cinemaos.tech/player/${m.id}`;
     return `https://cinemaos.tech/player/${m.id}/${s ?? 1}/${e ?? 1}`;
