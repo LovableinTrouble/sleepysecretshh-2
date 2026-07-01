@@ -62,6 +62,8 @@ export interface Settings {
   tmdbApiKey: string;
   preferredSource: string;
   preferredDownloadSource: string;
+  /** Main embed provider used for the video player. */
+  embedProvider: "vidsuper" | "streamrip" | "cinemaos" | "toustream";
   language: "en" | "es" | "fr" | "ja" | "de";
   region: string;
   matureContent: boolean;
@@ -103,6 +105,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tmdbApiKey: "",
   preferredSource: "febbox",
   preferredDownloadSource: "febbox",
+  embedProvider: "vidsuper",
   language: "en",
   region: "US",
   matureContent: false,

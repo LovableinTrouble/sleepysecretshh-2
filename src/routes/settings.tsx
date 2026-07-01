@@ -196,6 +196,37 @@ function SettingsPage() {
           <p className="mt-2 text-muted-foreground">Themes, playback, sources and integrations — all clean, all yours.</p>
         </div>
 
+        {/* Main embed provider — top-level source picker */}
+        <Section
+          title="Main embed source"
+          desc="Pick the primary embed the player uses. FebBox (direct) still takes precedence when a cookie is set."
+        >
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              { id: "vidsuper", name: "Vidsuper", hint: "Default · 4K" },
+              { id: "streamrip", name: "StreamRIP", hint: "Fast · alt" },
+              { id: "cinemaos", name: "CinemaOS", hint: "Backup" },
+              { id: "toustream", name: "TouStream", hint: "Alt" },
+            ].map((o) => {
+              const active = s.embedProvider === o.id;
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => set({ embedProvider: o.id as Settings["embedProvider"] })}
+                  className={`rounded-2xl border p-3 text-left transition ${
+                    active
+                      ? "border-primary bg-primary/10 ring-2 ring-primary/40"
+                      : "border-glass-border bg-background/30 hover:border-primary/40"
+                  }`}
+                >
+                  <div className="text-sm font-bold">{o.name}</div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">{o.hint}</div>
+                </button>
+              );
+            })}
+          </div>
+        </Section>
+
         {/* FebBox — surfaced first because it gates the primary direct source. */}
         <Section
           title="FebBox Cookie"
@@ -364,10 +395,6 @@ function SettingsPage() {
             ]} />
           </Row>
           <Row label="Show mature content"><Toggle value={s.matureContent} onChange={(v) => set({ matureContent: v })} /></Row>
-        </Section>
-
-        <Section title="AI">
-          <Row label="Enable Luna AI" hint="Powered by the Lovable AI Gateway."><Toggle value={s.enableAi} onChange={(v) => set({ enableAi: v })} /></Row>
         </Section>
 
         <button

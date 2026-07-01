@@ -21,6 +21,7 @@ import {
   ExternalLink,
   ListOrdered,
   Download,
+  ArrowRight,
   Loader as Loader2,
 } from "lucide-react";
 
@@ -164,19 +165,21 @@ function MusicPage() {
 
     const rect = el.getBoundingClientRect();
     const pad = 12;
-    const visualViewport = window.visualViewport;
-    const viewportWidth = visualViewport?.width ?? window.innerWidth;
-    const viewportHeight = visualViewport?.height ?? window.innerHeight;
-    const viewportTop = visualViewport?.offsetTop ?? 0;
+    // NOTE: keep this in *layout viewport* coordinates only. iOS Safari
+    // reports a non-zero visualViewport.offsetTop whenever the keyboard is
+    // open, and adding that to a `position: fixed` element pushes the
+    // panel completely off-screen (behind the keyboard). Fixed positioning
+    // is already relative to the layout viewport, so we don't need any
+    // visual-viewport math — we just anchor to the input's bounding rect.
+    const viewportWidth = window.innerWidth;
     const isMobile = viewportWidth < 768;
     const panelWidth = isMobile
       ? Math.max(280, viewportWidth - pad * 2)
       : Math.min(rect.width, viewportWidth - pad * 2);
     const left = isMobile ? pad : Math.max(pad, Math.min(rect.left, viewportWidth - panelWidth - pad));
-    const top = Math.max(
-      pad + viewportTop,
-      Math.min(rect.bottom + 8 + viewportTop, viewportTop + viewportHeight - 180),
-    );
+    // Anchor just under the input. Clamp so it can't render off the top
+    // of the layout viewport (e.g. sticky header scrolled up).
+    const top = Math.max(pad, rect.bottom + 8);
 
     setSearchPanelStyle({ left, top, width: panelWidth });
   }, []);
@@ -664,17 +667,37 @@ function MusicPage() {
           </button>
 
           <div className="flex flex-col gap-2">
-            <div className="px-1 text-[11px] uppercase tracking-widest text-white/40">Browse genres</div>
-            <div className="flex flex-wrap gap-1.5">
-              {GENRES.slice(0, 8).map((g) => (
-                <button
-                  key={g.name}
-                  onClick={() => setView(`genre:${g.query}`)}
-                  className={`rounded-full bg-gradient-to-r ${g.gradient} px-2.5 py-1 text-[11px] font-semibold text-white/95 shadow-sm ring-1 ring-white/10 hover:brightness-110`}
-                >
-                  {g.name}
-                </button>
-              ))}
+            <div className="flex items-center justify-between px-1 text-[11px] uppercase tracking-widest text-white/40">
+              <span>Browse genres</span>
+              <button
+                onClick={() => setView("home")}
+                className="rounded p-0.5 text-white/40 hover:bg-white/10 hover:text-white/70"
+                aria-label="View all"
+                title="View all"
+              >
+                <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {GENRES.slice(0, 8).map((g) => {
+                const isActive = view === `genre:${g.query}`;
+                return (
+                  <button
+                    key={g.name}
+                    onClick={() => setView(`genre:${g.query}`)}
+                    className={`group relative overflow-hidden rounded-lg bg-gradient-to-br ${g.gradient} px-2.5 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-white shadow-sm ring-1 transition ${
+                      isActive
+                        ? "ring-2 ring-white/60"
+                        : "ring-white/10 hover:ring-white/25"
+                    }`}
+                  >
+                    <span className="relative z-10 line-clamp-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+                      {g.name}
+                    </span>
+                    <span className="pointer-events-none absolute -right-2 -top-2 h-8 w-8 rounded-full bg-white/15 blur-md transition group-hover:bg-white/25" />
+                  </button>
+                );
+              })}
             </div>
           </div>
 

@@ -17,7 +17,6 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as IptvRouteImport } from './routes/iptv'
 import { Route as ExploreRouteImport } from './routes/explore'
-import { Route as AiRouteImport } from './routes/ai'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as SportsIdRouteImport } from './routes/sports.$id'
@@ -69,11 +68,6 @@ const IptvRoute = IptvRouteImport.update({
 const ExploreRoute = ExploreRouteImport.update({
   id: '/explore',
   path: '/explore',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AiRoute = AiRouteImport.update({
-  id: '/ai',
-  path: '/ai',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -139,7 +133,6 @@ const ApiPpvStreamsRoute = ApiPpvStreamsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/ai': typeof AiRoute
   '/explore': typeof ExploreRoute
   '/iptv': typeof IptvRoute
   '/music': typeof MusicRoute
@@ -162,7 +155,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/ai': typeof AiRoute
   '/explore': typeof ExploreRoute
   '/iptv': typeof IptvRoute
   '/music': typeof MusicRoute
@@ -186,7 +178,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/ai': typeof AiRoute
   '/explore': typeof ExploreRoute
   '/iptv': typeof IptvRoute
   '/music': typeof MusicRoute
@@ -211,7 +202,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/ai'
     | '/explore'
     | '/iptv'
     | '/music'
@@ -234,7 +224,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/ai'
     | '/explore'
     | '/iptv'
     | '/music'
@@ -257,7 +246,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/ai'
     | '/explore'
     | '/iptv'
     | '/music'
@@ -281,7 +269,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AiRoute: typeof AiRoute
   ExploreRoute: typeof ExploreRoute
   IptvRoute: typeof IptvRoute
   MusicRoute: typeof MusicRoute
@@ -358,13 +345,6 @@ declare module '@tanstack/react-router' {
       path: '/explore'
       fullPath: '/explore'
       preLoaderRoute: typeof ExploreRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ai': {
-      id: '/ai'
-      path: '/ai'
-      fullPath: '/ai'
-      preLoaderRoute: typeof AiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -467,7 +447,6 @@ const SportsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AiRoute: AiRoute,
   ExploreRoute: ExploreRoute,
   IptvRoute: IptvRoute,
   MusicRoute: MusicRoute,

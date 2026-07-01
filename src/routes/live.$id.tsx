@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import { ArrowLeft, AlertTriangle, Maximize2, Volume2, VolumeX, RefreshCw, Tv2 } from "lucide-react";
-import { CURATED_CHANNELS } from "@/lib/iptv-curated";
 
 export const Route = createFileRoute("/live/$id")({
   head: () => ({
@@ -25,15 +24,17 @@ function LivePage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
 
-  // Prefer search params (passed during navigation). Fall back to curated lookup.
-  const curated = CURATED_CHANNELS.find((c) => c.id === id);
   const channel = {
     id,
-    name: search.name || curated?.name || "Live Channel",
-    url: search.url || curated?.url || "",
-    logo: search.logo || curated?.logo,
-    group: search.group || curated?.group || "Live",
+    name: search.name || "Live Channel",
+    url: search.url || "",
+    logo: search.logo,
+    group: search.group || "Live",
   };
+
+  // TouStream (and other first-party HTML embeds) must render in an iframe;
+  // they're not raw HLS.
+  const isEmbed = /toustream\.xyz\/tou\/live\//i.test(channel.url);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,6 +51,7 @@ function LivePage() {
     : "";
 
   useEffect(() => {
+    if (isEmbed) { setLoading(false); return; }
     const v = videoRef.current;
     if (!v || !proxiedUrl) {
       setErr("No stream URL provided.");
@@ -134,7 +136,7 @@ function LivePage() {
       if (stallTimer) clearTimeout(stallTimer);
       hls?.destroy();
     };
-  }, [proxiedUrl, reloadKey]);
+  }, [proxiedUrl, reloadKey, isEmbed]);
 
   const onBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -225,13 +227,25 @@ function LivePage() {
 
       {/* Player */}
       <div ref={containerRef} className="relative flex-1 bg-black">
-        <video
-          ref={videoRef}
-          controls
-          playsInline
-          autoPlay
-          className="h-full w-full bg-black"
-        />
+        {isEmbed ? (
+          <iframe
+            key={reloadKey}
+            src={channel.url}
+            title={channel.name}
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="no-referrer"
+            className="h-full w-full border-0 bg-black"
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            controls
+            playsInline
+            autoPlay
+            className="h-full w-full bg-black"
+          />
+        )}
         {loading && !err && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center bg-black/40">
             <div className="text-center">

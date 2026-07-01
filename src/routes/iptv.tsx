@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Tv2, RadioTower, Star, Trophy, ArrowRight, Upload, Trash2, Link2, ClipboardPaste, Loader2 } from "lucide-react";
-import { CURATED_CHANNELS, CURATED_GROUPS } from "@/lib/iptv-curated";
 import { fetchPpvAll, flattenEvents } from "@/lib/sports";
 import {
   loadCustomPlaylists,
@@ -48,6 +47,26 @@ function IptvPage() {
     setCustom(loadCustomPlaylists());
   }, []);
 
+  // TouStream channels — fetched live. Slugs become channel ids and the
+  // player URL is https://toustream.xyz/tou/live/{slug}. We render these
+  // via <iframe> in the live route because they're first-party embeds.
+  const { data: touChannels = [], isLoading: touLoading } = useQuery({
+    queryKey: ["toustream", "channels"],
+    queryFn: async () => {
+      const res = await fetch("https://toustream.xyz/tou/api/channels");
+      if (!res.ok) throw new Error("Failed to load channels");
+      const raw = (await res.json()) as Array<{ slug: string; name?: string; image?: string; category?: string }>;
+      return raw.map((c) => ({
+        id: `tou-${c.slug}`,
+        name: c.name || c.slug,
+        logo: c.image,
+        url: `https://toustream.xyz/tou/live/${c.slug}`,
+        group: (c.category && c.category.trim()) || "Live TV",
+      }));
+    },
+    staleTime: 15 * 60_000,
+  });
+
   const toggleFav = (id: string) => {
     setFavs((prev) => {
       const next = new Set(prev);
@@ -58,15 +77,12 @@ function IptvPage() {
   };
 
   const customChannels = useMemo(() => custom.flatMap((p) => p.channels), [custom]);
-  const channels = useMemo(() => [...customChannels, ...CURATED_CHANNELS], [customChannels]);
+  const channels = useMemo(() => [...customChannels, ...touChannels], [customChannels, touChannels]);
 
   const groups = useMemo(() => {
     const seen = new Map<string, number>();
     for (const c of channels) seen.set(c.group, (seen.get(c.group) ?? 0) + 1);
-    const order = new Map(CURATED_GROUPS.map((g, i) => [g, i] as const));
-    const entries = Array.from(seen.entries()).sort(
-      (a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999),
-    );
+    const entries = Array.from(seen.entries()).sort((a, b) => a[0].localeCompare(b[0]));
     const base = ["All", ...entries.map(([g]) => g)];
     const withFavs = favs.size > 0 ? ["Favorites", ...base] : base;
     return custom.length > 0
@@ -78,7 +94,7 @@ function IptvPage() {
     const q = query.trim().toLowerCase();
     const list = channels.filter((c) => {
       if (group === "Favorites") { if (!favs.has(c.id)) return false; }
-      else if (group === "My Playlists") { if (!c.id.startsWith("custom-")) return false; }
+      else if (group === "My Playlists") { if (!c.id.startsWith("pl-") && !c.id.startsWith("custom-")) return false; }
       else if (group !== "All" && c.group !== group) return false;
       if (q && !c.name.toLowerCase().includes(q)) return false;
       return true;
@@ -88,6 +104,8 @@ function IptvPage() {
     }
     return list;
   }, [channels, group, query, favs]);
+
+  const isLoading = touLoading && touChannels.length === 0;
 
   const handleSavePlaylist = (pl: CustomPlaylist) => {
     const next = [...custom.filter((p) => p.id !== pl.id), pl];
@@ -242,7 +260,7 @@ function IptvPage() {
           })}
           {filtered.length === 0 && (
             <div className="col-span-full py-16 text-center text-sm text-muted-foreground">
-              No channels match your filters.
+              {isLoading ? "Loading channels…" : "No channels match your filters."}
             </div>
           )}
         </div>
