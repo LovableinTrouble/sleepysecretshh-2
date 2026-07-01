@@ -201,9 +201,10 @@ function SettingsPage() {
           title="Main embed source"
           desc="Pick the primary embed the player uses. FebBox (direct) still takes precedence when a cookie is set."
         >
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {[
-              { id: "vidsuper", name: "Vidsuper", hint: "Default · 4K" },
+              { id: "zxcstream", name: "ZXCStream", hint: "Default · HD" },
+              { id: "vidsuper", name: "Vidsuper", hint: "4K · alt" },
               { id: "streamrip", name: "StreamRIP", hint: "Fast · alt" },
               { id: "cinemaos", name: "CinemaOS", hint: "Backup" },
               { id: "toustream", name: "TouStream", hint: "Alt" },

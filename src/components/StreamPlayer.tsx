@@ -612,12 +612,13 @@ function EmbedSurface({
   }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
 
   useEffect(() => {
-    if (source.id !== "vidapi") return;
+    // Block popup/ad messages from embed sources
     const handler = (e: MessageEvent) => {
       if (!e.data || typeof e.data !== "object") return;
-      const blocked = ["AD_SHOW", "POPUP_OPEN", "open_url", "ad_click", "redirect"];
+      const blocked = ["AD_SHOW", "POPUP_OPEN", "open_url", "ad_click", "redirect", "popup", "window.open"];
       const data = e.data as { type?: string; event?: string };
-      if ((data.type && blocked.includes(data.type)) || (data.event && blocked.includes(data.event))) {
+      if ((data.type && blocked.some(b => data.type?.toLowerCase().includes(b.toLowerCase()))) ||
+          (data.event && blocked.some(b => data.event?.toLowerCase().includes(b.toLowerCase())))) {
         e.stopImmediatePropagation();
       }
     };
@@ -625,7 +626,7 @@ function EmbedSurface({
     return () => window.removeEventListener("message", handler, { capture: true });
   }, [source.id]);
 
-  // VidAPI uses vaplayer.ru directly — no proxy needed.
+  // Embed sources — direct iframe with adblock sandbox.
   // Sandbox to block popups while allowing the player to function.
   const iframeSrc = embedUrl || "";
   const sandboxValue = "allow-scripts allow-same-origin allow-presentation allow-forms";
@@ -654,7 +655,7 @@ function EmbedSurface({
         <span className="hidden sm:inline">Back</span>
       </button>
 
-      {/* SourceRail removed — VidAPI is the only embed source. */}
+      {/* SourceRail removed — use settings to switch sources */}
 
 
     </div>

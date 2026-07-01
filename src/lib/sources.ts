@@ -2,9 +2,8 @@ import type { Media } from "./catalog";
 import type { Settings } from "./store";
 
 /**
- * Source registry — Vidsuper (vidsuper.net) as primary embed.
- * FebBox is the direct-stream primary when the user has configured a UI
- * cookie.
+ * Source registry — ZXCStream (v.zxcstream.xyz) as primary embed provider.
+ * FebBox is the direct-stream primary when the user has configured a UI cookie.
  */
 export interface Source {
   id: string;
@@ -28,11 +27,26 @@ const FEBBOX: Source = {
   build: () => "",
 };
 
-// Vidsuper — TMDB-only embed via vidsuper.net
-// URL format: https://vidsuper.net/movie/{tmdb_id}
-//           or https://vidsuper.net/tv/{tmdb_id}/{season}/{episode}
-// Params: color, progress, nextEpisode, episodeSelector,
-// autoplayNextEpisode, overlay, skip_intro
+// ZXCStream — primary embed via v.zxcstream.xyz
+// URL format: https://v.zxcstream.xyz/player/movie/{tmdb_id}
+//           or https://v.zxcstream.xyz/player/tv/{tmdb_id}/{season}/{episode}
+// Clean player with subtitle, quality selector, and minimal ads.
+// Sandbox enabled to block any popup scripts.
+const ZXCSTREAM: Source = {
+  id: "zxcstream",
+  name: "ZXCStream",
+  badge: "Embed · HD",
+  kind: "embed",
+  tier: "embed",
+  noSandbox: false,
+  build: (m, s, e) => {
+    if (m.type === "movie") {
+      return `https://v.zxcstream.xyz/player/movie/${m.id}?autoplay=true&color=ff3b30&back=false`;
+    }
+    return `https://v.zxcstream.xyz/player/tv/${m.id}/${s ?? 1}/${e ?? 1}?autoplay=true&color=ff3b30&back=false`;
+  },
+};
+
 const VIDSUPER: Source = {
   id: "vidsuper",
   name: "Vidsuper",
@@ -88,26 +102,51 @@ const TOUSTREAM: Source = {
   },
 };
 
-export const DEFAULT_EMBED_SOURCES: Source[] = [VIDSUPER, STREAMRIP, CINEMAOS, TOUSTREAM];
+// All available embed sources - ZXCStream is first (default)
+export const ALL_EMBED_SOURCES: Source[] = [ZXCSTREAM, VIDSUPER, STREAMRIP, CINEMAOS, TOUSTREAM];
+
+// Map of source ID to Source object for quick lookup
+const SOURCE_MAP: Record<string, Source> = {
+  zxcstream: ZXCSTREAM,
+  vidsuper: VIDSUPER,
+  streamrip: STREAMRIP,
+  cinemaos: CINEMAOS,
+  toustream: TOUSTREAM,
+};
+
+export const DEFAULT_EMBED_SOURCES: Source[] = [ZXCSTREAM];
 export const LEGACY_EMBED_SOURCES: Source[] = [];
-export const SOURCES: Source[] = [FEBBOX, VIDSUPER, STREAMRIP, CINEMAOS, TOUSTREAM];
-export const EMBED_SOURCES: Source[] = [VIDSUPER, STREAMRIP, CINEMAOS, TOUSTREAM];
+export const SOURCES: Source[] = [FEBBOX, ...ALL_EMBED_SOURCES];
+export const EMBED_SOURCES: Source[] = ALL_EMBED_SOURCES;
 
 function hasFebboxCookie(settings?: Pick<Settings, "integrations">): boolean {
   return Boolean(settings?.integrations?.febboxCookie?.trim());
 }
 
-export function getOrderedSources(settings?: Pick<Settings, "integrations">): Source[] {
-  return hasFebboxCookie(settings) ? [FEBBOX, ...EMBED_SOURCES] : [...EMBED_SOURCES, FEBBOX];
+/**
+ * Get the active embed source based on user settings.
+ * Falls back to ZXCStream if not found or invalid.
+ */
+export function getActiveSource(settings?: Pick<Settings, "embedProvider">): Source {
+  const preferredId = settings?.embedProvider;
+  if (preferredId && SOURCE_MAP[preferredId]) {
+    return SOURCE_MAP[preferredId];
+  }
+  return ZXCSTREAM; // Default
 }
 
-export function getBestSource(settings?: Pick<Settings, "integrations">): Source {
-  return hasFebboxCookie(settings) ? FEBBOX : VIDSUPER;
+export function getOrderedSources(settings?: Pick<Settings, "integrations">): Source[] {
+  return hasFebboxCookie(settings) ? [FEBBOX, ...ALL_EMBED_SOURCES] : [...ALL_EMBED_SOURCES, FEBBOX];
+}
+
+export function getBestSource(settings?: Pick<Settings, "integrations" | "embedProvider">): Source {
+  if (hasFebboxCookie(settings)) return FEBBOX;
+  return getActiveSource(settings);
 }
 
 export function sourcesForKey(key: SourceKey): Source[] {
   if (key === "delta" || key === "gamma") return [FEBBOX];
-  return EMBED_SOURCES;
+  return ALL_EMBED_SOURCES;
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
