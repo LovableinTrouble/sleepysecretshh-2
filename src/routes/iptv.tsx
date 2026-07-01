@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Tv2, RadioTower, Star, Trophy, ArrowRight, Upload, Trash2, Link2, ClipboardPaste, Loader2 } from "lucide-react";
+import { Search, Tv as Tv2, RadioTower, Star, Trophy, ArrowRight, Upload, Trash2, Link2, ClipboardPaste, Loader as Loader2 } from "lucide-react";
 import { fetchPpvAll, flattenEvents } from "@/lib/sports";
 import {
   loadCustomPlaylists,
@@ -10,6 +10,7 @@ import {
   parseM3U,
   type CustomPlaylist,
 } from "@/lib/iptv-custom";
+import { CURATED_CHANNELS, type CuratedChannel } from "@/lib/iptv-curated";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -50,21 +51,36 @@ function IptvPage() {
   // TouStream channels — fetched live. Slugs become channel ids and the
   // player URL is https://toustream.xyz/tou/live/{slug}. We render these
   // via <iframe> in the live route because they're first-party embeds.
-  const { data: touChannels = [], isLoading: touLoading } = useQuery({
+  const { data: touChannels = [], isLoading: touLoading, isError: touError } = useQuery({
     queryKey: ["toustream", "channels"],
     queryFn: async () => {
-      const res = await fetch("https://toustream.xyz/tou/api/channels");
-      if (!res.ok) throw new Error("Failed to load channels");
-      const raw = (await res.json()) as Array<{ slug: string; name?: string; image?: string; category?: string }>;
-      return raw.map((c) => ({
-        id: `tou-${c.slug}`,
-        name: c.name || c.slug,
-        logo: c.image,
-        url: `https://toustream.xyz/tou/live/${c.slug}`,
-        group: (c.category && c.category.trim()) || "Live TV",
-      }));
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        const res = await fetch("https://toustream.xyz/tou/api/channels", { signal: ctrl.signal });
+        clearTimeout(timeout);
+        if (!res.ok) throw new Error("Failed to load channels");
+        const raw = (await res.json()) as Array<{ slug: string; name?: string; image?: string; category?: string }>;
+        // Limit channels to prevent UI lag
+        const limited = raw.slice(0, 100);
+        return limited.map((c) => ({
+          id: `tou-${c.slug}`,
+          name: c.name || c.slug,
+          logo: c.image,
+          url: `https://toustream.xyz/tou/live/${c.slug}`,
+          group: (c.category && c.category.trim()) || "Live TV",
+        }));
+      } catch (e) {
+        clearTimeout(timeout);
+        if (e instanceof Error && e.name === "AbortError") {
+          console.warn("TouStream API timeout");
+        }
+        throw e;
+      }
     },
     staleTime: 15 * 60_000,
+    retry: 1,
+    retryDelay: 2000,
   });
 
   const toggleFav = (id: string) => {
@@ -77,7 +93,15 @@ function IptvPage() {
   };
 
   const customChannels = useMemo(() => custom.flatMap((p) => p.channels), [custom]);
-  const channels = useMemo(() => [...customChannels, ...touChannels], [customChannels, touChannels]);
+
+  // Combine channels: custom + toustream (with curated fallback on error)
+  const channels = useMemo(() => {
+    if (touError && touChannels.length === 0) {
+      // Fallback to curated channels when TouStream fails
+      return [...customChannels, ...CURATED_CHANNELS];
+    }
+    return [...customChannels, ...touChannels];
+  }, [customChannels, touChannels, touError]);
 
   const groups = useMemo(() => {
     const seen = new Map<string, number>();
@@ -105,7 +129,7 @@ function IptvPage() {
     return list;
   }, [channels, group, query, favs]);
 
-  const isLoading = touLoading && touChannels.length === 0;
+  const isLoading = touLoading && touChannels.length === 0 && !touError;
 
   const handleSavePlaylist = (pl: CustomPlaylist) => {
     const next = [...custom.filter((p) => p.id !== pl.id), pl];
