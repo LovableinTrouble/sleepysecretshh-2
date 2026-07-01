@@ -164,19 +164,21 @@ function MusicPage() {
 
     const rect = el.getBoundingClientRect();
     const pad = 12;
-    const visualViewport = window.visualViewport;
-    const viewportWidth = visualViewport?.width ?? window.innerWidth;
-    const viewportHeight = visualViewport?.height ?? window.innerHeight;
-    const viewportTop = visualViewport?.offsetTop ?? 0;
+    // NOTE: keep this in *layout viewport* coordinates only. iOS Safari
+    // reports a non-zero visualViewport.offsetTop whenever the keyboard is
+    // open, and adding that to a `position: fixed` element pushes the
+    // panel completely off-screen (behind the keyboard). Fixed positioning
+    // is already relative to the layout viewport, so we don't need any
+    // visual-viewport math — we just anchor to the input's bounding rect.
+    const viewportWidth = window.innerWidth;
     const isMobile = viewportWidth < 768;
     const panelWidth = isMobile
       ? Math.max(280, viewportWidth - pad * 2)
       : Math.min(rect.width, viewportWidth - pad * 2);
     const left = isMobile ? pad : Math.max(pad, Math.min(rect.left, viewportWidth - panelWidth - pad));
-    const top = Math.max(
-      pad + viewportTop,
-      Math.min(rect.bottom + 8 + viewportTop, viewportTop + viewportHeight - 180),
-    );
+    // Anchor just under the input. Clamp so it can't render off the top
+    // of the layout viewport (e.g. sticky header scrolled up).
+    const top = Math.max(pad, rect.bottom + 8);
 
     setSearchPanelStyle({ left, top, width: panelWidth });
   }, []);
