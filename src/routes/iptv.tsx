@@ -260,7 +260,7 @@ function IptvPage() {
           })}
           {filtered.length === 0 && (
             <div className="col-span-full py-16 text-center text-sm text-muted-foreground">
-              No channels match your filters.
+              {isLoading ? "Loading channels…" : "No channels match your filters."}
             </div>
           )}
         </div>
