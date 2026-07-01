@@ -207,6 +207,23 @@ function MediaPage() {
 
             <p className="max-w-2xl text-[15px] leading-relaxed text-foreground/80 md:text-base">{media.overview}</p>
 
+            {/* Warning for newly released movies (likely low quality streams) */}
+            {!isSeries && extra?.releaseDate && (() => {
+              const releaseDate = new Date(extra.releaseDate);
+              const daysSinceRelease = (Date.now() - releaseDate.getTime()) / (1000 * 60 * 60 * 24);
+              const isNewRelease = daysSinceRelease < 45 && daysSinceRelease > 0;
+              return isNewRelease && (
+                <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200 ring-1 ring-amber-400/25">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <span>This content was newly released — expect streams to play in low quality.</span>
+                </div>
+              );
+            })()}
+
             <div className="flex flex-wrap items-center gap-2 pt-2 pb-1">
               <Link
                 to="/watch/$id"
