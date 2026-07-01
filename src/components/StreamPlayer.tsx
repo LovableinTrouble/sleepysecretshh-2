@@ -102,8 +102,17 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     [hasFebboxCookie],
   );
   const [sourceKey, setSourceKey] = useState<SourceKey>(() => computeInitialKey());
-  const [preferredEmbedId, setPreferredEmbedId] = useState<string | null>(null);
+  const [preferredEmbedId, setPreferredEmbedId] = useState<string | null>(settings.embedProvider);
   const userPickedRef = useRef(false);
+
+  // If user changes embed provider in settings, adopt it (unless they've
+  // manually picked one during this session).
+  useEffect(() => {
+    if (userPickedRef.current) return;
+    setPreferredEmbedId(settings.embedProvider);
+    loadSeqRef.current += 1;
+    setStatus({ kind: "scanning" });
+  }, [settings.embedProvider]);
 
   // If the FebBox cookie becomes available after first render (settings hydrate
   // from localStorage after SSR), promote FebBox automatically — unless the
