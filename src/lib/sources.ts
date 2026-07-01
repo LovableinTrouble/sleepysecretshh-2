@@ -55,7 +55,7 @@ const STREAMRIP: Source = {
   badge: "Embed",
   kind: "embed",
   tier: "embed",
-  noSandbox: true,
+  noSandbox: false,
   build: (m, s, e) => {
     if (m.type === "movie") return `https://streamrip.fun/play?type=movie&id=${m.id}`;
     return `https://streamrip.fun/play?type=tv&id=${m.id}&s=${s ?? 1}&ep=${e ?? 1}`;
