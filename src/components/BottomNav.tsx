@@ -3,7 +3,6 @@ import {
   Home,
   Compass,
   Search,
-  Bot,
   Bookmark,
   RadioTower,
   Music2,
@@ -17,7 +16,6 @@ const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/iptv", label: "Live TV", icon: RadioTower },
   { to: "/music", label: "Music", icon: Music2 },
   { to: "/watchlist", label: "Watchlist", icon: Bookmark },
-  { to: "/ai", label: "Luna", icon: Bot },
   { to: "/search", label: "Search", icon: Search },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
