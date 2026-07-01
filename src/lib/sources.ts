@@ -39,7 +39,7 @@ const VIDSUPER: Source = {
   badge: "Embed · 4K",
   kind: "embed",
   tier: "embed",
-  noSandbox: true,
+  noSandbox: false,
   build: (m, s, e) => {
     const params = "episodeSelector=true&overlay=true&skip_intro=true";
     if (m.type === "movie") {
