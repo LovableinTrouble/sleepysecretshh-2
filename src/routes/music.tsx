@@ -666,17 +666,37 @@ function MusicPage() {
           </button>
 
           <div className="flex flex-col gap-2">
-            <div className="px-1 text-[11px] uppercase tracking-widest text-white/40">Browse genres</div>
-            <div className="flex flex-wrap gap-1.5">
-              {GENRES.slice(0, 8).map((g) => (
-                <button
-                  key={g.name}
-                  onClick={() => setView(`genre:${g.query}`)}
-                  className={`rounded-full bg-gradient-to-r ${g.gradient} px-2.5 py-1 text-[11px] font-semibold text-white/95 shadow-sm ring-1 ring-white/10 hover:brightness-110`}
-                >
-                  {g.name}
-                </button>
-              ))}
+            <div className="flex items-center justify-between px-1 text-[11px] uppercase tracking-widest text-white/40">
+              <span>Browse genres</span>
+              <button
+                onClick={() => setView("home")}
+                className="rounded p-0.5 text-white/40 hover:bg-white/10 hover:text-white/70"
+                aria-label="View all"
+                title="View all"
+              >
+                <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {GENRES.slice(0, 8).map((g) => {
+                const isActive = view === `genre:${g.query}`;
+                return (
+                  <button
+                    key={g.name}
+                    onClick={() => setView(`genre:${g.query}`)}
+                    className={`group relative overflow-hidden rounded-lg bg-gradient-to-br ${g.gradient} px-2.5 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-white shadow-sm ring-1 transition ${
+                      isActive
+                        ? "ring-2 ring-white/60"
+                        : "ring-white/10 hover:ring-white/25"
+                    }`}
+                  >
+                    <span className="relative z-10 line-clamp-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+                      {g.name}
+                    </span>
+                    <span className="pointer-events-none absolute -right-2 -top-2 h-8 w-8 rounded-full bg-white/15 blur-md transition group-hover:bg-white/25" />
+                  </button>
+                );
+              })}
             </div>
           </div>
 
