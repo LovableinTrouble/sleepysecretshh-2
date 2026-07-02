@@ -3,7 +3,7 @@
 // All pages read/write through this store via `useMusicPlayer()`.
 
 import { useSyncExternalStore } from "react";
-import { searchYouTube, type Track } from "./music";
+import { searchYouTube, getMonochromeStream, type Track } from "./music";
 
 export type PlayerState = {
   current: Track | null;
@@ -49,6 +49,34 @@ let yt: any = null;
 let ytReady: Promise<void> | null = null;
 let pollTimer: number | null = null;
 let loadSeq = 0;
+
+// Audio element for direct stream playback (Monochrome)
+let audioEl: HTMLAudioElement | null = null;
+let audioPollTimer: number | null = null;
+
+function getAudioElement(): HTMLAudioElement {
+  if (!audioEl) {
+    audioEl = new Audio();
+    audioEl.volume = state.muted ? 0 : state.volume / 100;
+    audioEl.addEventListener("ended", () => {
+      if (state.repeat && audioEl) {
+        audioEl.currentTime = 0;
+        audioEl.play().catch(() => {});
+      } else {
+        next();
+      }
+    });
+    audioEl.addEventListener("playing", () => set({ playing: true, loading: false }));
+    audioEl.addEventListener("pause", () => set({ playing: false }));
+    audioEl.addEventListener("waiting", () => set({ loading: true }));
+    audioEl.addEventListener("timeupdate", () => {
+      if (audioEl) {
+        set({ progress: audioEl.currentTime, duration: audioEl.duration || 0 });
+      }
+    });
+  }
+  return audioEl;
+}
 
 function loadYT(): Promise<void> {
   if (ytReady) return ytReady;
@@ -138,6 +166,29 @@ export async function play(track: Track, list?: Track[], idx?: number): Promise<
     progress: 0,
     duration: 0,
   });
+
+  // Try to use direct stream URL from Monochrome if available
+  const streamUrl = track.streamUrl || (track.videoId ? await getMonochromeStream(track.videoId) : null);
+
+  if (streamUrl && seq === loadSeq) {
+    // Use HTML5 Audio for direct stream playback
+    const audio = getAudioElement();
+    audio.src = `/api/public/monochrome-proxy?path=${encodeURIComponent(streamUrl.replace(/^https?:\/\/[^/]+/, ""))}`;
+    audio.volume = state.muted ? 0 : state.volume / 100;
+    try {
+      await audio.play();
+    } catch {
+      // Fallback to YouTube if stream fails
+      await playYouTube(track, seq);
+    }
+    return;
+  }
+
+  // Fallback to YouTube IFrame API
+  await playYouTube(track, seq);
+}
+
+async function playYouTube(track: Track, seq: number): Promise<void> {
   // If the player already exists, kick playback synchronously inside the
   // caller's gesture. iOS Safari requires a media action within the same
   // task as the user tap, so we can't await search before calling play.
@@ -160,11 +211,23 @@ export async function play(track: Track, list?: Track[], idx?: number): Promise<
 }
 
 export function toggle() {
+  // Try HTML5 Audio first
+  if (audioEl && audioEl.src) {
+    state.playing ? audioEl.pause() : audioEl.play().catch(() => {});
+    return;
+  }
+  // Fallback to YouTube
   if (!yt) return;
   try { state.playing ? yt.pauseVideo() : yt.playVideo(); } catch {}
 }
 
-export function pause() { try { yt?.pauseVideo?.(); } catch {} }
+export function pause() {
+  if (audioEl && audioEl.src) {
+    audioEl.pause();
+    return;
+  }
+  try { yt?.pauseVideo?.(); } catch {}
+}
 
 export function next() {
   const { queue, queueIdx } = state;
@@ -175,24 +238,49 @@ export function next() {
 
 export function prev() {
   const { queue, queueIdx, progress } = state;
-  if (progress > 4 && yt) { try { yt.seekTo(0); } catch {} return; }
+  // Handle HTML5 Audio
+  if (audioEl && audioEl.src) {
+    if (progress > 4) {
+      audioEl.currentTime = 0;
+      return;
+    }
+  } else if (progress > 4 && yt) {
+    try { yt.seekTo(0); } catch {}
+    return;
+  }
   if (!queue.length) return;
   const ni = (queueIdx - 1 + queue.length) % queue.length;
   void play(queue[ni], queue, ni);
 }
 
 export function seek(ratio: number) {
+  // Handle HTML5 Audio
+  if (audioEl && audioEl.src && isFinite(audioEl.duration)) {
+    audioEl.currentTime = audioEl.duration * ratio;
+    return;
+  }
+  // Fallback to YouTube
   if (!yt?.getDuration) return;
   try { const d = yt.getDuration(); yt.seekTo(d * ratio, true); } catch {}
 }
 
 export function setVolume(v: number) {
   set({ volume: v });
+  // Handle HTML5 Audio
+  if (audioEl) {
+    audioEl.volume = state.muted ? 0 : v / 100;
+  }
+  // Also update YouTube player
   try { yt?.setVolume?.(state.muted ? 0 : v); } catch {}
 }
 
 export function setMuted(m: boolean) {
   set({ muted: m });
+  // Handle HTML5 Audio
+  if (audioEl) {
+    audioEl.volume = m ? 0 : state.volume / 100;
+  }
+  // Also update YouTube player
   try { yt?.setVolume?.(m ? 0 : state.volume); } catch {}
 }
 
@@ -201,6 +289,12 @@ export function setRepeat(r: boolean) { set({ repeat: r }); }
 /** Stops playback and clears the now-playing card. Used when entering a video/IPTV/sports route. */
 export function close() {
   loadSeq++;
+  // Stop HTML5 Audio
+  if (audioEl) {
+    audioEl.pause();
+    audioEl.src = "";
+  }
+  // Stop YouTube
   try { yt?.stopVideo?.(); } catch {}
   set({ ...initial, volume: state.volume, muted: state.muted, repeat: state.repeat });
 }

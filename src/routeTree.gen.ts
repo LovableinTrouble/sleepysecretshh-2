@@ -25,6 +25,7 @@ import { Route as LiveIdRouteImport } from './routes/live.$id'
 import { Route as MediaTypeIdRouteImport } from './routes/media.$type.$id'
 import { Route as ApiPublicYtPlaylistRouteImport } from './routes/api/public/yt-playlist'
 import { Route as ApiPublicSubtitleRouteImport } from './routes/api/public/subtitle'
+import { Route as ApiPublicMonochromeProxyRouteImport } from './routes/api/public/monochrome-proxy'
 import { Route as ApiPublicIptvProxyRouteImport } from './routes/api/public/iptv-proxy'
 import { Route as ApiPublicFebboxProxyRouteImport } from './routes/api/public/febbox-proxy'
 import { Route as ApiPublicDownloadRouteImport } from './routes/api/public/download'
@@ -110,6 +111,12 @@ const ApiPublicSubtitleRoute = ApiPublicSubtitleRouteImport.update({
   path: '/api/public/subtitle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMonochromeProxyRoute =
+  ApiPublicMonochromeProxyRouteImport.update({
+    id: '/api/public/monochrome-proxy',
+    path: '/api/public/monochrome-proxy',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicIptvProxyRoute = ApiPublicIptvProxyRouteImport.update({
   id: '/api/public/iptv-proxy',
   path: '/api/public/iptv-proxy',
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
+  '/api/public/monochrome-proxy': typeof ApiPublicMonochromeProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
@@ -171,6 +179,7 @@ export interface FileRoutesByTo {
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
+  '/api/public/monochrome-proxy': typeof ApiPublicMonochromeProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
@@ -194,6 +203,7 @@ export interface FileRoutesById {
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
+  '/api/public/monochrome-proxy': typeof ApiPublicMonochromeProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/api/public/download'
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
+    | '/api/public/monochrome-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
     | '/media/$type/$id'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/api/public/download'
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
+    | '/api/public/monochrome-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
     | '/media/$type/$id'
@@ -262,6 +274,7 @@ export interface FileRouteTypes {
     | '/api/public/download'
     | '/api/public/febbox-proxy'
     | '/api/public/iptv-proxy'
+    | '/api/public/monochrome-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
     | '/media/$type/$id'
@@ -284,6 +297,7 @@ export interface RootRouteChildren {
   ApiPublicDownloadRoute: typeof ApiPublicDownloadRoute
   ApiPublicFebboxProxyRoute: typeof ApiPublicFebboxProxyRoute
   ApiPublicIptvProxyRoute: typeof ApiPublicIptvProxyRoute
+  ApiPublicMonochromeProxyRoute: typeof ApiPublicMonochromeProxyRoute
   ApiPublicSubtitleRoute: typeof ApiPublicSubtitleRoute
   ApiPublicYtPlaylistRoute: typeof ApiPublicYtPlaylistRoute
   MediaTypeIdRoute: typeof MediaTypeIdRoute
@@ -403,6 +417,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicSubtitleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/monochrome-proxy': {
+      id: '/api/public/monochrome-proxy'
+      path: '/api/public/monochrome-proxy'
+      fullPath: '/api/public/monochrome-proxy'
+      preLoaderRoute: typeof ApiPublicMonochromeProxyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/iptv-proxy': {
       id: '/api/public/iptv-proxy'
       path: '/api/public/iptv-proxy'
@@ -462,6 +483,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicDownloadRoute: ApiPublicDownloadRoute,
   ApiPublicFebboxProxyRoute: ApiPublicFebboxProxyRoute,
   ApiPublicIptvProxyRoute: ApiPublicIptvProxyRoute,
+  ApiPublicMonochromeProxyRoute: ApiPublicMonochromeProxyRoute,
   ApiPublicSubtitleRoute: ApiPublicSubtitleRoute,
   ApiPublicYtPlaylistRoute: ApiPublicYtPlaylistRoute,
   MediaTypeIdRoute: MediaTypeIdRoute,

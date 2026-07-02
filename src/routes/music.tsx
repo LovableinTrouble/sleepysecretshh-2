@@ -51,7 +51,7 @@ import {
   loadRecent,
   pushRecent,
   clearRecent,
-  importInvidiousPlaylist,
+  importMonochromePlaylist,
   fetchArtistInfo,
   searchArtists,
   type Track,
@@ -244,7 +244,7 @@ function MusicPage() {
     setImporting(true);
     setImportError(null);
     try {
-      const res = await importInvidiousPlaylist(importUrl);
+      const res = await importMonochromePlaylist(importUrl);
       if (!res || !res.tracks.length) {
         setImportError("Couldn't load that playlist. Check the link.");
         return;

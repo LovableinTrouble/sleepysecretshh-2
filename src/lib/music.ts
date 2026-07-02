@@ -1,4 +1,4 @@
-// Music utilities: iTunes search, Invidious YouTube lookup, lyrics fetch, playlist storage.
+// Music utilities: iTunes search, Monochrome YouTube lookup, lyrics fetch, playlist storage.
 
 export type Track = {
   id: string;
@@ -13,16 +13,70 @@ export type Track = {
   genre?: string;
   trackUrl?: string;
   videoId?: string;
+  streamUrl?: string; // Direct audio stream URL from Monochrome
 };
 
-const INVIDIOUS_INSTANCES = [
-  "https://inv.nadeko.net",
-  "https://invidious.nerdvpn.de",
-  "https://inv.thepixora.com",
-  "https://iv.melmac.space",
-  "https://invidious.tiekoetter.com",
-  "https://invidious.reallyaweso.me",
-];
+// Monochrome API base URL (proxied through our CORS handler)
+const MONOCHROME_PROXY = "/api/public/monochrome-proxy";
+
+/**
+ * Monochrome API search result structure
+ */
+interface MonochromeSearchResult {
+  id: string;
+  title: string;
+  artists: string[];
+  album?: string;
+  duration?: number;
+  thumbnail?: string;
+  thumbnailUrl?: string;
+  videoId?: string;
+  streamUrl?: string;
+}
+
+/**
+ * Search Monochrome API for music tracks
+ */
+export async function searchMonochrome(query: string, limit = 20): Promise<MonochromeSearchResult[]> {
+  try {
+    const endpoint = `/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+    const res = await fetch(`${MONOCHROME_PROXY}?endpoint=${encodeURIComponent(endpoint)}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+
+    // Handle various response formats from Monochrome
+    const items = Array.isArray(data) ? data : (data.results || data.items || []);
+    return items;
+  } catch (error) {
+    console.error("Monochrome search error:", error);
+    return [];
+  }
+}
+
+/**
+ * Get stream URL from Monochrome for a given video/track ID
+ */
+export async function getMonochromeStream(videoId: string): Promise<string | null> {
+  try {
+    const endpoint = `/stream/${videoId}`;
+    const res = await fetch(`${MONOCHROME_PROXY}?endpoint=${encodeURIComponent(endpoint)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    // Return the stream URL if available
+    if (data.url) return data.url;
+    if (data.streamUrl) return data.streamUrl;
+    if (data.audioUrl) return data.audioUrl;
+
+    // Some APIs return the stream directly
+    if (typeof data === "string" && data.startsWith("http")) return data;
+
+    return null;
+  } catch (error) {
+    console.error("Monochrome stream error:", error);
+    return null;
+  }
+}
 
 export async function searchITunes(q: string, limit = 14): Promise<Track[]> {
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=${limit}`;
@@ -59,7 +113,7 @@ export function pushRecent(q: string) {
 }
 export function clearRecent() { localStorage.removeItem(RECENT_KEY); }
 
-// ---------- Invidious YouTube playlist import ----------
+// ---------- YouTube playlist import (kept for backward compatibility) ----------
 export function parsePlaylistId(input: string): string | null {
   const s = input.trim();
   if (!s) return null;
@@ -69,40 +123,39 @@ export function parsePlaylistId(input: string): string | null {
   return null;
 }
 
-export async function importInvidiousPlaylist(input: string): Promise<{ name: string; tracks: Track[] } | null> {
+export async function importMonochromePlaylist(input: string): Promise<{ name: string; tracks: Track[] } | null> {
   const plid = parsePlaylistId(input);
   if (!plid) return null;
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 15000);
-    const res = await fetch(`/api/public/yt-playlist?id=${encodeURIComponent(plid)}`, { signal: ctrl.signal });
+    // Try Monochrome playlist endpoint first
+    const endpoint = `/playlist/${plid}`;
+    const res = await fetch(`${MONOCHROME_PROXY}?endpoint=${encodeURIComponent(endpoint)}`, { signal: ctrl.signal });
     clearTimeout(t);
     if (!res.ok) return null;
+
     const data = await res.json();
-    const videos: any[] = data.videos || [];
-      const tracks: Track[] = videos.map((v) => {
-        const thumbs = v.videoThumbnails || [];
-        const vid = v.videoId;
-        // Invidious thumbnail URLs often point to the instance host (which may be
-        // unreachable from the browser). Rebuild directly from YouTube's CDN.
-        const art = vid ? `https://i.ytimg.com/vi/${vid}/mqdefault.jpg` : (thumbs[0]?.url || "");
-        const hi = vid ? `https://i.ytimg.com/vi/${vid}/hqdefault.jpg` : art;
-        const raw = String(v.title || "");
-        const parts = raw.split(/\s+[-–—]\s+/);
-        const artist = parts.length > 1 ? parts[0] : (v.author || "Unknown");
-        const title = parts.length > 1 ? parts.slice(1).join(" - ") : raw;
-        return {
-          id: `yt:${v.videoId}`,
-          title: title.replace(/\(official.*?\)|\[official.*?\]/i, "").trim() || raw,
-          artist,
-          artwork: art,
-          artworkHi: hi,
-          durationMs: (v.lengthSeconds || 0) * 1000,
-          videoId: v.videoId,
-        };
-      }).filter((t) => t.videoId);
+    const items: MonochromeSearchResult[] = data.tracks || data.videos || [];
+
+    const tracks: Track[] = items.map((v) => {
+      const artwork = v.thumbnail || v.thumbnailUrl ||
+        (v.videoId ? `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg` : "");
+      return {
+        id: v.id || `mono:${v.videoId || Date.now()}`,
+        title: v.title || "Unknown",
+        artist: Array.isArray(v.artists) ? v.artists.join(", ") : (v.artists || "Unknown"),
+        album: v.album,
+        artwork,
+        artworkHi: artwork.replace(/mqdefault|hqdefault/, "hqdefault"),
+        durationMs: v.duration ? v.duration * 1000 : undefined,
+        videoId: v.videoId || v.id,
+        streamUrl: v.streamUrl,
+      };
+    }).filter((t) => t.videoId);
+
     if (!tracks.length) return null;
-    return { name: data.title || "YouTube Playlist", tracks };
+    return { name: data.title || data.name || "Playlist", tracks };
   } catch {
     return null;
   }
@@ -110,32 +163,24 @@ export async function importInvidiousPlaylist(input: string): Promise<{ name: st
 
 let invIdx = 0;
 /**
- * Search YouTube via Invidious, biased toward auto-generated "- Topic" channels
- * (YouTube's official artist channels for music). Falls back to the most-viewed
- * non-Topic result if no Topic upload exists.
+ * Search YouTube via Monochrome API for music videos.
+ * Returns the best matching video ID.
  */
 export async function searchYouTube(query: string): Promise<string | null> {
-  const enc = encodeURIComponent(`${query} topic`);
-  for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
-    const inst = INVIDIOUS_INSTANCES[(invIdx + i) % INVIDIOUS_INSTANCES.length];
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(`${inst}/api/v1/search?q=${enc}&type=video&fields=videoId,title,author,viewCount,lengthSeconds`, { signal: ctrl.signal });
-      clearTimeout(t);
-      if (!res.ok) throw new Error(String(res.status));
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        invIdx = (invIdx + i) % INVIDIOUS_INSTANCES.length;
-        const topic = data.filter((v: any) => typeof v.author === "string" && /-\s*Topic\s*$/i.test(v.author));
-        const pool = topic.length ? topic : data;
-        let best = pool[0];
-        for (const v of pool) if ((v.viewCount || 0) > (best.viewCount || 0)) best = v;
-        return best.videoId;
-      }
-    } catch {
-      // try next
+  try {
+    const results = await searchMonochrome(`${query} topic`, 10);
+
+    if (results.length > 0) {
+      // Prefer results from Topic channels
+      const topicResults = results.filter((r) =>
+        r.artists?.some?.((a: string) => /-\s*Topic\s*$/i.test(a)) ||
+        /-\s*Topic\s*$/i.test(r.title)
+      );
+      const best = topicResults[0] || results[0];
+      return best.videoId || best.id;
     }
+  } catch (error) {
+    console.error("YouTube search error:", error);
   }
   return null;
 }
