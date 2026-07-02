@@ -14,12 +14,19 @@ export function SharePopup() {
     try {
       if (localStorage.getItem(KEY)) return;
     } catch {}
-    const t = setTimeout(() => setOpen(true), 1500);
+    // Give users time to actually see the app before nagging them to share.
+    const t = setTimeout(() => setOpen(true), 12000);
     return () => clearTimeout(t);
   }, []);
 
   const dismiss = () => {
     try { localStorage.setItem(KEY, "1"); } catch {}
+    setOpen(false);
+  };
+
+  const remindLater = () => {
+    // Snooze for a week — not permanent, still respectful.
+    try { localStorage.setItem(KEY, String(Date.now() + 7 * 24 * 60 * 60 * 1000)); } catch {}
     setOpen(false);
   };
 
@@ -49,7 +56,7 @@ export function SharePopup() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-card to-background shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
+        className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-card to-background shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
       >
         <button
           onClick={dismiss}
@@ -59,32 +66,32 @@ export function SharePopup() {
           <X className="h-4 w-4" />
         </button>
 
-        <div className="relative px-6 pt-7 pb-5 text-center">
-          <div className="pointer-events-none absolute inset-x-0 -top-24 h-48 bg-gradient-to-b from-primary/30 to-transparent blur-3xl" />
-          <div className="relative mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-primary/15 ring-1 ring-primary/30">
-            <Share2 className="h-5 w-5 text-primary" />
+        <div className="relative px-6 pt-8 pb-4 text-center">
+          <div className="pointer-events-none absolute inset-x-0 -top-24 h-48 bg-gradient-to-b from-primary/25 to-transparent blur-3xl" />
+          <div className="relative mx-auto mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-primary/15 ring-1 ring-primary/30">
+            <Share2 className="h-[18px] w-[18px] text-primary" />
           </div>
-          <h2 className="relative text-lg font-semibold tracking-tight">Help Sleepy grow</h2>
-          <p className="relative mt-1 text-sm text-muted-foreground">
-            Share with a friend who'd love it. It takes a second and means a lot.
+          <h2 className="relative text-[17px] font-semibold tracking-tight">Enjoying Sleepy?</h2>
+          <p className="relative mx-auto mt-1 max-w-[280px] text-[13px] leading-snug text-muted-foreground">
+            Share it with one friend who'd love streaming — that's how we grow.
           </p>
         </div>
 
-        <div className="px-6 pb-6 space-y-4">
-          <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 p-1.5">
-            <div className="flex-1 truncate px-3 text-sm text-white/80 font-mono">{SITE_URL}</div>
+        <div className="px-5 pb-5 space-y-3">
+          <div className="flex items-center gap-1.5 rounded-2xl border border-white/10 bg-black/30 p-1.5">
+            <div className="flex-1 truncate px-2.5 text-[13px] text-white/75 font-mono">{SITE_URL.replace(/^https?:\/\//, "")}</div>
             <button
               onClick={copy}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
                 copied ? "bg-emerald-500 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
             >
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? "Copied" : "Copy"}
+              {copied ? "Copied" : "Copy link"}
             </button>
           </div>
 
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-1.5">
             {links.map((l) => (
               <a
                 key={l.label}
@@ -92,20 +99,29 @@ export function SharePopup() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Share on ${l.label}`}
-                className="group flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.03] py-3 transition hover:border-primary/40 hover:bg-primary/10"
+                className="group flex flex-col items-center gap-1 rounded-xl border border-white/5 bg-white/[0.03] py-2.5 transition hover:border-primary/40 hover:bg-primary/10"
               >
-                <l.icon className="h-4 w-4 text-white/80 transition group-hover:text-primary" />
+                <l.icon className="h-4 w-4 text-white/75 transition group-hover:text-primary" />
                 <span className="text-[10px] text-white/60 group-hover:text-white">{l.label}</span>
               </a>
             ))}
           </div>
 
-          <button
-            onClick={dismiss}
-            className="w-full text-center text-xs text-muted-foreground hover:text-white transition"
-          >
-            Maybe later
-          </button>
+          <div className="flex items-center justify-center gap-4 pt-1">
+            <button
+              onClick={remindLater}
+              className="text-[11px] text-muted-foreground hover:text-white transition"
+            >
+              Maybe later
+            </button>
+            <span className="h-3 w-px bg-white/10" />
+            <button
+              onClick={dismiss}
+              className="text-[11px] text-muted-foreground hover:text-white transition"
+            >
+              Don't show again
+            </button>
+          </div>
         </div>
       </div>
     </div>
