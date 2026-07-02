@@ -1,4 +1,4 @@
-// Music utilities: iTunes search, Monochrome YouTube lookup, lyrics fetch, playlist storage.
+// Music utilities: iTunes search, YouTube Music via Piped/Invidious, lyrics, playlists.
 
 export type Track = {
   id: string;
@@ -13,71 +13,98 @@ export type Track = {
   genre?: string;
   trackUrl?: string;
   videoId?: string;
-  streamUrl?: string; // Direct audio stream URL from Monochrome
 };
 
-// Monochrome API base URL (proxied through our CORS handler)
-const MONOCHROME_PROXY = "/api/public/monochrome-proxy";
+// Piped/Invidious instances for YouTube Music search
+const PIPE_INSTANCES = [
+  "https://pipedapi.kavin.rocks",
+  "https://pipedapi.adminforge.de",
+  "https://pipedapi.r4fo.com",
+  "https://api.piped.yt",
+];
+
+const INVIDIOUS_INSTANCES = [
+  "https://inv.nadeko.net",
+  "https://invidious.nerdvpn.de",
+  "https://inv.thepixora.com",
+  "https://iv.melmac.space",
+  "https://invidious.tiekoetter.com",
+];
+
+let instanceIdx = 0;
 
 /**
- * Monochrome API search result structure
+ * Search YouTube Music via Piped API (better for music content)
  */
-interface MonochromeSearchResult {
-  id: string;
-  title: string;
-  artists: string[];
-  album?: string;
-  duration?: number;
-  thumbnail?: string;
-  thumbnailUrl?: string;
-  videoId?: string;
-  streamUrl?: string;
-}
+export async function searchYouTubeMusic(query: string, limit = 20): Promise<{ videoId: string; title: string; artist: string; duration?: number; thumbnail?: string }[]> {
+  const encoded = encodeURIComponent(query);
 
-/**
- * Search Monochrome API for music tracks
- */
-export async function searchMonochrome(query: string, limit = 20): Promise<MonochromeSearchResult[]> {
-  try {
-    const endpoint = `/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-    const res = await fetch(`${MONOCHROME_PROXY}?endpoint=${encodeURIComponent(endpoint)}`);
-    if (!res.ok) return [];
-    const data = await res.json();
-
-    // Handle various response formats from Monochrome
-    const items = Array.isArray(data) ? data : (data.results || data.items || []);
-    return items;
-  } catch (error) {
-    console.error("Monochrome search error:", error);
-    return [];
+  // Try Piped instances first (better music results)
+  for (let i = 0; i < PIPE_INSTANCES.length; i++) {
+    const inst = PIPE_INSTANCES[(instanceIdx + i) % PIPE_INSTANCES.length];
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(
+        `${inst}/search?q=${encoded}&filter=music_songs`,
+        { signal: ctrl.signal }
+      );
+      clearTimeout(t);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.items?.length) {
+        instanceIdx = (instanceIdx + i) % PIPE_INSTANCES.length;
+        return data.items.slice(0, limit).map((item: any) => ({
+          videoId: item.url?.replace("/watch?v=", "") || item.id,
+          title: item.title || item.name,
+          artist: item.uploaderName || item.uploader || "Unknown",
+          duration: item.duration,
+          thumbnail: item.thumbnail || item.uploaderAvatar,
+        }));
+      }
+    } catch (e) {
+      console.debug(`Piped ${inst} failed:`, e);
+    }
   }
+
+  // Fallback to Invidious
+  for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
+    const inst = INVIDIOUS_INSTANCES[(instanceIdx + i) % INVIDIOUS_INSTANCES.length];
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(
+        `${inst}/api/v1/search?q=${encodeURIComponent(query + " topic")}&type=video`,
+        { signal: ctrl.signal }
+      );
+      clearTimeout(t);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (Array.isArray(data) && data.length) {
+        instanceIdx = (instanceIdx + i) % INVIDIOUS_INSTANCES.length;
+        // Prefer Topic channels
+        const topicResults = data.filter((v: any) =>
+          v.author && /-\s*Topic\s*$/i.test(v.author)
+        );
+        const pool = topicResults.length ? topicResults : data;
+        return pool.slice(0, limit).map((v: any) => ({
+          videoId: v.videoId,
+          title: v.title,
+          artist: v.author?.replace(/\s*-\s*Topic\s*$/i, "") || "Unknown",
+          duration: v.lengthSeconds,
+          thumbnail: v.videoThumbnails?.[0]?.url,
+        }));
+      }
+    } catch (e) {
+      console.debug(`Invidious ${inst} failed:`, e);
+    }
+  }
+  return [];
 }
 
 /**
- * Get stream URL from Monochrome for a given video/track ID
+ * Search iTunes for music tracks
  */
-export async function getMonochromeStream(videoId: string): Promise<string | null> {
-  try {
-    const endpoint = `/stream/${videoId}`;
-    const res = await fetch(`${MONOCHROME_PROXY}?endpoint=${encodeURIComponent(endpoint)}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-
-    // Return the stream URL if available
-    if (data.url) return data.url;
-    if (data.streamUrl) return data.streamUrl;
-    if (data.audioUrl) return data.audioUrl;
-
-    // Some APIs return the stream directly
-    if (typeof data === "string" && data.startsWith("http")) return data;
-
-    return null;
-  } catch (error) {
-    console.error("Monochrome stream error:", error);
-    return null;
-  }
-}
-
 export async function searchITunes(q: string, limit = 14): Promise<Track[]> {
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=${limit}`;
   const r = await fetch(url);
@@ -113,7 +140,7 @@ export function pushRecent(q: string) {
 }
 export function clearRecent() { localStorage.removeItem(RECENT_KEY); }
 
-// ---------- YouTube playlist import (kept for backward compatibility) ----------
+// ---------- Playlist import ----------
 export function parsePlaylistId(input: string): string | null {
   const s = input.trim();
   if (!s) return null;
@@ -123,66 +150,146 @@ export function parsePlaylistId(input: string): string | null {
   return null;
 }
 
-export async function importMonochromePlaylist(input: string): Promise<{ name: string; tracks: Track[] } | null> {
+export async function importYouTubePlaylist(input: string): Promise<{ name: string; tracks: Track[] } | null> {
   const plid = parsePlaylistId(input);
   if (!plid) return null;
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 15000);
-    // Try Monochrome playlist endpoint first
-    const endpoint = `/playlist/${plid}`;
-    const res = await fetch(`${MONOCHROME_PROXY}?endpoint=${encodeURIComponent(endpoint)}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (!res.ok) return null;
 
-    const data = await res.json();
-    const items: MonochromeSearchResult[] = data.tracks || data.videos || [];
+  // Try Piped playlist endpoint
+  for (const inst of PIPE_INSTANCES) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      const res = await fetch(`${inst}/playlists/${plid}`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!data.relatedStreams?.length && !data.videos?.length) continue;
 
-    const tracks: Track[] = items.map((v) => {
-      const artwork = v.thumbnail || v.thumbnailUrl ||
-        (v.videoId ? `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg` : "");
-      return {
-        id: v.id || `mono:${v.videoId || Date.now()}`,
-        title: v.title || "Unknown",
-        artist: Array.isArray(v.artists) ? v.artists.join(", ") : (v.artists || "Unknown"),
-        album: v.album,
-        artwork,
-        artworkHi: artwork.replace(/mqdefault|hqdefault/, "hqdefault"),
-        durationMs: v.duration ? v.duration * 1000 : undefined,
-        videoId: v.videoId || v.id,
-        streamUrl: v.streamUrl,
-      };
-    }).filter((t) => t.videoId);
+      const items = data.relatedStreams || data.videos || [];
+      const tracks: Track[] = items.map((v: any, idx: number) => ({
+        id: `yt:${v.url?.replace("/watch?v=", "") || v.id || idx}`,
+        title: v.title || v.name || "Unknown",
+        artist: v.uploaderName || v.uploader || "Unknown",
+        artwork: v.thumbnail || `https://i.ytimg.com/vi/${v.url?.replace("/watch?v=", "")}/mqdefault.jpg`,
+        artworkHi: v.thumbnail || `https://i.ytimg.com/vi/${v.url?.replace("/watch?v=", "")}/hqdefault.jpg`,
+        durationMs: (v.duration || 0) * 1000,
+        videoId: v.url?.replace("/watch?v=", "") || v.id,
+      })).filter(t => t.videoId);
 
-    if (!tracks.length) return null;
-    return { name: data.title || data.name || "Playlist", tracks };
-  } catch {
-    return null;
-  }
-}
-
-let invIdx = 0;
-/**
- * Search YouTube via Monochrome API for music videos.
- * Returns the best matching video ID.
- */
-export async function searchYouTube(query: string): Promise<string | null> {
-  try {
-    const results = await searchMonochrome(`${query} topic`, 10);
-
-    if (results.length > 0) {
-      // Prefer results from Topic channels
-      const topicResults = results.filter((r) =>
-        r.artists?.some?.((a: string) => /-\s*Topic\s*$/i.test(a)) ||
-        /-\s*Topic\s*$/i.test(r.title)
-      );
-      const best = topicResults[0] || results[0];
-      return best.videoId || best.id;
+      if (tracks.length) {
+        return { name: data.name || "Playlist", tracks };
+      }
+    } catch (e) {
+      console.debug(`Piped playlist ${inst} failed:`, e);
     }
-  } catch (error) {
-    console.error("YouTube search error:", error);
+  }
+
+  // Fallback to Invidious
+  for (const inst of INVIDIOUS_INSTANCES) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      const res = await fetch(`${inst}/api/v1/playlists/${plid}`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!data.videos?.length) continue;
+
+      const tracks: Track[] = data.videos.map((v: any) => ({
+        id: `yt:${v.videoId}`,
+        title: v.title || "Unknown",
+        artist: v.author || "Unknown",
+        artwork: `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`,
+        artworkHi: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+        durationMs: (v.lengthSeconds || 0) * 1000,
+        videoId: v.videoId,
+      }));
+
+      return { name: data.title || "Playlist", tracks };
+    } catch (e) {
+      console.debug(`Invidious playlist ${inst} failed:`, e);
+    }
   }
   return null;
+}
+
+/**
+ * Search for a YouTube video ID for a given track
+ */
+export async function searchYouTube(query: string): Promise<string | null> {
+  const results = await searchYouTubeMusic(query, 5);
+  return results[0]?.videoId || null;
+}
+
+/**
+ * Get genre-based recommendations by searching for genre-specific terms
+ */
+export async function getGenreTracks(genre: string, limit = 25): Promise<Track[]> {
+  const genreQueries: Record<string, string> = {
+    "Pop": "pop hits 2024 top charts",
+    "Hip-Hop": "hip hop rap trending",
+    "R&B": "r&b soul music",
+    "Rock": "rock classics alternative",
+    "Electronic": "electronic dance edm",
+    "Indie": "indie alternative rock",
+    "Country": "country music hits",
+    "K-Pop": "kpop korean pop",
+    "Latin": "latin reggaeton hits",
+    "Jazz": "jazz smooth classics",
+    "Classical": "classical music orchestra",
+    "Lo-fi": "lofi chill beats study",
+  };
+
+  const searchQuery = genreQueries[genre] || `${genre} music`;
+  const ytResults = await searchYouTubeMusic(searchQuery, limit);
+
+  const tracks: Track[] = ytResults.map((r, idx) => ({
+    id: `yt:${r.videoId || idx}`,
+    title: r.title,
+    artist: r.artist,
+    artwork: r.thumbnail || `https://i.ytimg.com/vi/${r.videoId}/mqdefault.jpg`,
+    artworkHi: r.thumbnail || `https://i.ytimg.com/vi/${r.videoId}/hqdefault.jpg`,
+    durationMs: (r.duration || 0) * 1000,
+    videoId: r.videoId,
+    genre,
+  }));
+
+  return tracks;
+}
+
+/**
+ * Get artist radio - similar artists and their top tracks
+ */
+export async function getArtistRadio(artistName: string, limit = 25): Promise<Track[]> {
+  // Search for artist's top songs + similar artist songs
+  const queries = [
+    `${artistName} greatest hits`,
+    `${artistName} best songs`,
+    `similar to ${artistName}`,
+  ];
+
+  const allTracks: Track[] = [];
+  const seen = new Set<string>();
+
+  for (const q of queries) {
+    const results = await searchYouTubeMusic(q, 10);
+    for (const r of results) {
+      const key = r.videoId || r.title;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      allTracks.push({
+        id: `yt:${r.videoId}`,
+        title: r.title,
+        artist: r.artist,
+        artwork: r.thumbnail || `https://i.ytimg.com/vi/${r.videoId}/mqdefault.jpg`,
+        artworkHi: r.thumbnail || `https://i.ytimg.com/vi/${r.videoId}/hqdefault.jpg`,
+        durationMs: (r.duration || 0) * 1000,
+        videoId: r.videoId,
+      });
+    }
+  }
+
+  return allTracks.slice(0, limit);
 }
 
 export type ArtistInfo = {
@@ -202,9 +309,9 @@ export type ArtistInfo = {
 
 export async function fetchArtistInfo(artistName: string): Promise<ArtistInfo | null> {
   try {
-    // MusicBrainz search for the artist
+    // MusicBrainz search for the artist (type: group OR person, exclude "person" for cleaner results)
     const mbRes = await fetch(
-      `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(artistName)}&fmt=json&limit=1`,
+      `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(artistName)}%20AND%20(type:group%20OR%20type:orchestra%20OR%20type:choir)&fmt=json&limit=1`,
       { headers: { "User-Agent": "SleepyApp/1.0 (music-player)" } }
     );
     if (!mbRes.ok) return null;
@@ -259,7 +366,6 @@ export async function fetchArtistInfo(artistName: string): Promise<ArtistInfo | 
         } catch { /* ignore */ }
       }
     } else {
-      // Extract Wikipedia title and get extract
       const wikiTitle = wikiUrl.split("/wiki/").pop();
       if (wikiTitle) {
         try {
@@ -307,23 +413,27 @@ export type ArtistSearchResult = {
   type?: string;
   country?: string;
   disambiguation?: string;
+  imageUrl?: string;
 };
 
 export async function searchArtists(query: string, limit = 10): Promise<ArtistSearchResult[]> {
   try {
+    // Search for groups/orchestras/choirs only - NOT individual people
     const mbRes = await fetch(
-      `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(query)}&fmt=json&limit=${limit}`,
+      `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(query)}%20AND%20(type:group%20OR%20type:orchestra%20OR%20type:choir%20OR%20type:other)&fmt=json&limit=${limit}`,
       { headers: { "User-Agent": "SleepyApp/1.0 (music-player)" } }
     );
     if (!mbRes.ok) return [];
     const mbData = await mbRes.json();
-    return (mbData.artists || []).map((a: any) => ({
-      name: a.name,
-      mbid: a.id,
-      type: a.type,
-      country: a.country,
-      disambiguation: a.disambiguation,
-    }));
+    return (mbData.artists || [])
+      .filter((a: any) => a.type !== "Person") // Extra safety: exclude persons
+      .map((a: any) => ({
+        name: a.name,
+        mbid: a.id,
+        type: a.type,
+        country: a.country,
+        disambiguation: a.disambiguation,
+      }));
   } catch {
     return [];
   }
@@ -374,8 +484,6 @@ export function loadLiked(): Track[] {
   try {
     const raw = JSON.parse(localStorage.getItem(LIKE_KEY) || "[]");
     if (!Array.isArray(raw)) return [];
-    // Dedupe by id and drop malformed entries (missing id/title) — those caused
-    // "random" looking songs to appear in Liked.
     const seen = new Set<string>();
     return raw.filter((t: any) => {
       if (!t || !t.id || !t.title) return false;

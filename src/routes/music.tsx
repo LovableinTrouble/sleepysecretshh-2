@@ -51,9 +51,11 @@ import {
   loadRecent,
   pushRecent,
   clearRecent,
-  importMonochromePlaylist,
+  importYouTubePlaylist,
   fetchArtistInfo,
   searchArtists,
+  getGenreTracks,
+  getArtistRadio,
   type Track,
   type Playlist,
   type ArtistInfo,
@@ -205,6 +207,7 @@ function MusicPage() {
     setDynLoading(true);
     setDynList([]);
     setArtistInfo(null);
+
     if (view.startsWith("artist:")) {
       setArtistInfoLoading(true);
       fetchArtistInfo(q)
@@ -214,14 +217,24 @@ function MusicPage() {
         .finally(() => {
           if (!cancelled) setArtistInfoLoading(false);
         });
+      // Use artist radio for actual similar songs
+      getArtistRadio(q, 25)
+        .then((rs) => {
+          if (!cancelled) setDynList(rs);
+        })
+        .finally(() => {
+          if (!cancelled) setDynLoading(false);
+        });
+    } else if (view.startsWith("genre:")) {
+      // Use genre tracks for actual genre songs
+      getGenreTracks(q, 25)
+        .then((rs) => {
+          if (!cancelled) setDynList(rs);
+        })
+        .finally(() => {
+          if (!cancelled) setDynLoading(false);
+        });
     }
-    searchITunes(q, 25)
-      .then((rs) => {
-        if (!cancelled) setDynList(rs);
-      })
-      .finally(() => {
-        if (!cancelled) setDynLoading(false);
-      });
     return () => {
       cancelled = true;
     };
@@ -244,7 +257,7 @@ function MusicPage() {
     setImporting(true);
     setImportError(null);
     try {
-      const res = await importMonochromePlaylist(importUrl);
+      const res = await importYouTubePlaylist(importUrl);
       if (!res || !res.tracks.length) {
         setImportError("Couldn't load that playlist. Check the link.");
         return;

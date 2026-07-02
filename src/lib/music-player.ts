@@ -3,7 +3,7 @@
 // All pages read/write through this store via `useMusicPlayer()`.
 
 import { useSyncExternalStore } from "react";
-import { searchYouTube, getMonochromeStream, type Track } from "./music";
+import { searchYouTube, type Track } from "./music";
 
 export type PlayerState = {
   current: Track | null;
@@ -50,34 +50,6 @@ let ytReady: Promise<void> | null = null;
 let pollTimer: number | null = null;
 let loadSeq = 0;
 
-// Audio element for direct stream playback (Monochrome)
-let audioEl: HTMLAudioElement | null = null;
-let audioPollTimer: number | null = null;
-
-function getAudioElement(): HTMLAudioElement {
-  if (!audioEl) {
-    audioEl = new Audio();
-    audioEl.volume = state.muted ? 0 : state.volume / 100;
-    audioEl.addEventListener("ended", () => {
-      if (state.repeat && audioEl) {
-        audioEl.currentTime = 0;
-        audioEl.play().catch(() => {});
-      } else {
-        next();
-      }
-    });
-    audioEl.addEventListener("playing", () => set({ playing: true, loading: false }));
-    audioEl.addEventListener("pause", () => set({ playing: false }));
-    audioEl.addEventListener("waiting", () => set({ loading: true }));
-    audioEl.addEventListener("timeupdate", () => {
-      if (audioEl) {
-        set({ progress: audioEl.currentTime, duration: audioEl.duration || 0 });
-      }
-    });
-  }
-  return audioEl;
-}
-
 function loadYT(): Promise<void> {
   if (ytReady) return ytReady;
   ytReady = new Promise<void>((resolve) => {
@@ -103,17 +75,37 @@ async function ensurePlayer(): Promise<void> {
     yt = new (window as any).YT.Player(host, {
       height: "0", width: "0", videoId: "",
       host: "https://www.youtube-nocookie.com",
-      playerVars: { playsinline: 1, enablejsapi: 1, modestbranding: 1, rel: 0 },
+      playerVars: {
+        playsinline: 1,
+        enablejsapi: 1,
+        modestbranding: 1,
+        rel: 0,
+        origin: typeof window !== "undefined" ? window.location.origin : "",
+      },
       events: {
-        onReady: () => { try { yt.setVolume(state.muted ? 0 : state.volume); } catch {} resolve(); },
+        onReady: () => {
+          try { yt.setVolume(state.muted ? 0 : state.volume); } catch {}
+          resolve();
+        },
         onStateChange: (e: any) => {
           const YT = (window as any).YT;
           if (e.data === YT.PlayerState.PLAYING) set({ playing: true, loading: false });
           else if (e.data === YT.PlayerState.PAUSED) set({ playing: false });
           else if (e.data === YT.PlayerState.BUFFERING) set({ loading: true });
           else if (e.data === YT.PlayerState.ENDED) {
-            if (state.repeat) { try { yt.seekTo(0); yt.playVideo(); } catch {} }
-            else next();
+            if (state.repeat) {
+              try { yt.seekTo(0); yt.playVideo(); } catch {}
+            } else {
+              next();
+            }
+          }
+        },
+        onError: (e: any) => {
+          console.error("YouTube player error:", e.data);
+          set({ loading: false });
+          // Try to play next track on error
+          if (state.queue.length > 1) {
+            next();
           }
         },
       },
@@ -130,19 +122,13 @@ async function ensurePlayer(): Promise<void> {
   }, 500) as unknown as number;
 }
 
-// Prime the YouTube player on the first user gesture so subsequent
-// programmatic `playVideo()` calls are allowed on iOS/mobile Chrome.
-// Without this, the very first track after a fresh page load often refuses
-// to autoplay — the user has to tap the mini-player's play button to unlock.
+// Prime the YouTube player on the first user gesture
 let primed = false;
 function primeOnFirstGesture() {
   if (typeof window === "undefined" || primed) return;
   const handler = () => {
     if (primed) return;
     primed = true;
-    // Kick off player creation inside the gesture. We deliberately do NOT
-    // await — creation must start synchronously so iOS attributes the
-    // resulting audio context to this gesture.
     void ensurePlayer().then(() => {
       try { yt?.mute?.(); yt?.playVideo?.(); yt?.pauseVideo?.(); yt?.unMute?.(); } catch {}
     });
@@ -167,65 +153,47 @@ export async function play(track: Track, list?: Track[], idx?: number): Promise<
     duration: 0,
   });
 
-  // Try to use direct stream URL from Monochrome if available
-  const streamUrl = track.streamUrl || (track.videoId ? await getMonochromeStream(track.videoId) : null);
-
-  if (streamUrl && seq === loadSeq) {
-    // Use HTML5 Audio for direct stream playback
-    const audio = getAudioElement();
-    audio.src = `/api/public/monochrome-proxy?path=${encodeURIComponent(streamUrl.replace(/^https?:\/\/[^/]+/, ""))}`;
-    audio.volume = state.muted ? 0 : state.volume / 100;
-    try {
-      await audio.play();
-    } catch {
-      // Fallback to YouTube if stream fails
-      await playYouTube(track, seq);
-    }
-    return;
-  }
-
-  // Fallback to YouTube IFrame API
-  await playYouTube(track, seq);
-}
-
-async function playYouTube(track: Track, seq: number): Promise<void> {
-  // If the player already exists, kick playback synchronously inside the
-  // caller's gesture. iOS Safari requires a media action within the same
-  // task as the user tap, so we can't await search before calling play.
+  // If the player already exists, kick playback synchronously
   if (yt?.playVideo) {
     try { yt.playVideo(); } catch {}
   }
+
   try {
     await ensurePlayer();
-    const vid = track.videoId || (await searchYouTube(`${track.title} ${track.artist} audio`));
-    if (seq !== loadSeq) return; // a newer play() superseded this one
-    if (vid && yt?.loadVideoById) {
-      yt.loadVideoById(vid);
-      yt.playVideo();
+
+    // Get video ID - either from track or search for it
+    let videoId = track.videoId;
+    if (!videoId) {
+      videoId = await searchYouTube(`${track.title} ${track.artist} audio`);
+    }
+
+    if (seq !== loadSeq) return; // newer play() superseded this one
+    if (!videoId) {
+      console.warn("No video ID found for:", track.title, track.artist);
+      set({ loading: false });
+      return;
+    }
+
+    if (yt?.loadVideoById) {
+      yt.loadVideoById(videoId);
+      // Play will be triggered by onStateChange
     } else {
       set({ loading: false });
     }
-  } catch {
+  } catch (error) {
+    console.error("Play error:", error);
     set({ loading: false });
   }
 }
 
 export function toggle() {
-  // Try HTML5 Audio first
-  if (audioEl && audioEl.src) {
-    state.playing ? audioEl.pause() : audioEl.play().catch(() => {});
-    return;
-  }
-  // Fallback to YouTube
   if (!yt) return;
-  try { state.playing ? yt.pauseVideo() : yt.playVideo(); } catch {}
+  try {
+    state.playing ? yt.pauseVideo() : yt.playVideo();
+  } catch {}
 }
 
 export function pause() {
-  if (audioEl && audioEl.src) {
-    audioEl.pause();
-    return;
-  }
   try { yt?.pauseVideo?.(); } catch {}
 }
 
@@ -238,13 +206,8 @@ export function next() {
 
 export function prev() {
   const { queue, queueIdx, progress } = state;
-  // Handle HTML5 Audio
-  if (audioEl && audioEl.src) {
-    if (progress > 4) {
-      audioEl.currentTime = 0;
-      return;
-    }
-  } else if (progress > 4 && yt) {
+  // If more than 4 seconds in, restart track
+  if (progress > 4 && yt) {
     try { yt.seekTo(0); } catch {}
     return;
   }
@@ -254,47 +217,28 @@ export function prev() {
 }
 
 export function seek(ratio: number) {
-  // Handle HTML5 Audio
-  if (audioEl && audioEl.src && isFinite(audioEl.duration)) {
-    audioEl.currentTime = audioEl.duration * ratio;
-    return;
-  }
-  // Fallback to YouTube
   if (!yt?.getDuration) return;
-  try { const d = yt.getDuration(); yt.seekTo(d * ratio, true); } catch {}
+  try {
+    const d = yt.getDuration();
+    yt.seekTo(d * ratio, true);
+  } catch {}
 }
 
 export function setVolume(v: number) {
   set({ volume: v });
-  // Handle HTML5 Audio
-  if (audioEl) {
-    audioEl.volume = state.muted ? 0 : v / 100;
-  }
-  // Also update YouTube player
   try { yt?.setVolume?.(state.muted ? 0 : v); } catch {}
 }
 
 export function setMuted(m: boolean) {
   set({ muted: m });
-  // Handle HTML5 Audio
-  if (audioEl) {
-    audioEl.volume = m ? 0 : state.volume / 100;
-  }
-  // Also update YouTube player
   try { yt?.setVolume?.(m ? 0 : state.volume); } catch {}
 }
 
 export function setRepeat(r: boolean) { set({ repeat: r }); }
 
-/** Stops playback and clears the now-playing card. Used when entering a video/IPTV/sports route. */
+/** Stops playback and clears the now-playing card. */
 export function close() {
   loadSeq++;
-  // Stop HTML5 Audio
-  if (audioEl) {
-    audioEl.pause();
-    audioEl.src = "";
-  }
-  // Stop YouTube
   try { yt?.stopVideo?.(); } catch {}
   set({ ...initial, volume: state.volume, muted: state.muted, repeat: state.repeat });
 }
