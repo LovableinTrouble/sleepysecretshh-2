@@ -94,14 +94,11 @@ function IptvPage() {
 
   const customChannels = useMemo(() => custom.flatMap((p) => p.channels), [custom]);
 
-  // Combine channels: custom + toustream (with curated fallback on error)
+  // Combine channels: custom + curated 24/7 (always) + toustream (when loaded).
+  // Dedupe by id — curated ids never collide with `tou-*`.
   const channels = useMemo(() => {
-    if (touError && touChannels.length === 0) {
-      // Fallback to curated channels when TouStream fails
-      return [...customChannels, ...CURATED_CHANNELS];
-    }
-    return [...customChannels, ...touChannels];
-  }, [customChannels, touChannels, touError]);
+    return [...customChannels, ...CURATED_CHANNELS, ...touChannels];
+  }, [customChannels, touChannels]);
 
   const groups = useMemo(() => {
     const seen = new Map<string, number>();
