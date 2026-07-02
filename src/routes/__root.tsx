@@ -200,14 +200,20 @@ function AppShell() {
       <BootLoader />
       <Outlet />
       <BottomNav />
-      <SiteFooter />
+      <SiteFooter pathname={pathname} />
       <SharePopup />
       <MusicMiniPlayer />
     </div>
   );
 }
 
-function SiteFooter() {
+function SiteFooter({ pathname }: { pathname: string }) {
+  // Hide the footer on immersive/player routes so it doesn't briefly flash
+  // in during route transitions before those pages take over the viewport.
+  const HIDE = ["/watch", "/live", "/sports/", "/music", "/iptv"];
+  if (HIDE.some((p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p))) {
+    return null;
+  }
   return (
     <footer className="relative z-10 mt-16 pb-24 md:pb-10 px-5">
       <div className="mx-auto max-w-7xl rounded-2xl glass-strong px-6 py-6 text-sm text-white/70">

@@ -207,7 +207,6 @@ function SettingsPage() {
               { id: "vidsuper", name: "Vidsuper", hint: "4K · alt" },
               { id: "streamrip", name: "StreamRIP", hint: "Fast · alt" },
               { id: "cinemaos", name: "CinemaOS", hint: "Backup" },
-              { id: "toustream", name: "TouStream", hint: "Alt" },
             ].map((o) => {
               const active = s.embedProvider === o.id;
               return (
