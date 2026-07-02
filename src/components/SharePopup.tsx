@@ -12,7 +12,10 @@ export function SharePopup() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      if (localStorage.getItem(KEY)) return;
+      const raw = localStorage.getItem(KEY);
+      if (raw === "1") return;
+      const snoozedUntil = raw ? Number(raw) : 0;
+      if (snoozedUntil && Date.now() < snoozedUntil) return;
     } catch {}
     // Give users time to actually see the app before nagging them to share.
     const t = setTimeout(() => setOpen(true), 12000);
