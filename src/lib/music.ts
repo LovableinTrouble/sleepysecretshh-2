@@ -31,74 +31,100 @@ const INVIDIOUS_INSTANCES = [
   "https://invidious.tiekoetter.com",
 ];
 
-let instanceIdx = 0;
+export type YtSearchResult = { videoId: string; title: string; artist: string; duration?: number; thumbnail?: string };
+
+// ---------- In-memory caches (per session) ----------
+// Avoids re-hitting flaky public Invidious/Piped instances for repeated queries.
+const RESULTS_CACHE = new Map<string, YtSearchResult[]>();
+const VIDEOID_CACHE = new Map<string, string | null>();
+const PREVIEW_CACHE = new Map<string, string | null>();
+
+// Public instances are frequently slow/down — keep the per-request budget tight
+// and race instances in parallel instead of waiting on each sequentially.
+const PER_INSTANCE_TIMEOUT = 4000;
+
+async function fetchJson(url: string, timeout = PER_INSTANCE_TIMEOUT): Promise<any> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// Resolve with the first task that produces a non-empty result; null if all fail.
+async function raceFirst<T>(tasks: Array<() => Promise<T>>, isValid: (v: T) => boolean): Promise<T | null> {
+  if (!tasks.length) return null;
+  try {
+    return await Promise.any(
+      tasks.map(async (task) => {
+        const v = await task();
+        if (!isValid(v)) throw new Error("empty");
+        return v;
+      }),
+    );
+  } catch {
+    return null;
+  }
+}
 
 /**
- * Search YouTube Music via Piped API (better for music content)
+ * Search YouTube Music via Piped (preferred) then Invidious. Instances within
+ * each pool are raced in parallel with a short timeout, and results are cached.
  */
-export async function searchYouTubeMusic(query: string, limit = 20): Promise<{ videoId: string; title: string; artist: string; duration?: number; thumbnail?: string }[]> {
+export async function searchYouTubeMusic(query: string, limit = 20): Promise<YtSearchResult[]> {
+  const cacheKey = `${query}::${limit}`;
+  const cached = RESULTS_CACHE.get(cacheKey);
+  if (cached) return cached;
+
   const encoded = encodeURIComponent(query);
 
-  // Try Piped instances first (better music results)
-  for (let i = 0; i < PIPE_INSTANCES.length; i++) {
-    const inst = PIPE_INSTANCES[(instanceIdx + i) % PIPE_INSTANCES.length];
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(
-        `${inst}/search?q=${encoded}&filter=music_songs`,
-        { signal: ctrl.signal }
-      );
-      clearTimeout(t);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (data.items?.length) {
-        instanceIdx = (instanceIdx + i) % PIPE_INSTANCES.length;
-        return data.items.slice(0, limit).map((item: any) => ({
-          videoId: item.url?.replace("/watch?v=", "") || item.id,
-          title: item.title || item.name,
-          artist: item.uploaderName || item.uploader || "Unknown",
-          duration: item.duration,
-          thumbnail: item.thumbnail || item.uploaderAvatar,
-        }));
-      }
-    } catch (e) {
-      console.debug(`Piped ${inst} failed:`, e);
-    }
+  // Piped instances first (better music metadata) — raced in parallel.
+  const piped = await raceFirst<YtSearchResult[]>(
+    PIPE_INSTANCES.map((inst) => async () => {
+      const data = await fetchJson(`${inst}/search?q=${encoded}&filter=music_songs`);
+      const items: any[] = data?.items ?? [];
+      if (!Array.isArray(items) || !items.length) return [];
+      return items.slice(0, limit).map((item: any) => ({
+        videoId: item.url?.replace("/watch?v=", "") || item.id,
+        title: item.title || item.name,
+        artist: item.uploaderName || item.uploader || "Unknown",
+        duration: item.duration,
+        thumbnail: item.thumbnail || item.uploaderAvatar,
+      }));
+    }),
+    (r) => Array.isArray(r) && r.length > 0,
+  );
+  if (piped && piped.length) {
+    RESULTS_CACHE.set(cacheKey, piped);
+    return piped;
   }
 
-  // Fallback to Invidious
-  for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
-    const inst = INVIDIOUS_INSTANCES[(instanceIdx + i) % INVIDIOUS_INSTANCES.length];
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(
-        `${inst}/api/v1/search?q=${encodeURIComponent(query + " topic")}&type=video`,
-        { signal: ctrl.signal }
-      );
-      clearTimeout(t);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (Array.isArray(data) && data.length) {
-        instanceIdx = (instanceIdx + i) % INVIDIOUS_INSTANCES.length;
-        // Prefer Topic channels
-        const topicResults = data.filter((v: any) =>
-          v.author && /-\s*Topic\s*$/i.test(v.author)
-        );
-        const pool = topicResults.length ? topicResults : data;
-        return pool.slice(0, limit).map((v: any) => ({
-          videoId: v.videoId,
-          title: v.title,
-          artist: v.author?.replace(/\s*-\s*Topic\s*$/i, "") || "Unknown",
-          duration: v.lengthSeconds,
-          thumbnail: v.videoThumbnails?.[0]?.url,
-        }));
-      }
-    } catch (e) {
-      console.debug(`Invidious ${inst} failed:`, e);
-    }
+  // Invidious fallback — also raced in parallel.
+  const invidious = await raceFirst<YtSearchResult[]>(
+    INVIDIOUS_INSTANCES.map((inst) => async () => {
+      const data = await fetchJson(`${inst}/api/v1/search?q=${encodeURIComponent(query + " topic")}&type=video`);
+      if (!Array.isArray(data) || !data.length) return [];
+      const topicResults = data.filter((v: any) => v.author && /-\s*Topic\s*$/i.test(v.author));
+      const pool = topicResults.length ? topicResults : data;
+      return pool.slice(0, limit).map((v: any) => ({
+        videoId: v.videoId,
+        title: v.title,
+        artist: v.author?.replace(/\s*-\s*Topic\s*$/i, "") || "Unknown",
+        duration: v.lengthSeconds,
+        thumbnail: v.videoThumbnails?.[0]?.url,
+      }));
+    }),
+    (r) => Array.isArray(r) && r.length > 0,
+  );
+  if (invidious && invidious.length) {
+    RESULTS_CACHE.set(cacheKey, invidious);
+    return invidious;
   }
+
   return [];
 }
 
@@ -174,7 +200,7 @@ export async function importYouTubePlaylist(input: string): Promise<{ name: stri
         artworkHi: v.thumbnail || `https://i.ytimg.com/vi/${v.url?.replace("/watch?v=", "")}/hqdefault.jpg`,
         durationMs: (v.duration || 0) * 1000,
         videoId: v.url?.replace("/watch?v=", "") || v.id,
-      })).filter(t => t.videoId);
+      })).filter((t: Track) => t.videoId);
 
       if (tracks.length) {
         return { name: data.name || "Playlist", tracks };
@@ -214,11 +240,31 @@ export async function importYouTubePlaylist(input: string): Promise<{ name: stri
 }
 
 /**
- * Search for a YouTube video ID for a given track
+ * Search for a YouTube video ID for a given track (cached).
  */
 export async function searchYouTube(query: string): Promise<string | null> {
+  if (VIDEOID_CACHE.has(query)) return VIDEOID_CACHE.get(query) ?? null;
   const results = await searchYouTubeMusic(query, 5);
-  return results[0]?.videoId || null;
+  const id = results[0]?.videoId || null;
+  VIDEOID_CACHE.set(query, id);
+  return id;
+}
+
+/**
+ * Audible fallback: resolve a 30s iTunes preview URL for a query when every
+ * Invidious/Piped instance is down, so the player still plays *something*.
+ */
+export async function searchTrackPreview(query: string): Promise<string | null> {
+  if (PREVIEW_CACHE.has(query)) return PREVIEW_CACHE.get(query) ?? null;
+  let url: string | null = null;
+  try {
+    const tracks = await searchITunes(query, 1);
+    url = tracks[0]?.previewUrl || null;
+  } catch {
+    url = null;
+  }
+  PREVIEW_CACHE.set(query, url);
+  return url;
 }
 
 /**

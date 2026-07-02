@@ -22,6 +22,12 @@ import { LogoWord } from "../components/Logo";
 import { SharePopup } from "../components/SharePopup";
 import { MusicMiniPlayer } from "../components/MusicMiniPlayer";
 import { useSettings } from "../lib/store";
+import {
+  buildCustomThemeVars,
+  CUSTOM_THEME_ID,
+  CUSTOM_THEME_VAR_KEYS,
+  DEFAULT_CUSTOM_THEME,
+} from "../lib/themes";
 
 function NotFoundComponent() {
   return (
@@ -186,8 +192,20 @@ function AppShell() {
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    document.documentElement.setAttribute("data-theme", settings.theme || "midnight-violet");
-  }, [settings.theme]);
+    const root = document.documentElement;
+    const theme = settings.theme || "midnight-violet";
+    root.setAttribute("data-theme", theme);
+    // For the custom theme, apply the derived token set as inline properties
+    // (inline wins over the static [data-theme] rules). Clear them otherwise so
+    // switching back to a preset doesn't leave stale overrides behind.
+    if (theme === CUSTOM_THEME_ID) {
+      const picks = settings.customTheme ?? DEFAULT_CUSTOM_THEME;
+      const vars = buildCustomThemeVars(picks.primary, picks.background);
+      for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v);
+    } else {
+      for (const k of CUSTOM_THEME_VAR_KEYS) root.style.removeProperty(k);
+    }
+  }, [settings.theme, settings.customTheme]);
   useEffect(() => {
     if (typeof navigator === "undefined") return;
     if ("serviceWorker" in navigator) {

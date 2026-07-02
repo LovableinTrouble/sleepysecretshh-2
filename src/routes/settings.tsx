@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_SETTINGS, useSettings, type Settings } from "@/lib/store";
 import { EMBED_SOURCES } from "@/lib/sources";
-import { THEMES } from "@/lib/themes";
+import { THEMES, CUSTOM_THEME_ID, DEFAULT_CUSTOM_THEME } from "@/lib/themes";
 import { REGION_OPTIONS, detectRegion, type Region } from "@/lib/detectRegion";
 
 export const Route = createFileRoute("/settings")({
@@ -196,17 +196,14 @@ function SettingsPage() {
           <p className="mt-2 text-muted-foreground">Themes, playback, sources and integrations — all clean, all yours.</p>
         </div>
 
-        {/* Main embed provider — top-level source picker */}
+        {/* Main embed provider — single embed backup (VoidX) */}
         <Section
           title="Main embed source"
-          desc="Pick the primary embed the player uses. FebBox (direct) still takes precedence when a cookie is set."
+          desc="VoidX is the single embed backup. FebBox (direct) still takes precedence when a cookie is set."
         >
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[
-              { id: "zxcstream", name: "ZXCStream", hint: "Default · HD" },
-              { id: "vidsuper", name: "Vidsuper", hint: "4K · alt" },
-              { id: "streamrip", name: "StreamRIP", hint: "Fast · alt" },
-              { id: "cinemaos", name: "CinemaOS", hint: "Backup" },
+              { id: "vidsrc", name: "VoidX", hint: "Embed · HD" },
             ].map((o) => {
               const active = s.embedProvider === o.id;
               return (
@@ -274,9 +271,9 @@ function SettingsPage() {
         </Section>
 
         {/* Sources */}
-        <Section title="Sources" desc="FebBox is the primary direct source. Embeds (Void first, then Xcv, then Ten) are used as backups when direct playback is unavailable.">
+        <Section title="Sources" desc="FebBox is the primary direct source. VoidX is the single embed backup, used automatically when direct playback is unavailable.">
 
-          <Row label="Preferred source" hint="FebBox runs first when a cookie is configured, otherwise embed backups are used.">
+          <Row label="Preferred source" hint="FebBox runs first when a cookie is configured, otherwise the VoidX embed backup is used.">
             <Select value={s.preferredSource} onChange={(v) => set({ preferredSource: v })} options={[
               { value: "febbox", label: "FebBox — direct HLS, up to 4K" },
               ...EMBED_SOURCES.map((src) => ({ value: src.id, label: `${src.name}${src.badge ? ` — ${src.badge}` : ""}` })),
@@ -287,7 +284,7 @@ function SettingsPage() {
               {s.integrations.febboxCookie?.trim() ? "Connected" : "Not configured"}
             </span>
           </Row>
-          <Row label="Embed fallbacks" hint="Void, Xcv, and Ten — used automatically when FebBox isn't available.">
+          <Row label="Embed backup" hint="VoidX — used automatically when FebBox isn't available.">
 
             <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">Backup only</span>
           </Row>
@@ -295,7 +292,7 @@ function SettingsPage() {
 
 
         {/* Theme picker */}
-        <Section title="Theme" desc="Pick a preset. Every surface, button and accent updates instantly when you save.">
+        <Section title="Theme" desc="Pick a preset, or build your own with Custom. Every surface, button and accent updates instantly.">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {THEMES.map((t) => {
               const active = s.theme === t.id;
@@ -318,7 +315,62 @@ function SettingsPage() {
                 </button>
               );
             })}
+
+            {/* Custom theme card */}
+            {(() => {
+              const custom = s.customTheme ?? DEFAULT_CUSTOM_THEME;
+              const active = s.theme === CUSTOM_THEME_ID;
+              return (
+                <button
+                  key="custom"
+                  onClick={() => set({ theme: CUSTOM_THEME_ID, customTheme: custom })}
+                  className={`group relative overflow-hidden rounded-2xl border p-3 text-left transition ${active ? "border-primary ring-2 ring-primary/40" : "border-glass-border hover:border-primary/40"}`}
+                >
+                  <div className="flex h-14 overflow-hidden rounded-xl" style={{ background: custom.background }}>
+                    <div className="m-auto h-6 w-6 rounded-full ring-2 ring-white/20" style={{ background: custom.primary }} />
+                  </div>
+                  <div className="mt-2 truncate text-sm font-semibold">Custom</div>
+                  <div className="truncate text-[11px] text-muted-foreground">Your own colors.</div>
+                  {active && (
+                    <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5"/></svg>
+                    </div>
+                  )}
+                </button>
+              );
+            })()}
           </div>
+
+          {s.theme === CUSTOM_THEME_ID && (
+            <div className="mt-2 grid gap-4 rounded-2xl border border-glass-border bg-background/30 p-4 sm:grid-cols-2 animate-fade-in">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium">Primary color</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">Accents, buttons and highlights.</div>
+                </div>
+                <input
+                  type="color"
+                  value={(s.customTheme ?? DEFAULT_CUSTOM_THEME).primary}
+                  onChange={(e) => set({ theme: CUSTOM_THEME_ID, customTheme: { ...(s.customTheme ?? DEFAULT_CUSTOM_THEME), primary: e.target.value } })}
+                  className="h-9 w-16 cursor-pointer rounded-lg border border-glass-border bg-transparent"
+                  aria-label="Primary color"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium">Background color</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">The base surface behind everything.</div>
+                </div>
+                <input
+                  type="color"
+                  value={(s.customTheme ?? DEFAULT_CUSTOM_THEME).background}
+                  onChange={(e) => set({ theme: CUSTOM_THEME_ID, customTheme: { ...(s.customTheme ?? DEFAULT_CUSTOM_THEME), background: e.target.value } })}
+                  className="h-9 w-16 cursor-pointer rounded-lg border border-glass-border bg-transparent"
+                  aria-label="Background color"
+                />
+              </div>
+            </div>
+          )}
         </Section>
 
         <Section title="Appearance" desc="Motion and density.">

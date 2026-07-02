@@ -1,9 +1,11 @@
 // Global music playback singleton.
 // One YouTube IFrame player attached to <body>, in-memory only (reload = stop).
-// All pages read/write through this store via `useMusicPlayer()`.
+// Falls back to a 30s iTunes preview (HTMLAudioElement) when no YouTube source
+// is playable, so something audible still plays. All pages read/write through
+// this store via `useMusicPlayer()`.
 
 import { useSyncExternalStore } from "react";
-import { searchYouTube, type Track } from "./music";
+import { searchYouTube, searchTrackPreview, type Track } from "./music";
 
 export type PlayerState = {
   current: Track | null;
@@ -11,6 +13,8 @@ export type PlayerState = {
   queueIdx: number;
   playing: boolean;
   loading: boolean;
+  /** User-facing playback error (e.g. no playable source). null when healthy. */
+  error: string | null;
   progress: number;
   duration: number;
   volume: number;
@@ -24,6 +28,7 @@ const initial: PlayerState = {
   queueIdx: 0,
   playing: false,
   loading: false,
+  error: null,
   progress: 0,
   duration: 0,
   volume: 80,
@@ -44,11 +49,18 @@ export function useMusicPlayer() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-// --- YT loader / player ---
+// --- Playback engines ---
+// "yt": YouTube IFrame player. "preview": HTMLAudioElement (iTunes preview).
+type Mode = "yt" | "preview";
+let mode: Mode = "yt";
+
 let yt: any = null;
 let ytReady: Promise<void> | null = null;
+let audioEl: HTMLAudioElement | null = null;
 let pollTimer: number | null = null;
 let loadSeq = 0;
+// Guards against an infinite skip loop when every track in a queue errors.
+let errorStreak = 0;
 
 function loadYT(): Promise<void> {
   if (ytReady) return ytReady;
@@ -61,6 +73,48 @@ function loadYT(): Promise<void> {
     (window as any).onYouTubeIframeAPIReady = () => resolve();
   });
   return ytReady;
+}
+
+// Single progress poller shared by both engines. Idempotent.
+function startPoll() {
+  if (pollTimer || typeof window === "undefined") return;
+  pollTimer = window.setInterval(() => {
+    if (mode === "preview") {
+      if (!audioEl) return;
+      const p = audioEl.currentTime || 0;
+      const d = Number.isFinite(audioEl.duration) ? audioEl.duration || 0 : 0;
+      if (p !== state.progress || d !== state.duration) set({ progress: p, duration: d });
+      return;
+    }
+    if (!yt?.getCurrentTime) return;
+    try {
+      const p = yt.getCurrentTime() || 0;
+      const d = yt.getDuration() || 0;
+      if (p !== state.progress || d !== state.duration) set({ progress: p, duration: d });
+    } catch {}
+  }, 500) as unknown as number;
+}
+
+function ensureAudio(): HTMLAudioElement {
+  if (audioEl) return audioEl;
+  const a = new Audio();
+  a.preload = "auto";
+  a.addEventListener("playing", () => { errorStreak = 0; set({ playing: true, loading: false, error: null }); });
+  a.addEventListener("pause", () => set({ playing: false }));
+  a.addEventListener("ended", () => {
+    if (mode !== "preview") return;
+    if (state.repeat) {
+      try { a.currentTime = 0; void a.play(); } catch {}
+    } else {
+      advanceOrStop();
+    }
+  });
+  a.addEventListener("error", () => {
+    if (mode !== "preview") return;
+    handlePlaybackError("Couldn't play this track.");
+  });
+  audioEl = a;
+  return a;
 }
 
 async function ensurePlayer(): Promise<void> {
@@ -88,41 +142,34 @@ async function ensurePlayer(): Promise<void> {
           resolve();
         },
         onStateChange: (e: any) => {
+          if (mode !== "yt") return;
           const YT = (window as any).YT;
-          if (e.data === YT.PlayerState.PLAYING) set({ playing: true, loading: false });
+          if (e.data === YT.PlayerState.PLAYING) { errorStreak = 0; set({ playing: true, loading: false, error: null }); }
           else if (e.data === YT.PlayerState.PAUSED) set({ playing: false });
           else if (e.data === YT.PlayerState.BUFFERING) set({ loading: true });
           else if (e.data === YT.PlayerState.ENDED) {
             if (state.repeat) {
               try { yt.seekTo(0); yt.playVideo(); } catch {}
             } else {
-              next();
+              advanceOrStop();
             }
           }
         },
         onError: (e: any) => {
-          console.error("YouTube player error:", e.data);
-          set({ loading: false });
-          // Try to play next track on error
-          if (state.queue.length > 1) {
-            next();
-          }
+          // Region lock, embedding disabled, removed video, etc. Without this
+          // handler the UI would hang on "loading" forever.
+          console.warn("[v0] YouTube player error:", e?.data);
+          if (mode !== "yt") return;
+          handlePlaybackError("Couldn't play this track.");
         },
       },
     });
   });
-  if (pollTimer) window.clearInterval(pollTimer);
-  pollTimer = window.setInterval(() => {
-    if (!yt?.getCurrentTime) return;
-    try {
-      const p = yt.getCurrentTime() || 0;
-      const d = yt.getDuration() || 0;
-      if (p !== state.progress || d !== state.duration) set({ progress: p, duration: d });
-    } catch {}
-  }, 500) as unknown as number;
+  startPoll();
 }
 
-// Prime the YouTube player on the first user gesture
+// Prime the YouTube player on the first user gesture so the real playVideo()
+// call lands inside the browser's user-gesture window (autoplay policies).
 let primed = false;
 function primeOnFirstGesture() {
   if (typeof window === "undefined" || primed) return;
@@ -142,6 +189,38 @@ function primeOnFirstGesture() {
 }
 if (typeof window !== "undefined") primeOnFirstGesture();
 
+// Advance to the next queued track, or stop cleanly at the end (no repeat).
+function advanceOrStop() {
+  const { queue, queueIdx } = state;
+  if (queueIdx < queue.length - 1) {
+    const ni = queueIdx + 1;
+    void play(queue[ni], queue, ni);
+  } else {
+    stopEngines();
+    set({ playing: false, progress: state.duration });
+  }
+}
+
+function stopEngines() {
+  try { yt?.pauseVideo?.(); } catch {}
+  try { audioEl?.pause?.(); } catch {}
+}
+
+// Skip to the next track on error; give up (surface an error) if the whole
+// queue is unplayable to avoid an infinite skip loop.
+function handlePlaybackError(msg: string) {
+  set({ loading: false });
+  errorStreak++;
+  const { queue } = state;
+  if (queue.length > 1 && errorStreak <= queue.length) {
+    next();
+  } else {
+    errorStreak = 0;
+    stopEngines();
+    set({ error: msg, playing: false });
+  }
+}
+
 export async function play(track: Track, list?: Track[], idx?: number): Promise<void> {
   const seq = ++loadSeq;
   set({
@@ -149,44 +228,65 @@ export async function play(track: Track, list?: Track[], idx?: number): Promise<
     queue: list ?? state.queue,
     queueIdx: list ? (idx ?? 0) : state.queueIdx,
     loading: true,
+    error: null,
     progress: 0,
     duration: 0,
   });
 
-  // If the player already exists, kick playback synchronously
-  if (yt?.playVideo) {
+  startPoll();
+
+  // If the YT player already exists, kick playback synchronously so the request
+  // stays within the user-gesture window.
+  if (yt?.playVideo && mode === "yt") {
     try { yt.playVideo(); } catch {}
   }
 
   try {
     await ensurePlayer();
 
-    // Get video ID - either from track or search for it
-    let videoId = track.videoId;
+    // Resolve a YouTube video id — from the track or via search.
+    let videoId: string | undefined = track.videoId;
     if (!videoId) {
-      videoId = await searchYouTube(`${track.title} ${track.artist} audio`);
+      videoId = (await searchYouTube(`${track.title} ${track.artist} audio`)) ?? undefined;
     }
 
-    if (seq !== loadSeq) return; // newer play() superseded this one
-    if (!videoId) {
-      console.warn("No video ID found for:", track.title, track.artist);
-      set({ loading: false });
+    if (seq !== loadSeq) return; // superseded by a newer play()
+
+    if (videoId && yt?.loadVideoById) {
+      mode = "yt";
+      try { audioEl?.pause?.(); } catch {}
+      yt.loadVideoById(videoId);
+      // PLAYING via onStateChange clears loading.
       return;
     }
 
-    if (yt?.loadVideoById) {
-      yt.loadVideoById(videoId);
-      // Play will be triggered by onStateChange
-    } else {
-      set({ loading: false });
+    // No YouTube source — fall back to an audible iTunes preview.
+    const previewUrl = track.previewUrl || (await searchTrackPreview(`${track.title} ${track.artist}`));
+    if (seq !== loadSeq) return;
+    if (previewUrl) {
+      mode = "preview";
+      try { yt?.pauseVideo?.(); } catch {}
+      const a = ensureAudio();
+      a.src = previewUrl;
+      a.volume = state.muted ? 0 : state.volume / 100;
+      void a.play().catch(() => { handlePlaybackError("Couldn't play this track."); });
+      return;
     }
+
+    // Nothing playable at all.
+    handlePlaybackError("Couldn't find a playable source for this track.");
   } catch (error) {
-    console.error("Play error:", error);
-    set({ loading: false });
+    console.warn("[v0] Play error:", error);
+    if (seq === loadSeq) handlePlaybackError("Couldn't play this track.");
   }
 }
 
 export function toggle() {
+  if (mode === "preview" && audioEl) {
+    if (state.playing) audioEl.pause();
+    else void audioEl.play().catch(() => {});
+    return;
+  }
   if (!yt) return;
   try {
     state.playing ? yt.pauseVideo() : yt.playVideo();
@@ -195,21 +295,27 @@ export function toggle() {
 
 export function pause() {
   try { yt?.pauseVideo?.(); } catch {}
+  try { audioEl?.pause?.(); } catch {}
 }
 
 export function next() {
   const { queue, queueIdx } = state;
   if (!queue.length) return;
+  // Single-track queue: restart it rather than stalling.
+  if (queue.length === 1) {
+    void play(queue[0], queue, 0);
+    return;
+  }
   const ni = (queueIdx + 1) % queue.length;
   void play(queue[ni], queue, ni);
 }
 
 export function prev() {
   const { queue, queueIdx, progress } = state;
-  // If more than 4 seconds in, restart track
-  if (progress > 4 && yt) {
-    try { yt.seekTo(0); } catch {}
-    return;
+  // If more than 4 seconds in, restart the current track.
+  if (progress > 4) {
+    if (mode === "preview" && audioEl) { try { audioEl.currentTime = 0; } catch {} return; }
+    if (yt) { try { yt.seekTo(0); } catch {} return; }
   }
   if (!queue.length) return;
   const ni = (queueIdx - 1 + queue.length) % queue.length;
@@ -217,6 +323,12 @@ export function prev() {
 }
 
 export function seek(ratio: number) {
+  if (mode === "preview" && audioEl) {
+    if (Number.isFinite(audioEl.duration) && audioEl.duration) {
+      try { audioEl.currentTime = audioEl.duration * ratio; } catch {}
+    }
+    return;
+  }
   if (!yt?.getDuration) return;
   try {
     const d = yt.getDuration();
@@ -227,11 +339,13 @@ export function seek(ratio: number) {
 export function setVolume(v: number) {
   set({ volume: v });
   try { yt?.setVolume?.(state.muted ? 0 : v); } catch {}
+  if (audioEl) audioEl.volume = state.muted ? 0 : v / 100;
 }
 
 export function setMuted(m: boolean) {
   set({ muted: m });
   try { yt?.setVolume?.(m ? 0 : state.volume); } catch {}
+  if (audioEl) audioEl.volume = m ? 0 : state.volume / 100;
 }
 
 export function setRepeat(r: boolean) { set({ repeat: r }); }
@@ -239,6 +353,9 @@ export function setRepeat(r: boolean) { set({ repeat: r }); }
 /** Stops playback and clears the now-playing card. */
 export function close() {
   loadSeq++;
+  errorStreak = 0;
   try { yt?.stopVideo?.(); } catch {}
+  try { if (audioEl) { audioEl.pause(); audioEl.removeAttribute("src"); audioEl.load(); } } catch {}
+  mode = "yt";
   set({ ...initial, volume: state.volume, muted: state.muted, repeat: state.repeat });
 }

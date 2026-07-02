@@ -9,7 +9,9 @@ export const DEFAULT_CINEPRO_URL = "https://core-lv20.onrender.com";
 
 
 export interface Settings {
-  theme: string; // one of THEMES[].id
+  theme: string; // one of THEMES[].id, or "custom"
+  /** User-picked colors for the "custom" theme (hex). null when unused. */
+  customTheme: { primary: string; background: string } | null;
   animatedBg: boolean;
   reduceMotion: boolean;
   animationsEnabled: boolean;
@@ -62,8 +64,8 @@ export interface Settings {
   tmdbApiKey: string;
   preferredSource: string;
   preferredDownloadSource: string;
-  /** Main embed provider used for the video player. */
-  embedProvider: "zxcstream" | "vidsuper" | "streamrip" | "cinemaos" | "toustream";
+  /** Main embed provider used for the video player. Only VoidX remains. */
+  embedProvider: "vidsrc";
   language: "en" | "es" | "fr" | "ja" | "de";
   region: string;
   matureContent: boolean;
@@ -79,6 +81,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME_ID,
+  customTheme: null,
   animatedBg: true,
   reduceMotion: false,
   animationsEnabled: true,
@@ -103,9 +106,9 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   useLegacyEmbeds: false,
   tmdbApiKey: "",
-  preferredSource: "zxcstream",
+  preferredSource: "vidsrc",
   preferredDownloadSource: "febbox",
-  embedProvider: "zxcstream",
+  embedProvider: "vidsrc",
   language: "en",
   region: "US",
   matureContent: false,

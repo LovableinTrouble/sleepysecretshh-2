@@ -581,35 +581,74 @@ function EmbedSurface({
 
   
 
+  // Real Continue Watching tracking via the VoidX (vidsrc) embed's postMessage
+  // API. The player posts VIDEO_PLAY / VIDEO_PAUSE / VIDEO_PROGRESS /
+  // VIDEO_NINETY_PERCENT / VIDEO_ENDED events; we persist actual position and
+  // duration instead of the old hardcoded 30-second marker. Only reacts to the
+  // vidsrc embed and always validates event.data.type before acting.
   useEffect(() => {
+    if (source.id !== "vidsrc") return;
     const seasonKey = season ?? null;
     const epKey = episode ?? null;
-    const writeMarker = () => {
+    let ninetyMarked = false;
+
+    const writeReal = (currentTime: number, duration: number, completed: boolean) => {
       const existing = getLocalProgressFor(media.id, seasonKey, epKey);
+      const pos = Number.isFinite(currentTime) && currentTime > 0
+        ? Math.floor(currentTime)
+        : existing?.positionSeconds ?? 0;
+      const dur = Number.isFinite(duration) && duration > 0
+        ? Math.floor(duration)
+        : existing?.durationSeconds ?? 0;
       const entry = {
         mediaId: media.id,
         mediaType: media.type,
         season: seasonKey,
         episode: epKey,
-        positionSeconds:
-          existing?.positionSeconds && existing.positionSeconds > 15 ? existing.positionSeconds : 30,
-        durationSeconds: existing?.durationSeconds ?? 0,
+        positionSeconds: pos,
+        durationSeconds: dur,
         title: media.title,
         poster: media.poster,
         backdrop: media.backdrop,
-        completed: false,
+        completed,
         updatedAt: Date.now(),
       };
       saveProgressLocal(entry);
       void syncProgressUp(entry);
     };
-    const initial = window.setTimeout(writeMarker, 4000);
-    const id = window.setInterval(writeMarker, 30_000);
-    return () => {
-      window.clearTimeout(initial);
-      window.clearInterval(id);
+
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      const type = (data as { type?: unknown }).type;
+      // Never trust arbitrary postMessage payloads — validate the type first.
+      if (typeof type !== "string") return;
+      const payload = (data as { payload?: Record<string, unknown> }).payload ?? {};
+      const currentTime = typeof payload.currentTime === "number" ? payload.currentTime : NaN;
+      const duration = typeof payload.duration === "number" ? payload.duration : NaN;
+
+      switch (type) {
+        case "VIDEO_PROGRESS":
+          writeReal(currentTime, duration, false);
+          break;
+        case "VIDEO_NINETY_PERCENT":
+          if (!ninetyMarked) {
+            ninetyMarked = true;
+            writeReal(currentTime, duration, true);
+          }
+          break;
+        case "VIDEO_ENDED":
+          writeReal(currentTime, duration, true);
+          break;
+        // VIDEO_PLAY / VIDEO_PAUSE need no persistence changes.
+        default:
+          break;
+      }
     };
-  }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [source.id, media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
 
   useEffect(() => {
     // Block popup/ad messages from embed sources
