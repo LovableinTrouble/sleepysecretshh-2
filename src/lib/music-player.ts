@@ -102,6 +102,32 @@ async function ensurePlayer(): Promise<void> {
   }, 500) as unknown as number;
 }
 
+// Prime the YouTube player on the first user gesture so subsequent
+// programmatic `playVideo()` calls are allowed on iOS/mobile Chrome.
+// Without this, the very first track after a fresh page load often refuses
+// to autoplay — the user has to tap the mini-player's play button to unlock.
+let primed = false;
+function primeOnFirstGesture() {
+  if (typeof window === "undefined" || primed) return;
+  const handler = () => {
+    if (primed) return;
+    primed = true;
+    // Kick off player creation inside the gesture. We deliberately do NOT
+    // await — creation must start synchronously so iOS attributes the
+    // resulting audio context to this gesture.
+    void ensurePlayer().then(() => {
+      try { yt?.mute?.(); yt?.playVideo?.(); yt?.pauseVideo?.(); yt?.unMute?.(); } catch {}
+    });
+    window.removeEventListener("pointerdown", handler, true);
+    window.removeEventListener("touchstart", handler, true);
+    window.removeEventListener("keydown", handler, true);
+  };
+  window.addEventListener("pointerdown", handler, true);
+  window.addEventListener("touchstart", handler, true);
+  window.addEventListener("keydown", handler, true);
+}
+if (typeof window !== "undefined") primeOnFirstGesture();
+
 export async function play(track: Track, list?: Track[], idx?: number): Promise<void> {
   const seq = ++loadSeq;
   set({
@@ -112,6 +138,12 @@ export async function play(track: Track, list?: Track[], idx?: number): Promise<
     progress: 0,
     duration: 0,
   });
+  // If the player already exists, kick playback synchronously inside the
+  // caller's gesture. iOS Safari requires a media action within the same
+  // task as the user tap, so we can't await search before calling play.
+  if (yt?.playVideo) {
+    try { yt.playVideo(); } catch {}
+  }
   try {
     await ensurePlayer();
     const vid = track.videoId || (await searchYouTube(`${track.title} ${track.artist} audio`));
