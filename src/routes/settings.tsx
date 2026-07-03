@@ -313,8 +313,12 @@ function SettingsPage() {
                 <input
                   type="color"
                   value={s.customTheme?.primary ?? "#b06bff"}
-                  onChange={(e) => set({ customTheme: { primary: e.target.value, background: s.customTheme?.background ?? "#0f0a1c" } })}
-                  className="h-10 w-16 cursor-pointer rounded-lg border border-glass-border bg-transparent"
+                  onChange={(e) => {
+                    const primary = e.target.value;
+                    const bg = s.customTheme?.background ?? "#0f0a1c";
+                    set({ customTheme: { primary, background: bg } });
+                  }}
+                  className="h-10 w-16 cursor-pointer rounded-lg border border-glass-border bg-transparent color-picker"
                 />
               </div>
               <div className="flex items-center justify-between rounded-2xl border border-glass-border bg-background/30 p-3">
@@ -325,8 +329,12 @@ function SettingsPage() {
                 <input
                   type="color"
                   value={s.customTheme?.background ?? "#0f0a1c"}
-                  onChange={(e) => set({ customTheme: { primary: s.customTheme?.primary ?? "#b06bff", background: e.target.value } })}
-                  className="h-10 w-16 cursor-pointer rounded-lg border border-glass-border bg-transparent"
+                  onChange={(e) => {
+                    const background = e.target.value;
+                    const primary = s.customTheme?.primary ?? "#b06bff";
+                    set({ customTheme: { primary, background } });
+                  }}
+                  className="h-10 w-16 cursor-pointer rounded-lg border border-glass-border bg-transparent color-picker"
                 />
               </div>
             </div>

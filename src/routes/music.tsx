@@ -56,6 +56,8 @@ import {
   searchArtists,
   getGenreTracks,
   getArtistRadio,
+  getArtistSongs,
+  getArtistAlbums,
   type Track,
   type Playlist,
   type ArtistInfo,
@@ -217,8 +219,8 @@ function MusicPage() {
         .finally(() => {
           if (!cancelled) setArtistInfoLoading(false);
         });
-      // Use artist radio for actual similar songs
-      getArtistRadio(q, 25)
+      // Use artist radio for actual similar songs - load 100 tracks
+      getArtistRadio(q, 100)
         .then((rs) => {
           if (!cancelled) setDynList(rs);
         })
@@ -226,8 +228,8 @@ function MusicPage() {
           if (!cancelled) setDynLoading(false);
         });
     } else if (view.startsWith("genre:")) {
-      // Use genre tracks for actual genre songs
-      getGenreTracks(q, 25)
+      // Use genre tracks for actual genre songs - load 100 tracks
+      getGenreTracks(q, 100)
         .then((rs) => {
           if (!cancelled) setDynList(rs);
         })

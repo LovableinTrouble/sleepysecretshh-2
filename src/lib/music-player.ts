@@ -51,6 +51,8 @@ let yt: any = null;
 let ytReady: Promise<void> | null = null;
 let pollTimer: number | null = null;
 let loadSeq = 0;
+let consecutiveErrors = 0;
+const MAX_CONSECUTIVE_ERRORS = 3;
 
 function loadYT(): Promise<void> {
   if (ytReady) return ytReady;
@@ -59,6 +61,7 @@ function loadYT(): Promise<void> {
     if ((window as any).YT?.Player) return resolve();
     const tag = document.createElement("script");
     tag.src = "https://www.youtube.com/iframe_api";
+    tag.head = document.head;
     document.head.appendChild(tag);
     (window as any).onYouTubeIframeAPIReady = () => resolve();
   });
@@ -91,7 +94,10 @@ async function ensurePlayer(): Promise<void> {
         },
         onStateChange: (e: any) => {
           const YT = (window as any).YT;
-          if (e.data === YT.PlayerState.PLAYING) set({ playing: true, loading: false });
+          if (e.data === YT.PlayerState.PLAYING) {
+            set({ playing: true, loading: false, error: null });
+            consecutiveErrors = 0; // Reset on successful play
+          }
           else if (e.data === YT.PlayerState.PAUSED) set({ playing: false });
           else if (e.data === YT.PlayerState.BUFFERING) set({ loading: true });
           else if (e.data === YT.PlayerState.ENDED) {
@@ -103,11 +109,28 @@ async function ensurePlayer(): Promise<void> {
           }
         },
         onError: (e: any) => {
-          console.warn("YouTube player error:", e?.data);
-          set({ loading: false, playing: false, error: "This track couldn't play — trying the next one." });
-          // Try to play next track on error, if any others exist.
-          if (state.queue.length > 1) {
-            next();
+          console.warn("YouTube player error code:", e?.data);
+          consecutiveErrors++;
+
+          // Common error codes:
+          // 2 - Invalid video ID
+          // 5 - HTML5 player error
+          // 100 - Video not found
+          // 101/150 - Video not allowed to be embedded
+
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            set({ loading: false, playing: false, error: "Multiple tracks failed. Try a different search." });
+            consecutiveErrors = 0;
+            return;
+          }
+
+          // Try next track on error (but only once per track)
+          const nextIdx = (state.queueIdx + 1) % state.queue.length;
+          if (state.queue.length > 1 && nextIdx !== state.queueIdx) {
+            set({ loading: false, error: "Track unavailable, skipping..." });
+            setTimeout(() => next(), 300);
+          } else {
+            set({ loading: false, playing: false, error: "This track couldn't play." });
           }
         },
       },
@@ -156,35 +179,38 @@ export async function play(track: Track, list?: Track[], idx?: number): Promise<
     duration: 0,
   });
 
-  // Kick playback synchronously inside the user gesture window if we already
-  // have both a player and a known videoId — bypasses iOS autoplay blocks.
-  if (yt?.loadVideoById && track.videoId) {
-    try { yt.loadVideoById(track.videoId); yt.playVideo(); } catch {}
-  }
-
   try {
     await ensurePlayer();
 
+    if (seq !== loadSeq) return; // newer play() superseded this one
+
     // Get video ID - either from track or search for it
     let videoId: string | null = track.videoId ?? null;
+
+    // If no videoId, search for one (but with timeout)
     if (!videoId) {
-      videoId = await searchYouTube(`${track.title} ${track.artist} audio`);
+      try {
+        videoId = await Promise.race([
+          searchYouTube(`${track.title} ${track.artist}`),
+          new Promise<null>(resolve => setTimeout(() => resolve(null), 5000))
+        ]);
+      } catch {
+        videoId = null;
+      }
     }
 
-    if (seq !== loadSeq) return; // newer play() superseded this one
     if (!videoId) {
       console.warn("No video ID found for:", track.title, track.artist);
-      set({ loading: false, error: "Couldn't find a stream for this track." });
-      // Skip to next in queue if available so we don't just hang.
-      if (state.queue.length > 1) next();
-      return;
+      set({ loading: false, error: "Couldn't find this track. Try another." });
+      return; // Don't auto-skip, let user decide
     }
+
+    if (seq !== loadSeq) return; // Check again after potential search
 
     if (yt?.loadVideoById) {
       yt.loadVideoById(videoId);
-      try { yt.playVideo(); } catch {}
     } else {
-      set({ loading: false });
+      set({ loading: false, error: "Player not ready." });
     }
   } catch (error) {
     console.error("Play error:", error);
@@ -206,20 +232,27 @@ export function pause() {
 export function next() {
   const { queue, queueIdx } = state;
   if (!queue.length) return;
+
   const ni = (queueIdx + 1) % queue.length;
-  void play(queue[ni], queue, ni);
+  if (ni === queueIdx && queue.length === 1) return; // Only one track, don't restart
+
+  const track = queue[ni];
+  void play(track, queue, ni);
 }
 
 export function prev() {
   const { queue, queueIdx, progress } = state;
+
   // If more than 4 seconds in, restart track
   if (progress > 4 && yt) {
     try { yt.seekTo(0); } catch {}
     return;
   }
+
   if (!queue.length) return;
   const ni = (queueIdx - 1 + queue.length) % queue.length;
-  void play(queue[ni], queue, ni);
+  const track = queue[ni];
+  void play(track, queue, ni);
 }
 
 export function seek(ratio: number) {
@@ -245,6 +278,7 @@ export function setRepeat(r: boolean) { set({ repeat: r }); }
 /** Stops playback and clears the now-playing card. */
 export function close() {
   loadSeq++;
+  consecutiveErrors = 0;
   try { yt?.stopVideo?.(); } catch {}
   set({ ...initial, volume: state.volume, muted: state.muted, repeat: state.repeat });
 }

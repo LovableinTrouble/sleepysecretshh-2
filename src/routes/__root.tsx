@@ -274,6 +274,10 @@ const CUSTOM_TOKENS = [
   "--glass","--glass-border","--gradient-primary","--gradient-bg","--shadow-glow","--shadow-glass","--radius",
 ];
 
+// Debounce helper to prevent rapid updates
+let themeRaf: number | null = null;
+let pendingTheme: { primary: string; background: string } | null = null;
+
 function applyCustomTheme(root: HTMLElement, primaryHex: string, bgHex: string) {
   const bg = hexToRgb(bgHex);
   const pr = hexToRgb(primaryHex);
@@ -283,32 +287,48 @@ function applyCustomTheme(root: HTMLElement, primaryHex: string, bgHex: string) 
   const tint = isLight ? black : white;
   const fg = isLight ? black : white;
   const s = root.style;
-  s.setProperty("--radius", "1rem");
-  s.setProperty("--background", rgbStr(...bg));
-  s.setProperty("--foreground", rgbStr(...fg));
-  s.setProperty("--card", rgbStr(...mix(bg, tint, 0.06)));
-  s.setProperty("--card-foreground", rgbStr(...fg));
-  s.setProperty("--popover", rgbStr(...mix(bg, tint, 0.04)));
-  s.setProperty("--popover-foreground", rgbStr(...fg));
-  s.setProperty("--primary", rgbStr(...pr));
-  s.setProperty("--primary-foreground", rgbStr(...(luminance(pr) > 0.55 ? black : white)));
-  s.setProperty("--secondary", rgbStr(...mix(bg, tint, 0.12)));
-  s.setProperty("--secondary-foreground", rgbStr(...fg));
-  s.setProperty("--muted", rgbStr(...mix(bg, tint, 0.10)));
-  s.setProperty("--muted-foreground", rgbStr(...mix(fg, bg, 0.35)));
-  s.setProperty("--accent", rgbStr(...mix(pr, tint, 0.15)));
-  s.setProperty("--accent-foreground", rgbStr(...fg));
-  s.setProperty("--destructive", "rgb(220, 60, 60)");
-  s.setProperty("--destructive-foreground", rgbStr(...white));
-  s.setProperty("--border", rgbStr(mix(fg, bg, 0.7)[0], mix(fg, bg, 0.7)[1], mix(fg, bg, 0.7)[2], 0.35));
-  s.setProperty("--input", rgbStr(...mix(bg, tint, 0.14)));
-  s.setProperty("--ring", rgbStr(...pr));
-  s.setProperty("--glass", rgbStr(mix(bg, tint, 0.10)[0], mix(bg, tint, 0.10)[1], mix(bg, tint, 0.10)[2], 0.55));
-  s.setProperty("--glass-border", rgbStr(fg[0], fg[1], fg[2], 0.12));
-  s.setProperty("--gradient-primary", `linear-gradient(135deg, ${rgbStr(...mix(pr, tint, 0.15))}, ${rgbStr(...pr)})`);
-  s.setProperty("--gradient-bg", `radial-gradient(ellipse at top, ${rgbStr(...mix(bg, pr, 0.20))} 0%, ${rgbStr(...bg)} 60%)`);
-  s.setProperty("--shadow-glow", `0 10px 60px -10px ${rgbStr(pr[0], pr[1], pr[2], 0.45)}`);
-  s.setProperty("--shadow-glass", `0 8px 32px 0 ${rgbStr(0, 0, 0, 0.5)}`);
+
+  // Batch all style updates in a single operation
+  const styles: [string, string][] = [
+    ["--radius", "1rem"],
+    ["--background", rgbStr(...bg)],
+    ["--foreground", rgbStr(...fg)],
+    ["--card", rgbStr(...mix(bg, tint, 0.06))],
+    ["--card-foreground", rgbStr(...fg)],
+    ["--popover", rgbStr(...mix(bg, tint, 0.04))],
+    ["--popover-foreground", rgbStr(...fg)],
+    ["--primary", rgbStr(...pr)],
+    ["--primary-foreground", rgbStr(...(luminance(pr) > 0.55 ? black : white))],
+    ["--secondary", rgbStr(...mix(bg, tint, 0.12))],
+    ["--secondary-foreground", rgbStr(...fg)],
+    ["--muted", rgbStr(...mix(bg, tint, 0.10))],
+    ["--muted-foreground", rgbStr(...mix(fg, bg, 0.35))],
+    ["--accent", rgbStr(...mix(pr, tint, 0.15))],
+    ["--accent-foreground", rgbStr(...fg)],
+    ["--destructive", "rgb(220, 60, 60)"],
+    ["--destructive-foreground", rgbStr(...white)],
+    ["--border", rgbStr(mix(fg, bg, 0.7)[0], mix(fg, bg, 0.7)[1], mix(fg, bg, 0.7)[2], 0.35)],
+    ["--input", rgbStr(...mix(bg, tint, 0.14))],
+    ["--ring", rgbStr(...pr)],
+    ["--glass", rgbStr(mix(bg, tint, 0.10)[0], mix(bg, tint, 0.10)[1], mix(bg, tint, 0.10)[2], 0.55)],
+    ["--glass-border", rgbStr(fg[0], fg[1], fg[2], 0.12)],
+    ["--gradient-primary", `linear-gradient(135deg, ${rgbStr(...mix(pr, tint, 0.15))}, ${rgbStr(...pr)})`],
+    ["--gradient-bg", `radial-gradient(ellipse at top, ${rgbStr(...mix(bg, pr, 0.20))} 0%, ${rgbStr(...bg)} 60%)`],
+    ["--shadow-glow", `0 10px 60px -10px ${rgbStr(pr[0], pr[1], pr[2], 0.45)}`],
+    ["--shadow-glass", `0 8px 32px 0 ${rgbStr(0, 0, 0, 0.5)}`],
+  ];
+
+  // Apply all at once using requestAnimationFrame for smooth updates
+  if (themeRaf) cancelAnimationFrame(themeRaf);
+  pendingTheme = { primary: primaryHex, background: bgHex };
+
+  themeRaf = requestAnimationFrame(() => {
+    if (!pendingTheme) return;
+    for (const [prop, val] of styles) {
+      s.setProperty(prop, val);
+    }
+    themeRaf = null;
+  });
 }
 
 function clearCustomTheme(root: HTMLElement) {
