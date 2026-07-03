@@ -69,7 +69,7 @@ function Home() {
         <div className="h-[80vh] min-h-[560px] w-full animate-shimmer" />
       )}
 
-      <main className={`relative -mt-20 animate-soft-rise ${rowSpacing}`}>
+      <main className="relative -mt-20 animate-soft-rise space-y-8 md:space-y-10">
         <ContinueWatchingRow />
         <Row title="Trending This Week" q={trending} />
         <Row title="Popular Movies" q={movies} />
