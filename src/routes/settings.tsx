@@ -181,8 +181,6 @@ function SettingsPage() {
   // clicked Save; this applies on the spot.
   const [s, setSaved] = useSettings();
   const set = (patch: Partial<Settings>) => setSaved(patch);
-  const setSub = (patch: Partial<Settings["subtitle"]>) => setSaved({ subtitle: { ...s.subtitle, ...patch } });
-  const setPlayer = (patch: Partial<Settings["player"]>) => setSaved({ player: { ...s.player, ...patch } });
   const setInt = (patch: Partial<Settings["integrations"]>) => setSaved({ integrations: { ...s.integrations, ...patch } });
   const ints = s.integrations;
 
@@ -341,52 +339,15 @@ function SettingsPage() {
           )}
         </Section>
 
-        <Section title="Appearance" desc="Motion and density.">
+        <Section title="Appearance" desc="Customize how Sleepy looks and feels.">
           <Row label="Animated background" hint="Soft drifting orbs behind the UI."><Toggle value={s.animatedBg} onChange={(v) => set({ animatedBg: v })} /></Row>
-          <Row label="Site-wide animations" hint="Master switch — disables hovers, transitions and motion."><Toggle value={s.animationsEnabled} onChange={(v) => set({ animationsEnabled: v })} /></Row>
+          <Row label="Site-wide animations" hint="Hovers, transitions and motion effects."><Toggle value={s.animationsEnabled} onChange={(v) => set({ animationsEnabled: v })} /></Row>
           <Row label="Reduce motion" hint="Honor system reduce-motion preference."><Toggle value={s.reduceMotion} onChange={(v) => set({ reduceMotion: v })} /></Row>
-          <Row label="Glass intensity"><Slider value={s.glassIntensity} onChange={(v) => set({ glassIntensity: v })} suffix="%" /></Row>
-          <Row label="Poster style">
-            <Select value={s.posterStyle} onChange={(v) => set({ posterStyle: v as Settings["posterStyle"] })} options={[
-              { value: "rounded", label: "Rounded" }, { value: "square", label: "Square" }, { value: "circle", label: "Circle" },
-            ]} />
-          </Row>
-        </Section>
-
-
-        <Section title="Playback">
-          <Row label="Autoplay"><Toggle value={s.player.autoplay} onChange={(v) => setPlayer({ autoplay: v })} /></Row>
-          <Row label="Auto-play next episode"><Toggle value={s.player.autoNext} onChange={(v) => setPlayer({ autoNext: v })} /></Row>
-          <Row label="Skip intros"><Toggle value={s.player.skipIntro} onChange={(v) => setPlayer({ skipIntro: v })} /></Row>
-          <Row label="Picture-in-picture"><Toggle value={s.player.pip} onChange={(v) => setPlayer({ pip: v })} /></Row>
-          <Row label="Preferred quality">
-            <Select value={s.player.quality} onChange={(v) => setPlayer({ quality: v as Settings["player"]["quality"] })} options={[
-              { value: "auto", label: "Auto" }, { value: "4k", label: "4K" }, { value: "1080p", label: "1080p" }, { value: "720p", label: "720p" },
-            ]} />
-          </Row>
-        </Section>
-
-        <Section title="Downloads" desc="Downloads are managed inside your configured primary source.">
-          <Row label="Download provider">
-            <span className="rounded-full bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary ring-1 ring-primary/25">Primary source</span>
-          </Row>
-          <Row label="Auto-download next episode" hint="Queue the next episode for offline."><Toggle value={s.autoDownload} onChange={(v) => set({ autoDownload: v })} /></Row>
-        </Section>
-
-        <Section title="Subtitles">
-          <Row label="Font size"><Slider value={s.subtitle.size} onChange={(v) => setSub({ size: v })} min={12} max={36} suffix="px" /></Row>
-          <Row label="Text color">
-            <input type="color" value={s.subtitle.color} onChange={(e) => setSub({ color: e.target.value })} className="h-9 w-16 cursor-pointer rounded-lg border border-glass-border bg-transparent" />
-          </Row>
-          <Row label="Background opacity"><Slider value={s.subtitle.bgOpacity} onChange={(v) => setSub({ bgOpacity: v })} suffix="%" /></Row>
-          <Row label="Font family">
-            <Select value={s.subtitle.font} onChange={(v) => setSub({ font: v as Settings["subtitle"]["font"] })} options={[
-              { value: "Inter", label: "Inter" }, { value: "Roboto", label: "Roboto" }, { value: "Open Sans", label: "Open Sans" }, { value: "Verdana", label: "Verdana" }, { value: "Mono", label: "Mono" },
-            ]} />
-          </Row>
-          <Row label="Edge style">
-            <Select value={s.subtitle.edgeStyle} onChange={(v) => setSub({ edgeStyle: v as Settings["subtitle"]["edgeStyle"] })} options={[
-              { value: "none", label: "None" }, { value: "shadow", label: "Shadow" }, { value: "outline", label: "Outline" },
+          <Row label="Show ratings" hint="Display IMDb/TMDB scores on media cards."><Toggle value={s.showRatings} onChange={(v) => set({ showRatings: v })} /></Row>
+          <Row label="Show logo in header" hint="Display the Sleepy logo in the top bar."><Toggle value={s.showLogo} onChange={(v) => set({ showLogo: v })} /></Row>
+          <Row label="Homepage density">
+            <Select value={s.homepageDensity} onChange={(v) => set({ homepageDensity: v as Settings["homepageDensity"] })} options={[
+              { value: "comfy", label: "Comfy" }, { value: "compact", label: "Compact" }, { value: "cinematic", label: "Cinematic" },
             ]} />
           </Row>
         </Section>
