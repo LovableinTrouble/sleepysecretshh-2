@@ -179,7 +179,7 @@ export async function importYouTubePlaylist(input: string): Promise<{ name: stri
         artworkHi: v.thumbnail || `https://i.ytimg.com/vi/${v.url?.replace("/watch?v=", "")}/hqdefault.jpg`,
         durationMs: (v.duration || 0) * 1000,
         videoId: v.url?.replace("/watch?v=", "") || v.id,
-      })).filter(t => t.videoId);
+      })).filter((t: Track) => t.videoId);
 
       if (tracks.length) {
         return { name: data.name || "Playlist", tracks };
