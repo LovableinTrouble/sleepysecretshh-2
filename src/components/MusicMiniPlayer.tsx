@@ -49,7 +49,9 @@ export function MusicMiniPlayer() {
           </Link>
           <Link to="/music" className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-semibold text-white">{s.current.title}</div>
-            <div className="truncate text-[11px] text-white/60">{s.current.artist}</div>
+            <div className="truncate text-[11px] text-white/60">
+              {s.error ? <span className="text-amber-300">{s.error}</span> : s.current.artist}
+            </div>
           </Link>
           <div className="flex items-center gap-0.5">
             <button onClick={prev} aria-label="Previous" className="rounded-full p-1.5 text-white/80 hover:bg-white/10 hover:text-white">

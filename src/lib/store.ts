@@ -63,7 +63,9 @@ export interface Settings {
   preferredSource: string;
   preferredDownloadSource: string;
   /** Main embed provider used for the video player. */
-  embedProvider: "zxcstream" | "vidsuper" | "streamrip" | "cinemaos" | "toustream";
+  embedProvider: "vidsrc";
+  /** Optional custom theme values applied when `theme === "custom"`. */
+  customTheme: { primary: string; background: string } | null;
   language: "en" | "es" | "fr" | "ja" | "de";
   region: string;
   matureContent: boolean;
@@ -103,9 +105,10 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   useLegacyEmbeds: false,
   tmdbApiKey: "",
-  preferredSource: "zxcstream",
+  preferredSource: "febbox",
   preferredDownloadSource: "febbox",
-  embedProvider: "zxcstream",
+  embedProvider: "vidsrc",
+  customTheme: null,
   language: "en",
   region: "US",
   matureContent: false,

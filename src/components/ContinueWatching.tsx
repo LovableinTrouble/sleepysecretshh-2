@@ -78,9 +78,9 @@ export function ContinueWatchingRow() {
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPending({ mediaId: it.mediaId, mediaType: it.mediaType, title: it.title, season: it.season, episode: it.episode }); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 aria-label="Remove from continue watching"
-                className="pointer-events-auto absolute right-2 top-2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/80 text-white opacity-100 ring-1 ring-white/25 shadow-lg backdrop-blur transition hover:bg-destructive hover:scale-110 active:scale-95"
+                className="pointer-events-auto absolute right-2 top-2 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-black/85 text-white opacity-100 ring-2 ring-white/30 shadow-xl backdrop-blur transition hover:bg-destructive hover:scale-110 active:scale-95"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-5 w-5" />
               </button>
             </div>
           );

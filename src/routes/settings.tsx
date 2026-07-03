@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_SETTINGS, useSettings, type Settings } from "@/lib/store";
-import { EMBED_SOURCES } from "@/lib/sources";
 import { THEMES } from "@/lib/themes";
 import { REGION_OPTIONS, detectRegion, type Region } from "@/lib/detectRegion";
 
@@ -196,37 +195,6 @@ function SettingsPage() {
           <p className="mt-2 text-muted-foreground">Themes, playback, sources and integrations — all clean, all yours.</p>
         </div>
 
-        {/* Main embed provider — top-level source picker */}
-        <Section
-          title="Main embed source"
-          desc="Pick the primary embed the player uses. FebBox (direct) still takes precedence when a cookie is set."
-        >
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {[
-              { id: "zxcstream", name: "ZXCStream", hint: "Default · HD" },
-              { id: "vidsuper", name: "Vidsuper", hint: "4K · alt" },
-              { id: "streamrip", name: "StreamRIP", hint: "Fast · alt" },
-              { id: "cinemaos", name: "CinemaOS", hint: "Backup" },
-            ].map((o) => {
-              const active = s.embedProvider === o.id;
-              return (
-                <button
-                  key={o.id}
-                  onClick={() => set({ embedProvider: o.id as Settings["embedProvider"] })}
-                  className={`rounded-2xl border p-3 text-left transition ${
-                    active
-                      ? "border-primary bg-primary/10 ring-2 ring-primary/40"
-                      : "border-glass-border bg-background/30 hover:border-primary/40"
-                  }`}
-                >
-                  <div className="text-sm font-bold">{o.name}</div>
-                  <div className="mt-0.5 text-[11px] text-muted-foreground">{o.hint}</div>
-                </button>
-              );
-            })}
-          </div>
-        </Section>
-
         {/* FebBox — surfaced first because it gates the primary direct source. */}
         <Section
           title="FebBox Cookie"
@@ -274,22 +242,20 @@ function SettingsPage() {
         </Section>
 
         {/* Sources */}
-        <Section title="Sources" desc="FebBox is the primary direct source. Embeds (Void first, then Xcv, then Ten) are used as backups when direct playback is unavailable.">
-
-          <Row label="Preferred source" hint="FebBox runs first when a cookie is configured, otherwise embed backups are used.">
+        <Section title="Sources" desc="FebBox is the primary direct source. VoidX is the single embed backup used when direct playback isn't available.">
+          <Row label="Preferred source" hint="FebBox runs first when a cookie is configured, otherwise VoidX is used.">
             <Select value={s.preferredSource} onChange={(v) => set({ preferredSource: v })} options={[
               { value: "febbox", label: "FebBox — direct HLS, up to 4K" },
-              ...EMBED_SOURCES.map((src) => ({ value: src.id, label: `${src.name}${src.badge ? ` — ${src.badge}` : ""}` })),
+              { value: "vidsrc", label: "VoidX — embed backup" },
             ]} />
           </Row>
-          <Row label="FebBox" hint="Direct HLS streams up to 4K. Requires a FebBox ui= cookie pasted in Integrations below.">
+          <Row label="FebBox" hint="Direct HLS streams up to 4K. Requires a FebBox ui= cookie pasted below.">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${s.integrations.febboxCookie?.trim() ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" : "bg-amber-500/15 text-amber-300 ring-amber-400/30"}`}>
               {s.integrations.febboxCookie?.trim() ? "Connected" : "Not configured"}
             </span>
           </Row>
-          <Row label="Embed fallbacks" hint="Void, Xcv, and Ten — used automatically when FebBox isn't available.">
-
-            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">Backup only</span>
+          <Row label="VoidX embed" hint="Automatic fallback when FebBox isn't available.">
+            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">Backup ready</span>
           </Row>
         </Section>
 
@@ -318,7 +284,53 @@ function SettingsPage() {
                 </button>
               );
             })}
+            {/* Custom theme card */}
+            <button
+              onClick={() => set({ theme: "custom", customTheme: s.customTheme ?? { primary: "#b06bff", background: "#0f0a1c" } })}
+              className={`group relative overflow-hidden rounded-2xl border p-3 text-left transition ${s.theme === "custom" ? "border-primary ring-2 ring-primary/40" : "border-glass-border hover:border-primary/40"}`}
+            >
+              <div className="flex h-14 overflow-hidden rounded-xl">
+                <div className="flex-1" style={{ background: s.customTheme?.background ?? "#0f0a1c" }} />
+                <div className="flex-1" style={{ background: s.customTheme?.primary ?? "#b06bff" }} />
+                <div className="flex-1 bg-gradient-to-br" style={{ background: `linear-gradient(135deg, ${s.customTheme?.background ?? "#0f0a1c"}, ${s.customTheme?.primary ?? "#b06bff"})` }} />
+              </div>
+              <div className="mt-2 truncate text-sm font-semibold">Custom</div>
+              <div className="truncate text-[11px] text-muted-foreground">Pick your own colors</div>
+              {s.theme === "custom" && (
+                <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5"/></svg>
+                </div>
+              )}
+            </button>
           </div>
+          {s.theme === "custom" && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="flex items-center justify-between rounded-2xl border border-glass-border bg-background/30 p-3">
+                <div>
+                  <div className="text-sm font-semibold">Primary</div>
+                  <div className="text-[11px] text-muted-foreground">Buttons, accents, links</div>
+                </div>
+                <input
+                  type="color"
+                  value={s.customTheme?.primary ?? "#b06bff"}
+                  onChange={(e) => set({ customTheme: { primary: e.target.value, background: s.customTheme?.background ?? "#0f0a1c" } })}
+                  className="h-10 w-16 cursor-pointer rounded-lg border border-glass-border bg-transparent"
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-glass-border bg-background/30 p-3">
+                <div>
+                  <div className="text-sm font-semibold">Background</div>
+                  <div className="text-[11px] text-muted-foreground">Base surface color</div>
+                </div>
+                <input
+                  type="color"
+                  value={s.customTheme?.background ?? "#0f0a1c"}
+                  onChange={(e) => set({ customTheme: { primary: s.customTheme?.primary ?? "#b06bff", background: e.target.value } })}
+                  className="h-10 w-16 cursor-pointer rounded-lg border border-glass-border bg-transparent"
+                />
+              </div>
+            </div>
+          )}
         </Section>
 
         <Section title="Appearance" desc="Motion and density.">

@@ -584,32 +584,47 @@ function EmbedSurface({
   useEffect(() => {
     const seasonKey = season ?? null;
     const epKey = episode ?? null;
-    const writeMarker = () => {
+    // VoidX (id: "vidsrc") posts real progress via window.postMessage.
+    // Wire that into the local Continue Watching store — no more fake markers.
+    if (source.id !== "vidsrc") return;
+    const write = (positionSeconds: number, durationSeconds: number, completed = false) => {
       const existing = getLocalProgressFor(media.id, seasonKey, epKey);
       const entry = {
         mediaId: media.id,
         mediaType: media.type,
         season: seasonKey,
         episode: epKey,
-        positionSeconds:
-          existing?.positionSeconds && existing.positionSeconds > 15 ? existing.positionSeconds : 30,
-        durationSeconds: existing?.durationSeconds ?? 0,
+        positionSeconds: Math.max(0, Math.floor(positionSeconds)),
+        durationSeconds: Math.max(existing?.durationSeconds ?? 0, Math.floor(durationSeconds)),
         title: media.title,
         poster: media.poster,
         backdrop: media.backdrop,
-        completed: false,
+        completed,
         updatedAt: Date.now(),
       };
       saveProgressLocal(entry);
       void syncProgressUp(entry);
     };
-    const initial = window.setTimeout(writeMarker, 4000);
-    const id = window.setInterval(writeMarker, 30_000);
-    return () => {
-      window.clearTimeout(initial);
-      window.clearInterval(id);
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data;
+      if (!d || typeof d !== "object") return;
+      const type = (d as { type?: unknown }).type;
+      if (typeof type !== "string") return;
+      const payload = (d as { payload?: { currentTime?: number; duration?: number } }).payload || {};
+      const ct = Number(payload.currentTime);
+      const du = Number(payload.duration);
+      if (type === "VIDEO_PROGRESS" && Number.isFinite(ct) && Number.isFinite(du) && du > 0) {
+        write(ct, du, false);
+      } else if (type === "VIDEO_NINETY_PERCENT") {
+        if (Number.isFinite(ct) && Number.isFinite(du) && du > 0) write(ct, du, true);
+      } else if (type === "VIDEO_ENDED") {
+        const existing = getLocalProgressFor(media.id, seasonKey, epKey);
+        write(existing?.durationSeconds ?? 0, existing?.durationSeconds ?? 0, true);
+      }
     };
-  }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode, source.id]);
 
   useEffect(() => {
     // Block popup/ad messages from embed sources

@@ -302,6 +302,29 @@ export async function searchMulti(q: string): Promise<Media[]> {
     .map((r) => toMedia(r, r.media_type === "tv" ? "tv" : "movie", r.media_type === "tv" ? tg : mg)));
 }
 
+export interface PersonSearchResult {
+  id: number;
+  name: string;
+  profile?: string;
+  knownFor?: string;
+  popularity?: number;
+}
+
+export async function searchPeople(q: string): Promise<PersonSearchResult[]> {
+  if (!q.trim()) return [];
+  const d = await tmdb<{ results: any[] }>("/search/person", { query: q, include_adult: isMatureAllowed() });
+  return (d.results || [])
+    .filter((r: any) => r.profile_path)
+    .slice(0, 24)
+    .map((r: any) => ({
+      id: r.id,
+      name: r.name || "Unknown",
+      profile: IMG(r.profile_path, "w185"),
+      knownFor: (r.known_for || []).map((k: any) => k.title || k.name).filter(Boolean).slice(0, 2).join(", "),
+      popularity: r.popularity,
+    }));
+}
+
 export async function fetchSimilar(media: Media): Promise<Media[]> {
   const tmdbKind = media.type === "movie" ? "movie" : "tv";
   const g = await genreMap(tmdbKind);
