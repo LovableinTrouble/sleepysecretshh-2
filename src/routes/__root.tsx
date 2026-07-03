@@ -248,3 +248,69 @@ function SiteFooter({ pathname }: { pathname: string }) {
     </footer>
   );
 }
+
+// ---------- Custom theme derivation ----------
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const n = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const int = parseInt(n, 16);
+  return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
+}
+function rgbStr(r: number, g: number, b: number, a?: number) {
+  return a != null ? `rgba(${r|0}, ${g|0}, ${b|0}, ${a})` : `rgb(${r|0}, ${g|0}, ${b|0})`;
+}
+function mix(a: [number, number, number], b: [number, number, number], t: number): [number, number, number] {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+function luminance([r, g, b]: [number, number, number]) {
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+const CUSTOM_TOKENS = [
+  "--background","--foreground","--card","--card-foreground","--popover","--popover-foreground",
+  "--primary","--primary-foreground","--secondary","--secondary-foreground","--muted","--muted-foreground",
+  "--accent","--accent-foreground","--destructive","--destructive-foreground","--border","--input","--ring",
+  "--glass","--glass-border","--gradient-primary","--gradient-bg","--shadow-glow","--shadow-glass","--radius",
+];
+
+function applyCustomTheme(root: HTMLElement, primaryHex: string, bgHex: string) {
+  const bg = hexToRgb(bgHex);
+  const pr = hexToRgb(primaryHex);
+  const isLight = luminance(bg) > 0.55;
+  const white: [number, number, number] = [255, 255, 255];
+  const black: [number, number, number] = [0, 0, 0];
+  const tint = isLight ? black : white;
+  const fg = isLight ? black : white;
+  const s = root.style;
+  s.setProperty("--radius", "1rem");
+  s.setProperty("--background", rgbStr(...bg));
+  s.setProperty("--foreground", rgbStr(...fg));
+  s.setProperty("--card", rgbStr(...mix(bg, tint, 0.06)));
+  s.setProperty("--card-foreground", rgbStr(...fg));
+  s.setProperty("--popover", rgbStr(...mix(bg, tint, 0.04)));
+  s.setProperty("--popover-foreground", rgbStr(...fg));
+  s.setProperty("--primary", rgbStr(...pr));
+  s.setProperty("--primary-foreground", rgbStr(...(luminance(pr) > 0.55 ? black : white)));
+  s.setProperty("--secondary", rgbStr(...mix(bg, tint, 0.12)));
+  s.setProperty("--secondary-foreground", rgbStr(...fg));
+  s.setProperty("--muted", rgbStr(...mix(bg, tint, 0.10)));
+  s.setProperty("--muted-foreground", rgbStr(...mix(fg, bg, 0.35)));
+  s.setProperty("--accent", rgbStr(...mix(pr, tint, 0.15)));
+  s.setProperty("--accent-foreground", rgbStr(...fg));
+  s.setProperty("--destructive", "rgb(220, 60, 60)");
+  s.setProperty("--destructive-foreground", rgbStr(...white));
+  s.setProperty("--border", rgbStr(mix(fg, bg, 0.7)[0], mix(fg, bg, 0.7)[1], mix(fg, bg, 0.7)[2], 0.35));
+  s.setProperty("--input", rgbStr(...mix(bg, tint, 0.14)));
+  s.setProperty("--ring", rgbStr(...pr));
+  s.setProperty("--glass", rgbStr(mix(bg, tint, 0.10)[0], mix(bg, tint, 0.10)[1], mix(bg, tint, 0.10)[2], 0.55));
+  s.setProperty("--glass-border", rgbStr(fg[0], fg[1], fg[2], 0.12));
+  s.setProperty("--gradient-primary", `linear-gradient(135deg, ${rgbStr(...mix(pr, tint, 0.15))}, ${rgbStr(...pr)})`);
+  s.setProperty("--gradient-bg", `radial-gradient(ellipse at top, ${rgbStr(...mix(bg, pr, 0.20))} 0%, ${rgbStr(...bg)} 60%)`);
+  s.setProperty("--shadow-glow", `0 10px 60px -10px ${rgbStr(pr[0], pr[1], pr[2], 0.45)}`);
+  s.setProperty("--shadow-glass", `0 8px 32px 0 ${rgbStr(0, 0, 0, 0.5)}`);
+}
+
+function clearCustomTheme(root: HTMLElement) {
+  for (const k of CUSTOM_TOKENS) root.style.removeProperty(k);
+}
