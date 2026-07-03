@@ -187,7 +187,14 @@ function AppShell() {
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.setAttribute("data-theme", settings.theme || "midnight-violet");
-  }, [settings.theme]);
+    const root = document.documentElement;
+    // Custom theme: derive full token set from primary + background.
+    if (settings.theme === "custom" && settings.customTheme) {
+      applyCustomTheme(root, settings.customTheme.primary, settings.customTheme.background);
+    } else {
+      clearCustomTheme(root);
+    }
+  }, [settings.theme, settings.customTheme?.primary, settings.customTheme?.background]);
   useEffect(() => {
     if (typeof navigator === "undefined") return;
     if ("serviceWorker" in navigator) {
