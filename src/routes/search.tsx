@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MediaCard } from "@/components/MediaCard";
-import { searchMulti, fetchTrending } from "@/lib/tmdb";
+import { searchMulti, searchPeople, fetchTrending } from "@/lib/tmdb";
 import {
   addRecentSearch,
   clearRecentSearches,
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/search")({
   component: Search,
 });
 
-type FilterType = "all" | "movie" | "tv" | "anime";
+type FilterType = "all" | "movie" | "tv" | "anime" | "people";
 type SortKey = "relevance" | "rating" | "year";
 
 function Search() {
@@ -42,18 +42,28 @@ function Search() {
     queryFn: () => searchMulti(debounced),
     enabled: debounced.length > 0,
   });
+  const people = useQuery({
+    queryKey: ["search-people", debounced],
+    queryFn: () => searchPeople(debounced),
+    enabled: debounced.length > 0,
+  });
 
   const rawResults = debounced ? (res.data ?? []) : (trend.data ?? []);
-  const loading = debounced ? res.isLoading : trend.isLoading;
+  const loading = debounced ? (res.isLoading || people.isLoading) : trend.isLoading;
+  const peopleResults = debounced ? (people.data ?? []) : [];
   const showRecents = !debounced && recents.length > 0;
 
   const results = useMemo(() => {
     let items = rawResults;
-    if (filter !== "all") items = items.filter((m) => m.type === filter);
+    if (filter !== "all" && filter !== "people") items = items.filter((m) => m.type === filter);
+    if (filter === "people") items = [];
     if (sort === "rating") items = [...items].sort((a, b) => b.rating - a.rating);
     else if (sort === "year") items = [...items].sort((a, b) => Number(b.year) - Number(a.year));
     return items;
   }, [rawResults, filter, sort]);
+
+  const showPeople = debounced && (filter === "all" || filter === "people") && peopleResults.length > 0;
+  const totalCount = results.length + (showPeople ? peopleResults.length : 0);
 
   return (
     <div className="min-h-screen px-5 pb-32 pt-16 md:px-10 md:pt-20 animate-page-in">
@@ -99,6 +109,7 @@ function Search() {
                 ["movie", "Movies"],
                 ["tv", "TV"],
                 ["anime", "Anime"],
+                ["people", "People"],
               ] as [FilterType, string][]).map(([k, label]) => (
                 <button
                   key={k}
@@ -157,14 +168,14 @@ function Search() {
           <h2 className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             {debounced ? `Results for "${debounced}"` : "Trending now"}
           </h2>
-          {!loading && <div className="text-xs text-muted-foreground">{results.length} title{results.length === 1 ? "" : "s"}</div>}
+          {!loading && <div className="text-xs text-muted-foreground">{totalCount} result{totalCount === 1 ? "" : "s"}</div>}
         </div>
 
         {loading ? (
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {Array.from({ length: 12 }).map((_, i) => (<div key={i} className="aspect-[2/3] rounded-xl animate-shimmer" />))}
           </div>
-        ) : results.length === 0 && debounced ? (
+        ) : totalCount === 0 && debounced ? (
           <div className="mt-16 flex flex-col items-center text-center text-muted-foreground animate-fade-in">
             <div className="grid h-16 w-16 place-items-center rounded-full bg-white/5 ring-1 ring-white/10">
               <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -172,13 +183,43 @@ function Search() {
             <p className="mt-4 text-sm">No matches for <span className="font-semibold text-foreground">"{debounced}"</span></p>
           </div>
         ) : (
-          <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-7 overflow-visible sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {results.map((m, i) => (
-              <div key={`${m.type}-${m.id}`} style={{ animationDelay: `${Math.min(i, 18) * 25}ms` }} className="animate-soft-rise">
-                <MediaCard media={m} fill />
+          <>
+            {showPeople && (
+              <section className="mt-6">
+                <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">People</h3>
+                <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                  {peopleResults.map((p, i) => (
+                    <Link
+                      key={p.id}
+                      to="/person/$id"
+                      params={{ id: String(p.id) }}
+                      style={{ animationDelay: `${Math.min(i, 18) * 25}ms` }}
+                      className="group flex flex-col items-center text-center animate-soft-rise"
+                    >
+                      <div className="h-24 w-24 overflow-hidden rounded-full ring-1 ring-white/10 transition group-hover:ring-primary/60 sm:h-28 sm:w-28">
+                        {p.profile ? (
+                          <img src={p.profile} alt={p.name} loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+                        ) : (
+                          <div className="grid h-full w-full place-items-center bg-white/5 text-xs text-muted-foreground">No photo</div>
+                        )}
+                      </div>
+                      <div className="mt-2 line-clamp-1 text-sm font-semibold text-foreground">{p.name}</div>
+                      {p.knownFor && <div className="line-clamp-1 text-[11px] text-muted-foreground">{p.knownFor}</div>}
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+            {results.length > 0 && (
+              <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-7 overflow-visible sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                {results.map((m, i) => (
+                  <div key={`${m.type}-${m.id}`} style={{ animationDelay: `${Math.min(i, 18) * 25}ms` }} className="animate-soft-rise">
+                    <MediaCard media={m} fill />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>
