@@ -17,9 +17,8 @@ export function SharePopup() {
       const snoozedUntil = raw ? Number(raw) : 0;
       if (snoozedUntil && Date.now() < snoozedUntil) return;
     } catch {}
-    // Give users time to actually see the app before nagging them to share.
-    const t = setTimeout(() => setOpen(true), 12000);
-    return () => clearTimeout(t);
+    // Show immediately — snoozable via "Maybe later".
+    setOpen(true);
   }, []);
 
   const dismiss = () => {
