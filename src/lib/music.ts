@@ -33,73 +33,78 @@ const INVIDIOUS_INSTANCES = [
 
 let instanceIdx = 0;
 
+// In-memory caches so we don't hammer public Invidious instances on repeats.
+const searchCache = new Map<string, { videoId: string; title: string; artist: string; duration?: number; thumbnail?: string }[]>();
+const videoIdCache = new Map<string, string | null>();
+
+function fetchWithTimeout(url: string, ms: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+
+async function raceOk<T>(promises: Promise<T | null>[]): Promise<T | null> {
+  return new Promise((resolve) => {
+    let remaining = promises.length;
+    if (!remaining) return resolve(null);
+    for (const p of promises) {
+      p.then((v) => {
+        if (v) resolve(v);
+        if (--remaining === 0) resolve(null);
+      }).catch(() => {
+        if (--remaining === 0) resolve(null);
+      });
+    }
+  });
+}
+
 /**
  * Search YouTube Music via Piped API (better for music content)
  */
 export async function searchYouTubeMusic(query: string, limit = 20): Promise<{ videoId: string; title: string; artist: string; duration?: number; thumbnail?: string }[]> {
+  const cacheKey = `${query}::${limit}`;
+  const cached = searchCache.get(cacheKey);
+  if (cached) return cached;
   const encoded = encodeURIComponent(query);
 
-  // Try Piped instances first (better music results)
-  for (let i = 0; i < PIPE_INSTANCES.length; i++) {
-    const inst = PIPE_INSTANCES[(instanceIdx + i) % PIPE_INSTANCES.length];
+  // Race all instances with a short 4s timeout so a couple of dead hosts
+  // don't block the request for 30s.
+  const pipeTasks = PIPE_INSTANCES.map(async (inst) => {
     try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(
-        `${inst}/search?q=${encoded}&filter=music_songs`,
-        { signal: ctrl.signal }
-      );
-      clearTimeout(t);
-      if (!res.ok) continue;
+      const res = await fetchWithTimeout(`${inst}/search?q=${encoded}&filter=music_songs`, 4000);
+      if (!res.ok) return null;
       const data = await res.json();
-      if (data.items?.length) {
-        instanceIdx = (instanceIdx + i) % PIPE_INSTANCES.length;
-        return data.items.slice(0, limit).map((item: any) => ({
-          videoId: item.url?.replace("/watch?v=", "") || item.id,
-          title: item.title || item.name,
-          artist: item.uploaderName || item.uploader || "Unknown",
-          duration: item.duration,
-          thumbnail: item.thumbnail || item.uploaderAvatar,
-        }));
-      }
-    } catch (e) {
-      console.debug(`Piped ${inst} failed:`, e);
-    }
-  }
-
-  // Fallback to Invidious
-  for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
-    const inst = INVIDIOUS_INSTANCES[(instanceIdx + i) % INVIDIOUS_INSTANCES.length];
+      if (!data.items?.length) return null;
+      return data.items.slice(0, limit).map((item: any) => ({
+        videoId: item.url?.replace("/watch?v=", "") || item.id,
+        title: item.title || item.name,
+        artist: item.uploaderName || item.uploader || "Unknown",
+        duration: item.duration,
+        thumbnail: item.thumbnail || item.uploaderAvatar,
+      }));
+    } catch { return null; }
+  });
+  const invTasks = INVIDIOUS_INSTANCES.map(async (inst) => {
     try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(
-        `${inst}/api/v1/search?q=${encodeURIComponent(query + " topic")}&type=video`,
-        { signal: ctrl.signal }
-      );
-      clearTimeout(t);
-      if (!res.ok) continue;
+      const res = await fetchWithTimeout(`${inst}/api/v1/search?q=${encodeURIComponent(query + " topic")}&type=video`, 4000);
+      if (!res.ok) return null;
       const data = await res.json();
-      if (Array.isArray(data) && data.length) {
-        instanceIdx = (instanceIdx + i) % INVIDIOUS_INSTANCES.length;
-        // Prefer Topic channels
-        const topicResults = data.filter((v: any) =>
-          v.author && /-\s*Topic\s*$/i.test(v.author)
-        );
-        const pool = topicResults.length ? topicResults : data;
-        return pool.slice(0, limit).map((v: any) => ({
-          videoId: v.videoId,
-          title: v.title,
-          artist: v.author?.replace(/\s*-\s*Topic\s*$/i, "") || "Unknown",
-          duration: v.lengthSeconds,
-          thumbnail: v.videoThumbnails?.[0]?.url,
-        }));
-      }
-    } catch (e) {
-      console.debug(`Invidious ${inst} failed:`, e);
-    }
-  }
-  return [];
+      if (!Array.isArray(data) || !data.length) return null;
+      const topics = data.filter((v: any) => v.author && /-\s*Topic\s*$/i.test(v.author));
+      const pool = topics.length ? topics : data;
+      return pool.slice(0, limit).map((v: any) => ({
+        videoId: v.videoId,
+        title: v.title,
+        artist: v.author?.replace(/\s*-\s*Topic\s*$/i, "") || "Unknown",
+        duration: v.lengthSeconds,
+        thumbnail: v.videoThumbnails?.[0]?.url,
+      }));
+    } catch { return null; }
+  });
+  const winner = await raceOk<any[]>([...pipeTasks, ...invTasks]);
+  const out = winner ?? [];
+  if (out.length) searchCache.set(cacheKey, out);
+  return out;
 }
 
 /**
@@ -217,8 +222,11 @@ export async function importYouTubePlaylist(input: string): Promise<{ name: stri
  * Search for a YouTube video ID for a given track
  */
 export async function searchYouTube(query: string): Promise<string | null> {
+  if (videoIdCache.has(query)) return videoIdCache.get(query) ?? null;
   const results = await searchYouTubeMusic(query, 5);
-  return results[0]?.videoId || null;
+  const id = results[0]?.videoId || null;
+  videoIdCache.set(query, id);
+  return id;
 }
 
 /**
