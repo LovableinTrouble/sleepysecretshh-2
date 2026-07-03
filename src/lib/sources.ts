@@ -36,7 +36,7 @@ const VIDSRC: Source = {
   badge: "Embed · HD",
   kind: "embed",
   tier: "embed",
-  noSandbox: false,
+  noSandbox: true,
   build: (m, s, e) => {
     if (m.type === "movie") {
       return `https://v.zxcstream.xyz/player/movie/${m.id}?autoplay=true&color=ff3b30&back=false`;
