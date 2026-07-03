@@ -321,6 +321,36 @@
   --shadow-glass: 0 8px 32px 0 oklch(0.18 0.02 260 / 0.10);
 }
 
+/* Custom theme - colors set via CSS custom properties that are updated at runtime */
+[data-theme="custom"] {
+  --radius: 1rem;
+  --background: var(--custom-background, oklch(0.12 0.02 280));
+  --foreground: oklch(0.97 0.01 280);
+  --card: color-mix(in oklab, var(--custom-background, oklch(0.12 0.02 280)) 85%, white);
+  --card-foreground: oklch(0.97 0.01 280);
+  --popover: color-mix(in oklab, var(--custom-background, oklch(0.12 0.02 280)) 90%, white);
+  --popover-foreground: oklch(0.97 0.01 280);
+  --primary: var(--custom-primary, oklch(0.72 0.18 305));
+  --primary-foreground: var(--custom-background, oklch(0.12 0.02 280));
+  --secondary: color-mix(in oklab, var(--custom-primary, oklch(0.72 0.18 305)) 25%, var(--custom-background, oklch(0.12 0.02 280)));
+  --secondary-foreground: oklch(0.97 0.01 280);
+  --muted: color-mix(in oklab, var(--custom-primary, oklch(0.72 0.18 305)) 15%, var(--custom-background, oklch(0.12 0.02 280)));
+  --muted-foreground: oklch(0.68 0.02 280);
+  --accent: var(--custom-primary, oklch(0.72 0.18 305));
+  --accent-foreground: var(--custom-background, oklch(0.12 0.02 280));
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.97 0.01 280);
+  --border: color-mix(in oklab, var(--custom-primary, oklch(0.72 0.18 305)) 30%, var(--custom-background, oklch(0.12 0.02 280)) / 0.4);
+  --input: color-mix(in oklab, var(--custom-primary, oklch(0.72 0.18 305)) 15%, var(--custom-background, oklch(0.12 0.02 280)));
+  --ring: var(--custom-primary, oklch(0.72 0.18 305));
+  --glass: color-mix(in oklab, var(--custom-primary, oklch(0.72 0.18 305)) 10%, var(--custom-background, oklch(0.12 0.02 280)) / 0.55);
+  --glass-border: color-mix(in oklab, var(--custom-primary, oklch(0.72 0.18 305)) 40%, white / 0.12);
+  --gradient-primary: linear-gradient(135deg, var(--custom-primary, oklch(0.72 0.18 305)), color-mix(in oklab, var(--custom-primary, oklch(0.72 0.18 305)) 70%, white));
+  --gradient-bg: radial-gradient(ellipse at top, color-mix(in oklab, var(--custom-primary, oklch(0.72 0.18 305)) 30%, var(--custom-background, oklch(0.12 0.02 280))) 0%, var(--custom-background, oklch(0.12 0.02 280)) 60%);
+  --shadow-glow: 0 10px 60px -10px color-mix(in oklab, var(--custom-primary, oklch(0.72 0.18 305)) 45%, transparent);
+  --shadow-glass: 0 8px 32px 0 color-mix(in oklab, var(--custom-background, oklch(0.12 0.02 280)) 80%, black / 0.5);
+}
+
 @layer base {
   * { border-color: var(--color-border); }
   html, body, #root { height: 100%; }

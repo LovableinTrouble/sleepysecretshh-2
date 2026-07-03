@@ -317,9 +317,9 @@ export type ArtistInfo = {
 
 export async function fetchArtistInfo(artistName: string): Promise<ArtistInfo | null> {
   try {
-    // MusicBrainz search for the artist (type: group OR person, exclude "person" for cleaner results)
+    // MusicBrainz search for the artist (include all types: person, group, orchestra, choir)
     const mbRes = await fetch(
-      `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(artistName)}%20AND%20(type:group%20OR%20type:orchestra%20OR%20type:choir)&fmt=json&limit=1`,
+      `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(artistName)}&fmt=json&limit=1`,
       { headers: { "User-Agent": "SleepyApp/1.0 (music-player)" } }
     );
     if (!mbRes.ok) return null;
@@ -426,22 +426,20 @@ export type ArtistSearchResult = {
 
 export async function searchArtists(query: string, limit = 10): Promise<ArtistSearchResult[]> {
   try {
-    // Search for groups/orchestras/choirs only - NOT individual people
+    // Search for all artist types including persons
     const mbRes = await fetch(
-      `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(query)}%20AND%20(type:group%20OR%20type:orchestra%20OR%20type:choir%20OR%20type:other)&fmt=json&limit=${limit}`,
+      `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(query)}&fmt=json&limit=${limit}`,
       { headers: { "User-Agent": "SleepyApp/1.0 (music-player)" } }
     );
     if (!mbRes.ok) return [];
     const mbData = await mbRes.json();
-    return (mbData.artists || [])
-      .filter((a: any) => a.type !== "Person") // Extra safety: exclude persons
-      .map((a: any) => ({
-        name: a.name,
-        mbid: a.id,
-        type: a.type,
-        country: a.country,
-        disambiguation: a.disambiguation,
-      }));
+    return (mbData.artists || []).map((a: any) => ({
+      name: a.name,
+      mbid: a.id,
+      type: a.type,
+      country: a.country,
+      disambiguation: a.disambiguation,
+    }));
   } catch {
     return [];
   }

@@ -39,7 +39,7 @@ export function ContinueWatchingRow() {
                 to="/watch/$id"
                 params={{ id: String(it.mediaId) }}
                 search={{ t: it.mediaType as any, s: it.season ?? undefined, e: it.episode ?? undefined }}
-                className="block overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-300 hover:-translate-y-0.5 hover:ring-primary/50 hover:shadow-[var(--shadow-glow)]"
+                className="block overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-1 hover:ring-primary/40 hover:shadow-lg hover:shadow-primary/10"
               >
                 <div className="relative aspect-video bg-black">
                   {tmdbBackdrop(it.backdrop, it.poster) && (
@@ -47,13 +47,13 @@ export function ContinueWatchingRow() {
                       src={tmdbBackdrop(it.backdrop, it.poster)}
                       alt={it.title}
                       loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02]"
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                    <div className="grid h-14 w-14 place-items-center rounded-full bg-primary/90 text-primary-foreground shadow-xl ring-4 ring-primary/30">
-                      <Play className="h-6 w-6 fill-current" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <div className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg">
+                      <Play className="h-5 w-5 fill-current" />
                     </div>
                   </div>
                   <div className="absolute inset-x-3 bottom-3">
@@ -78,9 +78,9 @@ export function ContinueWatchingRow() {
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPending({ mediaId: it.mediaId, mediaType: it.mediaType, title: it.title, season: it.season, episode: it.episode }); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 aria-label="Remove from continue watching"
-                className="pointer-events-auto absolute right-2 top-2 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-black/85 text-white opacity-100 ring-2 ring-white/30 shadow-xl backdrop-blur transition hover:bg-destructive hover:scale-110 active:scale-95"
+                className="pointer-events-auto absolute right-2 top-2 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white/70 opacity-0 group-hover:opacity-100 ring-1 ring-white/20 backdrop-blur-sm transition-all duration-200 hover:bg-destructive hover:text-white hover:ring-destructive/50 active:scale-90"
               >
-                <Trash2 className="h-5 w-5" />
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
           );
