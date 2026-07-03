@@ -11,6 +11,7 @@ export type PlayerState = {
   queueIdx: number;
   playing: boolean;
   loading: boolean;
+  error: string | null;
   progress: number;
   duration: number;
   volume: number;
@@ -24,6 +25,7 @@ const initial: PlayerState = {
   queueIdx: 0,
   playing: false,
   loading: false,
+  error: null,
   progress: 0,
   duration: 0,
   volume: 80,
@@ -101,9 +103,9 @@ async function ensurePlayer(): Promise<void> {
           }
         },
         onError: (e: any) => {
-          console.error("YouTube player error:", e.data);
-          set({ loading: false });
-          // Try to play next track on error
+          console.warn("YouTube player error:", e?.data);
+          set({ loading: false, playing: false, error: "This track couldn't play — trying the next one." });
+          // Try to play next track on error, if any others exist.
           if (state.queue.length > 1) {
             next();
           }
@@ -149,20 +151,22 @@ export async function play(track: Track, list?: Track[], idx?: number): Promise<
     queue: list ?? state.queue,
     queueIdx: list ? (idx ?? 0) : state.queueIdx,
     loading: true,
+    error: null,
     progress: 0,
     duration: 0,
   });
 
-  // If the player already exists, kick playback synchronously
-  if (yt?.playVideo) {
-    try { yt.playVideo(); } catch {}
+  // Kick playback synchronously inside the user gesture window if we already
+  // have both a player and a known videoId — bypasses iOS autoplay blocks.
+  if (yt?.loadVideoById && track.videoId) {
+    try { yt.loadVideoById(track.videoId); yt.playVideo(); } catch {}
   }
 
   try {
     await ensurePlayer();
 
     // Get video ID - either from track or search for it
-    let videoId = track.videoId;
+    let videoId: string | null = track.videoId ?? null;
     if (!videoId) {
       videoId = await searchYouTube(`${track.title} ${track.artist} audio`);
     }
@@ -170,19 +174,21 @@ export async function play(track: Track, list?: Track[], idx?: number): Promise<
     if (seq !== loadSeq) return; // newer play() superseded this one
     if (!videoId) {
       console.warn("No video ID found for:", track.title, track.artist);
-      set({ loading: false });
+      set({ loading: false, error: "Couldn't find a stream for this track." });
+      // Skip to next in queue if available so we don't just hang.
+      if (state.queue.length > 1) next();
       return;
     }
 
     if (yt?.loadVideoById) {
       yt.loadVideoById(videoId);
-      // Play will be triggered by onStateChange
+      try { yt.playVideo(); } catch {}
     } else {
       set({ loading: false });
     }
   } catch (error) {
     console.error("Play error:", error);
-    set({ loading: false });
+    set({ loading: false, error: "Playback failed." });
   }
 }
 
