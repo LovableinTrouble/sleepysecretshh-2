@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Hero } from "@/components/Hero";
 import { MediaRow } from "@/components/MediaRow";
 import { ContinueWatchingRow } from "@/components/ContinueWatching";
-import { useSettings } from "@/lib/store";
 import { fetchTrending, fetchPopular, fetchTopRated, fetchAnime } from "@/lib/tmdb";
 import { stashWatchMedia } from "@/lib/watch-stash";
 
@@ -20,7 +19,6 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const navigate = useNavigate();
-  const [s] = useSettings();
   const [onlineCount, setOnlineCount] = useState<number | null>(null);
 
   // Fetch online count once on mount
@@ -47,7 +45,6 @@ function Home() {
   const anime = useQuery({ queryKey: ["anime-trending-week-v2"], queryFn: () => fetchAnime(2), staleTime: 30 * 60_000 });
 
   const featured = (trending.data ?? []).slice(0, 6);
-  const rowSpacing = s.homepageDensity === "compact" ? "space-y-6" : s.homepageDensity === "cinematic" ? "space-y-16" : "space-y-12";
 
   const openDetails = (m: any) => { stashWatchMedia(m); navigate({ to: "/media/$type/$id", params: { type: m.type, id: String(m.id) } }); };
   const play = (m: any) => { stashWatchMedia(m); navigate({ to: "/watch/$id", params: { id: String(m.id) }, search: { t: m.type } }); };

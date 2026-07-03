@@ -7,6 +7,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const ACCOUNT_KEY = "sleepy.account.v1";
+const REGION_KEY = "sleepy.region.v2";
 
 export type Account = {
   id: string;
@@ -33,9 +34,18 @@ export type SyncedPreferences = {
   animationsEnabled?: boolean;
   reduceMotion?: boolean;
   showRatings?: boolean;
-  showLogo?: boolean;
-  homepageDensity?: "comfy" | "compact" | "cinematic";
+  pstreamRegion?: string;
 };
+
+// Generate a random 8-character account number (client-side for speed)
+function generateAccountNumber(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let result = "";
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 // Get stored account number
 export function getStoredAccountNumber(): string | null {
@@ -64,12 +74,31 @@ export function clearStoredAccount() {
   } catch {}
 }
 
-// Create a new account
+// Get stored region
+export function getStoredRegion(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(REGION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+// Store region
+export function storeRegion(region: string) {
+  try {
+    localStorage.setItem(REGION_KEY, region);
+  } catch {}
+}
+
+// Create a new account (fast - generates number client-side)
 export async function createAccount(): Promise<Account | null> {
   try {
+    const accountNumber = generateAccountNumber();
+
     const { data, error } = await supabase
       .from("accounts")
-      .insert({})
+      .insert({ account_number: accountNumber })
       .select("id, account_number, created_at")
       .maybeSingle();
 
@@ -113,6 +142,13 @@ export async function loginWithAccountNumber(accountNumber: string): Promise<Acc
     };
 
     storeAccountNumber(account.accountNumber);
+
+    // Fetch and apply stored preferences
+    const prefs = await getPreferences();
+    if (prefs?.pstreamRegion) {
+      storeRegion(prefs.pstreamRegion);
+    }
+
     return account;
   } catch (err) {
     console.error("Login error:", err);
@@ -159,7 +195,6 @@ export async function syncWatchProgress(
   if (!accountNumber) return false;
 
   try {
-    // First get the account ID
     const { data: account } = await supabase
       .from("accounts")
       .select("id")
@@ -168,7 +203,7 @@ export async function syncWatchProgress(
 
     if (!account) return false;
 
-    const { error } = await supabase
+    await supabase
       .from("watch_history")
       .upsert(
         {
@@ -183,14 +218,11 @@ export async function syncWatchProgress(
           episode: episode ?? null,
           updated_at: new Date().toISOString(),
         },
-        {
-          onConflict: "account_id,media_id,media_type,season,episode",
-        }
+        { onConflict: "account_id,media_id,media_type,season,episode" }
       );
 
-    return !error;
-  } catch (err) {
-    console.error("Sync watch progress error:", err);
+    return true;
+  } catch {
     return false;
   }
 }
@@ -235,10 +267,15 @@ export async function getWatchHistory(): Promise<WatchHistoryItem[]> {
   }
 }
 
-// Sync preferences to cloud
+// Sync preferences to cloud (including region)
 export async function syncPreferences(prefs: SyncedPreferences): Promise<boolean> {
   const accountNumber = getStoredAccountNumber();
   if (!accountNumber) return false;
+
+  // Also save region to localStorage
+  if (prefs.pstreamRegion) {
+    storeRegion(prefs.pstreamRegion);
+  }
 
   try {
     const { data: account } = await supabase
@@ -257,9 +294,7 @@ export async function syncPreferences(prefs: SyncedPreferences): Promise<boolean
           settings_json: prefs,
           updated_at: new Date().toISOString(),
         },
-        {
-          onConflict: "account_id",
-        }
+        { onConflict: "account_id" }
       );
 
     return !error;

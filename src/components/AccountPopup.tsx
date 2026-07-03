@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, User, Key, Check, Loader as Loader2, RefreshCw } from "lucide-react";
+import { X, User, Key, Check, Loader as Loader2, Copy, LogOut } from "lucide-react";
 import {
   createAccount,
   loginWithAccountNumber,
@@ -19,28 +19,25 @@ export function AccountPopup({ open, onClose }: AccountPopupProps) {
   const [accountNumber, setAccountNumber] = useState("");
   const [account, setAccount] = useState<Account | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [generatedNumber, setGeneratedNumber] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Check for existing account on mount
   useEffect(() => {
     if (open) {
       getCurrentAccount().then(setAccount);
       setError(null);
+      setTab("create");
     }
   }, [open]);
 
   const handleCreate = async () => {
     setLoading(true);
     setError(null);
-    setGenerating(true);
 
     try {
       const newAccount = await createAccount();
       if (newAccount) {
         setAccount(newAccount);
-        setGeneratedNumber(newAccount.accountNumber);
-        setTab("login"); // Show login tab with the new number
       } else {
         setError("Failed to create account. Please try again.");
       }
@@ -48,7 +45,6 @@ export function AccountPopup({ open, onClose }: AccountPopupProps) {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
-      setGenerating(false);
     }
   };
 
@@ -80,7 +76,6 @@ export function AccountPopup({ open, onClose }: AccountPopupProps) {
   const handleLogout = () => {
     clearStoredAccount();
     setAccount(null);
-    setGeneratedNumber(null);
     setAccountNumber("");
     setError(null);
   };
@@ -88,6 +83,8 @@ export function AccountPopup({ open, onClose }: AccountPopupProps) {
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {}
   };
 
@@ -100,67 +97,65 @@ export function AccountPopup({ open, onClose }: AccountPopupProps) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-card/95 backdrop-blur-xl shadow-2xl"
+        className="relative w-full max-w-xs overflow-hidden rounded-2xl border border-white/10 bg-card/95 backdrop-blur-xl shadow-2xl"
+        style={{ animation: "accountPopIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)" }}
       >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 grid h-7 w-7 place-items-center rounded-full bg-white/5 text-white/50 transition hover:bg-white/10 hover:text-white"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15">
-              <User className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white">Account Sync</p>
-              <p className="text-xs text-white/50">Sync across devices</p>
-            </div>
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3" style={{ animation: "fadeIn 0.2s ease-out 0.05s both" }}>
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary/15">
+            <User className="h-4 w-4 text-primary" />
           </div>
-          <button
-            onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-full bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div>
+            <p className="text-sm font-bold text-white">Account</p>
+            <p className="text-[11px] text-white/50">Sync across devices</p>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="px-5 py-5">
+        <div className="px-4 pb-4">
           {account ? (
             /* Logged in state */
-            <div className="text-center">
-              <div className="mb-4 flex justify-center">
-                <div className="grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 ring-1 ring-primary/30">
-                  <Check className="h-7 w-7 text-primary" />
+            <div className="text-center" style={{ animation: "fadeIn 0.2s ease-out" }}>
+              <div className="mb-3 flex justify-center">
+                <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-primary/20 to-accent/15 ring-1 ring-primary/25">
+                  <Check className="h-5 w-5 text-primary" />
                 </div>
               </div>
 
-              <p className="mb-1 text-sm text-white/80">Your account number</p>
+              <p className="text-[11px] text-white/60 mb-1">Your account number</p>
 
               {/* Account number display */}
-              <div className="relative mb-4 flex items-center justify-center gap-2 rounded-xl bg-white/[0.05] px-4 py-3 ring-1 ring-white/10">
-                <span className="font-mono text-2xl font-bold tracking-wider text-white">
+              <div className="relative mb-3 flex items-center justify-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/10">
+                <span className="font-mono text-xl font-bold tracking-wide text-white">
                   {account.accountNumber}
                 </span>
                 <button
                   onClick={() => copyToClipboard(account.accountNumber)}
-                  className="rounded-lg bg-white/10 px-2 py-1 text-xs text-white/70 hover:bg-white/15 hover:text-white"
+                  className="rounded-md bg-white/10 p-1.5 text-white/60 transition hover:bg-white/15 hover:text-white"
                 >
-                  Copy
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
               </div>
 
-              <p className="mb-4 text-xs text-white/50">
-                Save this number to login on other devices
-              </p>
-
-              <div className="mb-4 rounded-xl bg-emerald-500/10 px-4 py-3 ring-1 ring-emerald-500/20">
-                <p className="text-xs text-emerald-400">
-                  Watch history and preferences will sync automatically
+              <div className="mb-3 rounded-lg bg-emerald-500/10 px-3 py-2 ring-1 ring-emerald-500/15">
+                <p className="text-[11px] text-emerald-400/90">
+                  Watch history syncs automatically
                 </p>
               </div>
 
               <button
                 onClick={handleLogout}
-                className="w-full rounded-xl bg-white/5 px-4 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-[11px] font-medium text-white/60 transition hover:bg-white/10 hover:text-white/80"
               >
+                <LogOut className="h-3 w-3" />
                 Log out
               </button>
             </div>
@@ -168,29 +163,23 @@ export function AccountPopup({ open, onClose }: AccountPopupProps) {
             /* Login/Create tabs */
             <>
               {/* Tab selector */}
-              <div className="mb-5 flex rounded-xl bg-white/5 p-1">
+              <div className="mb-4 flex rounded-lg bg-white/5 p-0.5" style={{ animation: "fadeIn 0.15s ease-out 0.1s both" }}>
                 <button
-                  onClick={() => {
-                    setTab("create");
-                    setError(null);
-                  }}
-                  className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
+                  onClick={() => { setTab("create"); setError(null); }}
+                  className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
                     tab === "create"
                       ? "bg-primary text-primary-foreground"
-                      : "text-white/60 hover:text-white"
+                      : "text-white/55 hover:text-white/80"
                   }`}
                 >
-                  Create Account
+                  Create
                 </button>
                 <button
-                  onClick={() => {
-                    setTab("login");
-                    setError(null);
-                  }}
-                  className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
+                  onClick={() => { setTab("login"); setError(null); }}
+                  className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition ${
                     tab === "login"
                       ? "bg-primary text-primary-foreground"
-                      : "text-white/60 hover:text-white"
+                      : "text-white/55 hover:text-white/80"
                   }`}
                 >
                   Login
@@ -199,41 +188,19 @@ export function AccountPopup({ open, onClose }: AccountPopupProps) {
 
               {tab === "create" ? (
                 /* Create account */
-                <div className="text-center">
-                  <div className="mb-4 flex justify-center">
-                    {generating ? (
-                      <div className="flex h-16 w-16 items-center justify-center">
-                        <div className="relative h-12 w-12">
-                          <div className="absolute inset-0 animate-spin rounded-full border-2 border-white/20 border-t-primary" />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white/5 ring-1 ring-white/10">
-                        <Key className="h-6 w-6 text-white/60" />
-                      </div>
-                    )}
-                  </div>
-
-                  <p className="mb-4 text-sm text-white/70">
-                    Generate a unique account number to sync your watch history and preferences across all your devices.
+                <div className="text-center" style={{ animation: "fadeIn 0.15s ease-out 0.15s both" }}>
+                  <p className="mb-3 text-xs text-white/60">
+                    Generate a unique number to sync watch history across devices.
                   </p>
-
-                  {generatedNumber && (
-                    <div className="mb-4 rounded-xl bg-primary/10 px-4 py-3 ring-1 ring-primary/20">
-                      <p className="text-xs text-white/60 mb-1">Your new account number:</p>
-                      <p className="font-mono text-xl font-bold text-primary">{generatedNumber}</p>
-                      <p className="text-xs text-white/50 mt-1">Save this number!</p>
-                    </div>
-                  )}
 
                   <button
                     onClick={handleCreate}
                     disabled={loading}
-                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+                    className="w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 active:scale-[0.98] disabled:opacity-70"
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         Generating...
                       </span>
                     ) : (
@@ -243,27 +210,24 @@ export function AccountPopup({ open, onClose }: AccountPopupProps) {
                 </div>
               ) : (
                 /* Login */
-                <div>
-                  <div className="mb-4">
-                    <label className="mb-2 block text-xs text-white/60">Enter your account number</label>
-                    <input
-                      type="text"
-                      value={accountNumber}
-                      onChange={(e) => setAccountNumber(e.target.value.toUpperCase())}
-                      placeholder="ABC123XY"
-                      maxLength={8}
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center font-mono text-lg font-bold tracking-wider text-white placeholder:text-white/30 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
+                <div style={{ animation: "fadeIn 0.15s ease-out 0.15s both" }}>
+                  <input
+                    type="text"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value.toUpperCase())}
+                    placeholder="Enter your number"
+                    maxLength={8}
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-center font-mono text-sm font-bold tracking-wide text-white placeholder:text-white/30 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  />
 
                   <button
                     onClick={handleLogin}
                     disabled={loading || !accountNumber.trim()}
-                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+                    className="mt-2 w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60"
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         Logging in...
                       </span>
                     ) : (
@@ -275,21 +239,38 @@ export function AccountPopup({ open, onClose }: AccountPopupProps) {
 
               {/* Error message */}
               {error && (
-                <div className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20">
-                  <p className="text-xs text-red-400">{error}</p>
+                <div className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 ring-1 ring-red-500/20" style={{ animation: "shake 0.3s ease-out" }}>
+                  <p className="text-[11px] text-red-400">{error}</p>
                 </div>
               )}
             </>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="border-t border-white/10 px-5 py-3 text-center">
-          <p className="text-xs text-white/40">
-            Account numbers sync your data across devices
-          </p>
-        </div>
       </div>
+
+      <style>{`
+        @keyframes accountPopIn {
+          from {
+            opacity: 0;
+            transform: translateY(12px) scale(0.96);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          20% { transform: translateX(-4px); }
+          40% { transform: translateX(4px); }
+          60% { transform: translateX(-2px); }
+          80% { transform: translateX(2px); }
+        }
+      `}</style>
     </div>
   );
 }

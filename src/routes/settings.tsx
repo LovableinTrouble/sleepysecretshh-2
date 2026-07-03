@@ -13,7 +13,7 @@ export const Route = createFileRoute("/settings")({
 
 function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl border border-glass-border bg-card/40 p-6 backdrop-blur-xl">
+    <section className="relative rounded-3xl border border-glass-border bg-card/40 p-6 backdrop-blur-xl">
       <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
       {desc && <p className="mt-1 text-xs text-muted-foreground">{desc}</p>}
       <div className="mt-5 space-y-4">{children}</div>
@@ -88,7 +88,7 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
   }, [open]);
 
   return (
-    <div ref={ref} className="relative min-w-[10rem]">
+    <div ref={ref} className="relative min-w-[10rem]" style={{ zIndex: open ? 100 : 'auto' }}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex h-10 w-full items-center justify-between gap-3 rounded-2xl bg-white/[0.04] px-3 text-sm font-semibold text-foreground ring-1 ring-white/10 transition hover:bg-white/[0.07]"
@@ -97,7 +97,7 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
         <span className="truncate">{active?.label}</span>
         <svg viewBox="0 0 24 24" className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
       </button>
-      <div className={`absolute right-0 top-12 z-40 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl transition duration-150 ${open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"}`}>
+      <div className={`absolute right-0 top-12 z-[200] w-52 overflow-hidden rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl transition duration-150 ${open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"}`}>
         {options.map((o) => (
           <button
             key={o.value}
@@ -344,12 +344,6 @@ function SettingsPage() {
           <Row label="Site-wide animations" hint="Hovers, transitions and motion effects."><Toggle value={s.animationsEnabled} onChange={(v) => set({ animationsEnabled: v })} /></Row>
           <Row label="Reduce motion" hint="Honor system reduce-motion preference."><Toggle value={s.reduceMotion} onChange={(v) => set({ reduceMotion: v })} /></Row>
           <Row label="Show ratings" hint="Display IMDb/TMDB scores on media cards."><Toggle value={s.showRatings} onChange={(v) => set({ showRatings: v })} /></Row>
-          <Row label="Show logo in header" hint="Display the Sleepy logo in the top bar."><Toggle value={s.showLogo} onChange={(v) => set({ showLogo: v })} /></Row>
-          <Row label="Homepage density">
-            <Select value={s.homepageDensity} onChange={(v) => set({ homepageDensity: v as Settings["homepageDensity"] })} options={[
-              { value: "comfy", label: "Comfy" }, { value: "compact", label: "Compact" }, { value: "cinematic", label: "Cinematic" },
-            ]} />
-          </Row>
         </Section>
 
         <Section title="Integrations" desc="Paste an API key to connect — a green check confirms it's saved.">
