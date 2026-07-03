@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { X, Sparkles, Palette, Zap, Users } from "lucide-react";
+import { X, Sparkles, Music, Palette, Zap, Users } from "lucide-react";
 
-const KEY = "sleepy.update-notice.v4";
-const CURRENT_VERSION = "2.6.0";
+const KEY = "sleepy.update-notice.v3";
+const CURRENT_VERSION = "2.5.0";
 
 const UPDATE_HIGHLIGHTS = [
-  { icon: Palette, text: "Music was removed as it lagged site!" },
+  { icon: Music, text: "Complete music player rewrite — no more skipping!" },
   { icon: Palette, text: "Custom themes now apply to all UI elements" },
   { icon: Zap, text: "Instant theme changes with zero lag" },
   { icon: Users, text: "Live user count on home page" },
