@@ -16,6 +16,7 @@ import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as IptvRouteImport } from './routes/iptv'
+import { Route as InstallRouteImport } from './routes/install'
 import { Route as GamesRouteImport } from './routes/games'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as IndexRouteImport } from './routes/index'
@@ -64,6 +65,11 @@ const SearchRoute = SearchRouteImport.update({
 const IptvRoute = IptvRouteImport.update({
   id: '/iptv',
   path: '/iptv',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstallRoute = InstallRouteImport.update({
+  id: '/install',
+  path: '/install',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GamesRoute = GamesRouteImport.update({
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/explore': typeof ExploreRoute
   '/games': typeof GamesRoute
+  '/install': typeof InstallRoute
   '/iptv': typeof IptvRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/explore': typeof ExploreRoute
   '/games': typeof GamesRoute
+  '/install': typeof InstallRoute
   '/iptv': typeof IptvRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/explore': typeof ExploreRoute
   '/games': typeof GamesRoute
+  '/install': typeof InstallRoute
   '/iptv': typeof IptvRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
     | '/'
     | '/explore'
     | '/games'
+    | '/install'
     | '/iptv'
     | '/search'
     | '/settings'
@@ -236,6 +246,7 @@ export interface FileRouteTypes {
     | '/'
     | '/explore'
     | '/games'
+    | '/install'
     | '/iptv'
     | '/search'
     | '/settings'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/'
     | '/explore'
     | '/games'
+    | '/install'
     | '/iptv'
     | '/search'
     | '/settings'
@@ -283,6 +295,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ExploreRoute: typeof ExploreRoute
   GamesRoute: typeof GamesRoute
+  InstallRoute: typeof InstallRoute
   IptvRoute: typeof IptvRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
@@ -351,6 +364,13 @@ declare module '@tanstack/react-router' {
       path: '/iptv'
       fullPath: '/iptv'
       preLoaderRoute: typeof IptvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/install': {
+      id: '/install'
+      path: '/install'
+      fullPath: '/install'
+      preLoaderRoute: typeof InstallRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/games': {
@@ -469,6 +489,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ExploreRoute: ExploreRoute,
   GamesRoute: GamesRoute,
+  InstallRoute: InstallRoute,
   IptvRoute: IptvRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
