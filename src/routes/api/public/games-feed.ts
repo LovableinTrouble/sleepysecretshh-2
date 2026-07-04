@@ -23,20 +23,10 @@ const FEED_BASE = "https://rss.gamemonetize.com/rssfeed.php";
 
 // A representative spread of categories — GameMonetize doesn't offer a
 // single "everything" page with useful ordering, so we combine several.
-const CATEGORIES = [
-  "Action",
-  "Adventure",
-  "Arcade",
-  "Puzzles",
-  "Racing",
-  "Sports",
-  "Shooting",
-  "Multiplayer",
-  ".IO",
-  "Hypercasual",
-] as const;
+const CATEGORIES = ["Action", "Arcade", "Puzzles", "Racing", "Sports", ".IO"] as const;
 
-const PER_CATEGORY = 60;
+const PER_CATEGORY = 30;
+const FETCH_TIMEOUT_MS = 5000;
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min fresh
 const STALE_TTL_MS = 6 * 60 * 60 * 1000; // serve stale up to 6h if upstream is down
 
@@ -78,7 +68,7 @@ async function fetchCategory(category: string): Promise<UpstreamGame[]> {
     amount: String(PER_CATEGORY),
   });
   const res = await fetch(`${FEED_BASE}?${params}`, {
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     headers: { accept: "application/json" },
   });
   if (!res.ok) throw new Error(`GameMonetize ${category} feed ${res.status}`);
@@ -162,21 +152,16 @@ export const Route = createFileRoute("/api/public/games-feed")({
             headers: {
               ...CORS,
               "content-type": "application/json",
-              "cache-control": stale
-                ? "public, max-age=60"
-                : "public, max-age=900, s-maxage=1800",
+              "cache-control": stale ? "public, max-age=60" : "public, max-age=900, s-maxage=1800",
               "x-catalog-stale": String(stale),
             },
           });
         } catch (err) {
           console.error("[games-feed] failed", err);
-          return new Response(
-            JSON.stringify({ games: [], error: "Couldn't reach the game catalog." }),
-            {
-              status: 502,
-              headers: { ...CORS, "content-type": "application/json" },
-            },
-          );
+          return new Response(JSON.stringify({ games: [], error: "Couldn't reach the game catalog." }), {
+            status: 502,
+            headers: { ...CORS, "content-type": "application/json" },
+          });
         }
       },
     },
