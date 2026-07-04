@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Play, Bookmark, Volume2, VolumeX, Check, ListFilter as Filter, Loader2 } from "lucide-react";
+import { Play, Bookmark, Volume2, VolumeX, Check, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
 import { fetchTrendingPage, fetchPopularPage, fetchMovieVideos, fetchTVVideos } from "@/lib/tmdb";
 import type { Media } from "@/lib/catalog";
 
@@ -29,10 +29,10 @@ type Short = {
 };
 
 const FILTERS = [
+  { id: "trending", label: "Trending" },
   { id: "all", label: "All" },
   { id: "movie", label: "Movies" },
   { id: "tv", label: "TV" },
-  { id: "trending", label: "Trending" },
 ] as const;
 
 type FilterId = (typeof FILTERS)[number]["id"];
@@ -78,13 +78,10 @@ async function loadPage(
   } catch {
     return [];
   }
-  // Only movie/tv items are supported here.
   items = items.filter((i) => i.type === "movie" || i.type === "tv");
 
-  // Fetch trailers in parallel, but cache each lookup by media id so we
-  // never re-hit TMDB for a title we've already resolved a trailer for
-  // (this repeats a lot: "trending" and "all" overlap heavily, and
-  // switching filters back and forth used to refetch everything).
+  // Fetch trailers in parallel, cached per media id so filter switches don't
+  // re-hit TMDB for titles we've already resolved a trailer for.
   const results = await Promise.all(
     items.map(async (item) => {
       try {
@@ -122,10 +119,10 @@ async function loadPage(
 function ShortsPage() {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
+  const slideRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [muted, setMuted] = useState(true);
   const [filter, setFilter] = useState<FilterId>("trending");
-  const [showFilters, setShowFilters] = useState(false);
   const [watchlistIds, setWatchlistIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -143,15 +140,11 @@ function ShortsPage() {
     queryKey: ["shorts-feed", filter],
     queryFn: ({ pageParam }) => loadPage(filter, pageParam as number, queryClient),
     initialPageParam: 1,
-    // Stop paginating once a page comes back empty (TMDB ran out of pages,
-    // or every item on it lacked a trailer) — previously this kept
-    // incrementing forever and would hammer TMDB with empty requests
-    // every time the user scrolled near the bottom of a short list.
     getNextPageParam: (lastPage, allPages) => (lastPage.length === 0 ? undefined : allPages.length + 1),
     staleTime: 10 * 60 * 1000,
   });
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
 
-  // De-dupe across pages.
   const shorts = useMemo(() => {
     const seen = new Set<string>();
     const out: Short[] = [];
@@ -165,98 +158,87 @@ function ShortsPage() {
     return out;
   }, [query.data]);
 
-  // Scroll snap detection.
-  useEffect(() => {
+  const scrollToIndex = useCallback((i: number) => {
     const el = containerRef.current;
     if (!el) return;
-    let ticking = false;
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        const h = el.clientHeight;
-        const idx = Math.round(el.scrollTop / h);
-        if (idx !== currentIndex && idx >= 0 && idx < shorts.length) {
-          setCurrentIndex(idx);
-        }
-        // Load more when nearing end.
-        if (idx >= shorts.length - 5 && query.hasNextPage && !query.isFetchingNextPage) {
-          query.fetchNextPage();
-        }
-        ticking = false;
-      });
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [currentIndex, shorts.length, query]);
+    const clamped = Math.max(0, i);
+    el.scrollTo({ top: clamped * el.clientHeight, behavior: "smooth" });
+  }, []);
 
-  // Keyboard nav.
+  // Which slide is "active" is driven entirely by IntersectionObserver, not
+  // by a scroll listener. A scroll listener that also *calls* scrollTo on
+  // every index change fights the browser's native momentum/snap scrolling
+  // and is what made swiping feel laggy — this way native scroll-snap does
+  // 100% of the work and React just watches, off the scroll thread.
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            const idx = Number((entry.target as HTMLElement).dataset.index);
+            setCurrentIndex(idx);
+            if (idx >= shorts.length - 5 && hasNextPage && !isFetchingNextPage) {
+              fetchNextPage();
+            }
+          }
+        }
+      },
+      { root, threshold: 0.6 },
+    );
+    slideRefs.current.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [shorts.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Keyboard nav — imperative scroll, not state-driven, for the same
+  // fight-with-native-scroll reason as above.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowDown" || e.key === "j") {
-        setCurrentIndex((i) => Math.min(i + 1, shorts.length - 1));
+        e.preventDefault();
+        scrollToIndex(Math.min(currentIndex + 1, shorts.length - 1));
       } else if (e.key === "ArrowUp" || e.key === "k") {
-        setCurrentIndex((i) => Math.max(i - 1, 0));
+        e.preventDefault();
+        scrollToIndex(Math.max(currentIndex - 1, 0));
       } else if (e.key === "m") {
         setMuted((m) => !m);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [shorts.length]);
-
-  const scrollToIndex = useCallback((i: number) => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.scrollTo({ top: i * el.clientHeight, behavior: "smooth" });
-  }, []);
-
-  useEffect(() => {
-    scrollToIndex(currentIndex);
-  }, [currentIndex, scrollToIndex]);
-
-  const current = shorts[currentIndex];
-  const isSaved = current ? watchlistIds.has(current.id) : false;
+  }, [currentIndex, shorts.length, scrollToIndex]);
 
   return (
     <div className="fixed inset-0 z-30 bg-black">
-      {/* Header */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-center justify-between px-4 pt-3 pb-6 bg-gradient-to-b from-black/80 to-transparent">
-        <div className="pointer-events-auto flex items-center gap-2">
-          <button
-            onClick={() => setShowFilters((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
-              showFilters ? "bg-primary text-primary-foreground" : "bg-white/10 text-white hover:bg-white/20"
-            }`}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            {FILTERS.find((f) => f.id === filter)?.label ?? "Filter"}
-          </button>
-        </div>
-        <div className="pointer-events-auto rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur">
-          {shorts.length ? `${currentIndex + 1} / ${shorts.length}` : "—"}
-        </div>
-      </div>
+      {/* Top gradient for legibility */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-24 bg-gradient-to-b from-black/70 to-transparent" />
 
-      {/* Filter dropdown */}
-      {showFilters && (
-        <div className="absolute left-4 top-14 z-50 flex flex-col gap-1 rounded-2xl border border-white/10 bg-zinc-900/95 p-2 shadow-xl backdrop-blur-xl">
+      {/* Centered filter pill */}
+      <div className="pointer-events-none absolute inset-x-0 top-4 z-40 flex justify-center">
+        <div className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-black/50 p-1 ring-1 ring-white/10 backdrop-blur-xl">
           {FILTERS.map((f) => (
             <button
               key={f.id}
               onClick={() => {
                 setFilter(f.id);
                 setCurrentIndex(0);
-                setShowFilters(false);
                 containerRef.current?.scrollTo({ top: 0 });
               }}
-              className={`rounded-lg px-3 py-1.5 text-left text-xs font-semibold transition ${
-                filter === f.id ? "bg-primary/20 text-white" : "text-white/70 hover:bg-white/10"
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                filter === f.id ? "bg-white text-black" : "text-white/70 hover:text-white"
               }`}
             >
               {f.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Counter */}
+      {shorts.length > 0 && (
+        <div className="pointer-events-none absolute right-4 top-5 z-40 rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur">
+          {currentIndex + 1} / {shorts.length}
         </div>
       )}
 
@@ -282,12 +264,21 @@ function ShortsPage() {
         {shorts.map((s, idx) => (
           <ShortSlide
             key={s.id}
+            index={idx}
             short={s}
             active={idx === currentIndex}
             muted={muted}
             isSaved={watchlistIds.has(s.id)}
+            isFirst={idx === 0}
+            isLast={idx === shorts.length - 1}
+            registerRef={(el) => {
+              if (el) slideRefs.current.set(idx, el);
+              else slideRefs.current.delete(idx);
+            }}
             onToggleSaved={() => toggleWatchlist(s.media)}
             onToggleMute={() => setMuted((m) => !m)}
+            onPrev={() => scrollToIndex(idx - 1)}
+            onNext={() => scrollToIndex(idx + 1)}
             onWatch={() =>
               navigate({
                 to: "/media/$type/$id",
@@ -303,44 +294,6 @@ function ShortsPage() {
           </div>
         )}
       </div>
-
-      {/* Global mute indicator (bottom-left) */}
-      {current && (
-        <button
-          onClick={() => setMuted((m) => !m)}
-          className="absolute bottom-6 left-4 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
-          aria-label={muted ? "Unmute" : "Mute"}
-        >
-          {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-        </button>
-      )}
-
-      {current && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 h-4" />}
-
-      {/* Side actions */}
-      {current && (
-        <div className="absolute right-3 bottom-24 z-40 flex flex-col gap-3">
-          <ActionButton
-            label="Watch"
-            onClick={() =>
-              navigate({
-                to: "/media/$type/$id",
-                params: { type: current.mediaType, id: String(current.mediaId) },
-              })
-            }
-            className="bg-primary text-primary-foreground"
-          >
-            <Play className="h-5 w-5" fill="currentColor" />
-          </ActionButton>
-          <ActionButton
-            label={isSaved ? "Saved" : "Save"}
-            onClick={() => toggleWatchlist(current.media)}
-            className={isSaved ? "bg-primary text-primary-foreground" : "bg-white/15 text-white"}
-          >
-            {isSaved ? <Check className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
-          </ActionButton>
-        </div>
-      )}
     </div>
   );
 }
@@ -349,18 +302,25 @@ function ActionButton({
   children,
   label,
   onClick,
+  disabled,
   className = "",
+  size = "lg",
 }: {
   children: React.ReactNode;
   label: string;
   onClick: () => void;
+  disabled?: boolean;
   className?: string;
+  size?: "lg" | "sm";
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       aria-label={label}
-      className={`flex h-12 w-12 items-center justify-center rounded-full backdrop-blur transition hover:brightness-110 active:scale-95 ${className}`}
+      className={`flex items-center justify-center rounded-full backdrop-blur transition hover:brightness-110 active:scale-95 disabled:opacity-30 disabled:hover:brightness-100 ${
+        size === "lg" ? "h-12 w-12" : "h-9 w-9"
+      } ${className}`}
     >
       {children}
     </button>
@@ -369,69 +329,87 @@ function ActionButton({
 
 function ShortSlide({
   short,
+  index,
   active,
   muted,
   isSaved,
+  isFirst,
+  isLast,
+  registerRef,
   onToggleSaved,
   onToggleMute,
+  onPrev,
+  onNext,
   onWatch,
 }: {
   short: Short;
+  index: number;
   active: boolean;
   muted: boolean;
   isSaved: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  registerRef: (el: HTMLDivElement | null) => void;
   onToggleSaved: () => void;
   onToggleMute: () => void;
+  onPrev: () => void;
+  onNext: () => void;
   onWatch: () => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // YouTube params chosen to hide chrome as much as YT allows.
-  // Always start muted (autoplay policies require it); mute/unmute after
-  // load happens via postMessage below instead of remounting the iframe,
-  // which used to restart the trailer from 0 on every tap.
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const src = active
     ? `https://www.youtube-nocookie.com/embed/${short.videoKey}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1&loop=1&playlist=${short.videoKey}&enablejsapi=1&origin=${encodeURIComponent(origin)}`
     : "";
 
+  // Mute/unmute + force-play via postMessage instead of remounting the
+  // iframe (remounting restarts the trailer from 0 on every tap). The
+  // extra "playVideo" nudge covers the rare case where autoplay silently
+  // didn't start, so YouTube's own big paused/play button never shows.
   useEffect(() => {
     if (!active) return;
-    const post = (func: "mute" | "unMute") => {
+    const post = (func: string) => {
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args: [] }), "*");
     };
-    // The player may not be listening yet right after the iframe mounts,
-    // so retry briefly until it's had time to attach.
     const attempts = [0, 250, 800, 1500].map((delay) =>
-      window.setTimeout(() => post(muted ? "mute" : "unMute"), delay),
+      window.setTimeout(() => {
+        post(muted ? "mute" : "unMute");
+        post("playVideo");
+      }, delay),
     );
     return () => attempts.forEach((t) => window.clearTimeout(t));
   }, [muted, active, short.videoKey]);
 
   return (
-    <div className="relative flex h-full w-full snap-start snap-always items-center justify-center">
-      {/* Backdrop poster while inactive */}
+    <div
+      ref={registerRef}
+      data-index={index}
+      className="relative flex h-full w-full snap-start snap-always items-center justify-center gap-3"
+    >
       {short.backdrop && (
         <img src={short.backdrop} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40 blur-2xl" />
       )}
 
+      {/* Card */}
       <div className="relative h-full w-full max-w-[min(100vw,calc(100vh*9/16))] overflow-hidden bg-black md:h-[min(100vh,900px)] md:aspect-[9/16] md:w-auto md:rounded-2xl md:my-4 md:max-h-[calc(100vh-2rem)]">
         {active ? (
           <>
-            {/* Prevent iframe from capturing our tap so user gesture can bubble
-                for mute toggle & navigation. Also visually hides YT hover chrome. */}
+            {/* pointer-events-none: this is the actual YouTube UI. Nobody
+                can click it directly, so its own play/pause/branding chrome
+                is never reachable — all interaction goes through our
+                overlay below instead. */}
             <iframe
               key={short.id}
               ref={iframeRef}
               src={src}
               title={short.title}
-              className="absolute inset-0 h-full w-full scale-[1.35]"
+              tabIndex={-1}
+              className="pointer-events-none absolute inset-0 h-full w-full scale-[1.4]"
               allow="autoplay; encrypted-media; picture-in-picture"
               allowFullScreen
               frameBorder={0}
             />
-            {/* Overlay to swallow clicks on the YouTube iframe (blocks pause on click,
-                blocks YT hover UI, keeps our snap scrolling smooth). */}
             <div className="absolute inset-0 z-10" onClick={onToggleMute} role="button" aria-label="Toggle sound" />
           </>
         ) : (
@@ -440,9 +418,18 @@ function ShortSlide({
           )
         )}
 
-        {/* Top + bottom gradients */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-24 bg-gradient-to-b from-black/60 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-40 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+
+        {active && (
+          <button
+            onClick={onToggleMute}
+            className="absolute bottom-4 left-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
+            aria-label={muted ? "Unmute" : "Mute"}
+          >
+            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </button>
+        )}
 
         {/* Text info */}
         <div className="absolute bottom-24 left-4 right-16 z-30">
@@ -461,8 +448,35 @@ function ShortSlide({
         </div>
       </div>
 
-      {/* Unused, but keep dep on isSaved / onToggleSaved to satisfy TS */}
-      <span className="hidden" data-saved={isSaved ? "1" : "0"} onClick={onToggleSaved} />
+      {/* Button column: overlays the card on mobile (no room beside it),
+          sits as a normal sibling right next to the card on desktop —
+          the TikTok/Shorts-desktop layout. */}
+      {active && (
+        <div className="absolute right-3 bottom-24 z-40 flex flex-col items-center gap-2.5 md:static md:bottom-auto md:right-auto md:self-center">
+          <ActionButton
+            label="Previous"
+            size="sm"
+            disabled={isFirst}
+            onClick={onPrev}
+            className="bg-white/15 text-white"
+          >
+            <ChevronUp className="h-4 w-4" />
+          </ActionButton>
+          <ActionButton label="Next" size="sm" disabled={isLast} onClick={onNext} className="bg-white/15 text-white">
+            <ChevronDown className="h-4 w-4" />
+          </ActionButton>
+          <ActionButton label="Watch" onClick={onWatch} className="bg-primary text-primary-foreground">
+            <Play className="h-5 w-5" fill="currentColor" />
+          </ActionButton>
+          <ActionButton
+            label={isSaved ? "Saved" : "Save"}
+            onClick={onToggleSaved}
+            className={isSaved ? "bg-primary text-primary-foreground" : "bg-white/15 text-white"}
+          >
+            {isSaved ? <Check className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
+          </ActionButton>
+        </div>
+      )}
     </div>
   );
 }
