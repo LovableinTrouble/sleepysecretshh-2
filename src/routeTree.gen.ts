@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as SportsRouteImport } from './routes/sports'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as IptvRouteImport } from './routes/iptv'
@@ -44,6 +45,11 @@ const SportsRoute = SportsRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShortsRoute = ShortsRouteImport.update({
+  id: '/shorts',
+  path: '/shorts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/iptv': typeof IptvRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/shorts': typeof ShortsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
@@ -168,6 +175,7 @@ export interface FileRoutesByTo {
   '/iptv': typeof IptvRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/shorts': typeof ShortsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
@@ -192,6 +200,7 @@ export interface FileRoutesById {
   '/iptv': typeof IptvRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/shorts': typeof ShortsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/iptv'
     | '/search'
     | '/settings'
+    | '/shorts'
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/iptv'
     | '/search'
     | '/settings'
+    | '/shorts'
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/iptv'
     | '/search'
     | '/settings'
+    | '/shorts'
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
@@ -287,6 +299,7 @@ export interface RootRouteChildren {
   IptvRoute: typeof IptvRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
+  ShortsRoute: typeof ShortsRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SportsRoute: typeof SportsRouteWithChildren
   WatchlistRoute: typeof WatchlistRoute
@@ -323,6 +336,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shorts': {
+      id: '/shorts'
+      path: '/shorts'
+      fullPath: '/shorts'
+      preLoaderRoute: typeof ShortsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -473,6 +493,7 @@ const rootRouteChildren: RootRouteChildren = {
   IptvRoute: IptvRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
+  ShortsRoute: ShortsRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SportsRoute: SportsRouteWithChildren,
   WatchlistRoute: WatchlistRoute,
