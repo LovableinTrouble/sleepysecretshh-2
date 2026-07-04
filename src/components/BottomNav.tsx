@@ -8,6 +8,7 @@ import {
   Settings as SettingsIcon,
   Gamepad2,
   Smartphone,
+  Download,
   type LucideIcon,
 } from "lucide-react";
 
@@ -17,6 +18,7 @@ const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/iptv", label: "Live TV", icon: RadioTower },
   { to: "/shorts", label: "Shorts", icon: Smartphone },
   { to: "/games", label: "Games", icon: Gamepad2 },
+  { to: "/install", label: "App", icon: Download },
   { to: "/watchlist", label: "Watchlist", icon: Bookmark },
   { to: "/search", label: "Search", icon: Search },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
