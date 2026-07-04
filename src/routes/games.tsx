@@ -279,9 +279,11 @@ function GamePlayer({ game, onClose }: { game: CatalogGame; onClose: () => void 
     };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
+    document.body.classList.add("game-open");
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
+      document.body.classList.remove("game-open");
     };
   }, [onClose]);
 
@@ -306,7 +308,7 @@ function GamePlayer({ game, onClose }: { game: CatalogGame; onClose: () => void 
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-black/95 backdrop-blur-xl">
+    <div className="fixed inset-0 z-[80] flex flex-col bg-black">
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-white">{game.name}</p>
