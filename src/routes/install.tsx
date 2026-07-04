@@ -1,15 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Download,
-  Shield,
-  Zap,
-  Smartphone,
-  Star,
-  Check,
-  Sparkles,
-  Wifi,
-  Lock,
-} from "lucide-react";
+import { Download, Shield, Zap, Smartphone, Star, Check, Sparkles, Wifi, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/install")({
   head: () => ({
@@ -17,8 +7,7 @@ export const Route = createFileRoute("/install")({
       { title: "Get the Sleepy App — Install on Android" },
       {
         name: "description",
-        content:
-          "Download Sleepy for Android. Movies, TV, anime, sports and live channels in one beautiful, fast app.",
+        content: "Download Sleepy for Android. Movies, TV, anime, sports and live channels in one beautiful, fast app.",
       },
     ],
   }),
@@ -91,9 +80,7 @@ function InstallPage() {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                 ))}
-                <span className="ml-2 text-xs text-muted-foreground">
-                  Loved by 50k+ streamers
-                </span>
+                <span className="ml-2 text-xs text-muted-foreground">Loved by 500+ streamers</span>
               </div>
             </div>
 
@@ -145,9 +132,7 @@ function InstallPage() {
         <section className="mt-8 grid gap-4 lg:grid-cols-2">
           <div className="rounded-2xl border border-glass-border bg-white/[0.03] p-6">
             <h2 className="text-xl font-bold">Why the app?</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Faster, richer, and fully offline-capable.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Faster, richer, and fully offline-capable.</p>
             <ul className="mt-5 space-y-3">
               {highlights.map((h) => (
                 <li key={h} className="flex items-start gap-3 text-sm">
@@ -160,9 +145,7 @@ function InstallPage() {
 
           <div className="rounded-2xl border border-glass-border bg-white/[0.03] p-6">
             <h2 className="text-xl font-bold">Install in 30 seconds</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Three simple steps — no store account required.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Three simple steps — no store account required.</p>
             <ol className="mt-5 space-y-4">
               {[
                 { title: "Download the APK", desc: "Tap the download button above." },
