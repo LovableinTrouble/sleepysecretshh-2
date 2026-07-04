@@ -1,30 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Search, X, Gamepad2, ArrowDownAZ, Flame, Clock, Fullscreen, Loader2, ExternalLink, Play } from "lucide-react";
+import { Search, X, Gamepad2, ArrowDownAZ, Clock, Fullscreen, Loader2, Play } from "lucide-react";
 
-const ZONES_URL = "https://cdn.jsdelivr.net/gh/gn-math/assets@main/zones.json";
-const COVER_URL = "https://cdn.jsdelivr.net/gh/gn-math/covers@main";
-const HTML_URL = "https://cdn.jsdelivr.net/gh/gn-math/html@main";
-const POPULARITY_URL = "https://data.jsdelivr.net/v1/stats/packages/gh/gn-math/html@main/files?period=year";
+// Backed by /api/public/games-feed, a server route that aggregates
+// GameMonetize's public game-feed API (see that route for details on why).
+const FEED_URL = "/api/public/games-feed";
 
-type ZoneGame = {
-  id: number;
+type CatalogGame = {
+  id: string;
   name: string;
+  category: string;
+  tags: string[];
   cover: string;
   url: string;
-  author?: string;
-  authorLink?: string;
+  width: number;
+  height: number;
+  instructions?: string;
 };
 
-type Game = ZoneGame & {
-  coverUrl: string;
-  playUrl: string;
-  hits: number;
-  pinned: boolean;
-};
-
-type SortMode = "popular" | "name" | "id";
+type SortMode = "featured" | "name" | "new";
 
 export const Route = createFileRoute("/games")({
   head: () => ({
@@ -39,80 +34,60 @@ export const Route = createFileRoute("/games")({
   component: GamesPage,
 });
 
-function resolveAsset(input: string) {
-  return input.replace("{COVER_URL}", COVER_URL).replace("{HTML_URL}", HTML_URL);
-}
-
-async function loadGames(): Promise<Game[]> {
-  const [zonesRes, popRes] = await Promise.all([
-    fetch(ZONES_URL, { signal: AbortSignal.timeout(10000) }),
-    fetch(POPULARITY_URL, { signal: AbortSignal.timeout(10000) }).catch(() => null),
-  ]);
-  if (!zonesRes.ok) throw new Error(`Failed to load games (${zonesRes.status})`);
-  const zones = (await zonesRes.json()) as ZoneGame[];
-
-  const hitMap = new Map<number, number>();
-  if (popRes && popRes.ok) {
-    try {
-      const files = (await popRes.json()) as { name: string; hits?: { total: number } }[];
-      for (const f of files) {
-        const m = f.name.match(/\/(\d+)[^/]*\.html$/);
-        if (m) {
-          const id = Number(m[1]);
-          const total = f.hits?.total ?? 0;
-          hitMap.set(id, (hitMap.get(id) ?? 0) + total);
-        }
-      }
-    } catch {}
+async function loadGames(): Promise<CatalogGame[]> {
+  const res = await fetch(FEED_URL, { signal: AbortSignal.timeout(10000) });
+  const body = (await res.json().catch(() => null)) as { games?: CatalogGame[]; error?: string } | null;
+  if (!res.ok || !body) {
+    throw new Error(body?.error || `Failed to load games (${res.status})`);
   }
-
-  return zones.map((g) => ({
-    ...g,
-    coverUrl: resolveAsset(g.cover),
-    playUrl: resolveAsset(g.url),
-    hits: hitMap.get(g.id) ?? 0,
-    pinned: g.id === -1,
-  }));
+  return body.games ?? [];
 }
 
-function sortGames(list: Game[], mode: SortMode): Game[] {
-  const pinned = list.filter((g) => g.pinned);
-  const rest = list.filter((g) => !g.pinned);
-  rest.sort((a, b) => {
-    if (mode === "name") return a.name.localeCompare(b.name);
-    if (mode === "id") return a.id - b.id;
-    return b.hits - a.hits;
-  });
-  return [...pinned, ...rest];
+function sortGames(list: CatalogGame[], mode: SortMode): CatalogGame[] {
+  const out = [...list];
+  if (mode === "name") out.sort((a, b) => a.name.localeCompare(b.name));
+  // "new": higher numeric id ≈ more recently added to the catalog.
+  else if (mode === "new") out.sort((a, b) => Number(b.id) - Number(a.id));
+  // "featured": keep the server's own most-popular ordering per category.
+  return out;
 }
 
 function GamesPage() {
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortMode>("popular");
-  const [active, setActive] = useState<Game | null>(null);
+  const [sort, setSort] = useState<SortMode>("featured");
+  const [category, setCategory] = useState<string>("All");
+  const [active, setActive] = useState<CatalogGame | null>(null);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ["gn-math-games"],
+    queryKey: ["games-catalog"],
     queryFn: loadGames,
-    staleTime: 60 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
+  const categories = useMemo(() => {
+    if (!data) return ["All"];
+    return ["All", ...Array.from(new Set(data.map((g) => g.category))).sort()];
+  }, [data]);
+
   const games = useMemo(() => {
-    if (!data) return [] as Game[];
+    if (!data) return [] as CatalogGame[];
     const q = query.trim().toLowerCase();
-    const filtered = q
-      ? data.filter((g) => g.name.toLowerCase().includes(q) || g.author?.toLowerCase().includes(q))
-      : data;
+    let filtered = category === "All" ? data : data.filter((g) => g.category === category);
+    if (q) {
+      filtered = filtered.filter(
+        (g) => g.name.toLowerCase().includes(q) || g.tags.some((t) => t.toLowerCase().includes(q)),
+      );
+    }
     return sortGames(filtered, sort);
-  }, [data, query, sort]);
+  }, [data, query, sort, category]);
 
   return (
     <div className="min-h-screen px-3 pb-32 pt-16 md:px-6 md:pt-20 animate-page-in">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
-        <header className="mb-6 flex flex-col gap-3 md:mb-8 md:flex-row md:items-end md:justify-between">
+        <header className="mb-4 flex flex-col gap-3 md:mb-6 md:flex-row md:items-end md:justify-between">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/15 ring-1 ring-primary/30">
               <Gamepad2 className="h-5 w-5 text-primary" />
@@ -120,7 +95,7 @@ function GamesPage() {
             <div className="min-w-0">
               <h1 className="text-2xl font-black tracking-tight md:text-3xl">Games</h1>
               <p className="text-xs text-muted-foreground md:text-sm">
-                {data ? `${data.filter((g) => !g.pinned).length} titles` : "Loading catalog…"} · Free to play
+                {data ? `${data.length} titles` : "Loading catalog…"} · Free to play
               </p>
             </div>
           </div>
@@ -132,7 +107,7 @@ function GamesPage() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search games…"
+                placeholder="Search games or tags…"
                 className="w-full rounded-full border border-glass-border bg-white/[0.04] py-2 pl-9 pr-9 text-sm outline-none transition focus:border-primary/50 focus:bg-white/[0.06]"
               />
               {query && (
@@ -149,9 +124,9 @@ function GamesPage() {
             <div className="flex items-center gap-0.5 rounded-full border border-glass-border bg-white/[0.03] p-1">
               {(
                 [
-                  { id: "popular", icon: Flame, label: "Popular" },
+                  { id: "featured", icon: Gamepad2, label: "Featured" },
                   { id: "name", icon: ArrowDownAZ, label: "A-Z" },
-                  { id: "id", icon: Clock, label: "New" },
+                  { id: "new", icon: Clock, label: "New" },
                 ] as const
               ).map((opt) => (
                 <button
@@ -172,6 +147,25 @@ function GamesPage() {
           </div>
         </header>
 
+        {/* Category chips */}
+        {data && (
+          <div className="mb-6 flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  category === c
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-white/[0.04] text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* States */}
         {isLoading && (
           <div className="flex h-64 items-center justify-center">
@@ -181,10 +175,7 @@ function GamesPage() {
 
         {error && (
           <div className="flex flex-col items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-sm text-red-300">
-            <p>
-              Couldn't load games{error instanceof Error ? `: ${error.message}` : ""}. This is usually the game catalog
-              CDN being slow or blocked on your network.
-            </p>
+            <p>Couldn't load games{error instanceof Error ? `: ${error.message}` : ""}.</p>
             <button
               onClick={() => refetch()}
               disabled={isFetching}
@@ -200,7 +191,7 @@ function GamesPage() {
         {!isLoading && !error && (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 md:gap-3 lg:grid-cols-6 xl:grid-cols-7">
             {games.map((g) => (
-              <GameCard key={`${g.id}-${g.name}`} game={g} onOpen={() => setActive(g)} />
+              <GameCard key={g.id} game={g} onOpen={() => setActive(g)} />
             ))}
           </div>
         )}
@@ -215,25 +206,15 @@ function GamesPage() {
   );
 }
 
-function GameCard({ game, onOpen }: { game: Game; onOpen: () => void }) {
-  const isExternal = game.pinned || /^https?:\/\//.test(game.url);
-
-  const handle = () => {
-    if (game.pinned) {
-      window.open(game.url, "_blank", "noopener,noreferrer");
-      return;
-    }
-    onOpen();
-  };
-
+function GameCard({ game, onOpen }: { game: CatalogGame; onOpen: () => void }) {
   return (
     <button
-      onClick={handle}
+      onClick={onOpen}
       className="group relative overflow-hidden rounded-xl border border-glass-border bg-white/[0.03] text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/50"
     >
       <div className="relative aspect-square w-full overflow-hidden bg-zinc-900">
         <img
-          src={game.coverUrl}
+          src={game.cover}
           alt={game.name}
           loading="lazy"
           className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
@@ -244,31 +225,19 @@ function GameCard({ game, onOpen }: { game: Game; onOpen: () => void }) {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent opacity-90" />
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
           <div className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg">
-            {isExternal && game.pinned ? (
-              <ExternalLink className="h-4 w-4" />
-            ) : (
-              <Play className="h-4 w-4" fill="currentColor" />
-            )}
+            <Play className="h-4 w-4" fill="currentColor" />
           </div>
         </div>
       </div>
       <div className="absolute inset-x-0 bottom-0 p-2">
         <p className="line-clamp-2 text-[11px] font-semibold text-white drop-shadow md:text-xs">{game.name}</p>
-        {!game.pinned && game.hits > 0 && (
-          <p className="mt-0.5 text-[10px] font-medium text-white/60">{formatHits(game.hits)} plays</p>
-        )}
+        <p className="mt-0.5 text-[10px] font-medium text-white/60">{game.category}</p>
       </div>
     </button>
   );
 }
 
-function formatHits(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
-}
-
-function GamePlayer({ game, onClose }: { game: Game; onClose: () => void }) {
+function GamePlayer({ game, onClose }: { game: CatalogGame; onClose: () => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [stuck, setStuck] = useState(false);
@@ -285,7 +254,7 @@ function GamePlayer({ game, onClose }: { game: Game; onClose: () => void }) {
     };
   }, [onClose]);
 
-  // Some individual game files (or a slow/blocked CDN edge) never fire onLoad.
+  // A slow/blocked CDN edge can leave the iframe never firing onLoad.
   // Surface a fallback instead of spinning forever.
   useEffect(() => {
     setStuck(false);
@@ -293,7 +262,7 @@ function GamePlayer({ game, onClose }: { game: Game; onClose: () => void }) {
       if (loading) setStuck(true);
     }, 12000);
     return () => window.clearTimeout(t);
-  }, [game.playUrl, loading]);
+  }, [game.url, loading]);
 
   const goFullscreen = () => {
     const el = wrapRef.current;
@@ -310,7 +279,7 @@ function GamePlayer({ game, onClose }: { game: Game; onClose: () => void }) {
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-white">{game.name}</p>
-          {game.author && <p className="truncate text-[11px] text-white/50">by {game.author}</p>}
+          {game.instructions && <p className="truncate text-[11px] text-white/50">{game.instructions}</p>}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -343,7 +312,7 @@ function GamePlayer({ game, onClose }: { game: Game; onClose: () => void }) {
               This game is taking a while to load — it may be blocked on your network.
             </p>
             <a
-              href={game.playUrl}
+              href={game.url}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
@@ -353,7 +322,7 @@ function GamePlayer({ game, onClose }: { game: Game; onClose: () => void }) {
           </div>
         )}
         <iframe
-          src={game.playUrl}
+          src={game.url}
           title={game.name}
           className="h-full w-full"
           allow="autoplay; fullscreen; gamepad; pointer-lock; cross-origin-isolated"

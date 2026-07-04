@@ -28,6 +28,7 @@ import { Route as MediaTypeIdRouteImport } from './routes/media.$type.$id'
 import { Route as ApiPublicYtPlaylistRouteImport } from './routes/api/public/yt-playlist'
 import { Route as ApiPublicSubtitleRouteImport } from './routes/api/public/subtitle'
 import { Route as ApiPublicIptvProxyRouteImport } from './routes/api/public/iptv-proxy'
+import { Route as ApiPublicGamesFeedRouteImport } from './routes/api/public/games-feed'
 import { Route as ApiPublicFebboxProxyRouteImport } from './routes/api/public/febbox-proxy'
 import { Route as ApiPublicDownloadRouteImport } from './routes/api/public/download'
 import { Route as ApiPpvStreamsRouteImport } from './routes/api/ppv.streams'
@@ -127,6 +128,11 @@ const ApiPublicIptvProxyRoute = ApiPublicIptvProxyRouteImport.update({
   path: '/api/public/iptv-proxy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicGamesFeedRoute = ApiPublicGamesFeedRouteImport.update({
+  id: '/api/public/games-feed',
+  path: '/api/public/games-feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicFebboxProxyRoute = ApiPublicFebboxProxyRouteImport.update({
   id: '/api/public/febbox-proxy',
   path: '/api/public/febbox-proxy',
@@ -162,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/api/ppv/streams': typeof ApiPpvStreamsRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
+  '/api/public/games-feed': typeof ApiPublicGamesFeedRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
@@ -186,6 +193,7 @@ export interface FileRoutesByTo {
   '/api/ppv/streams': typeof ApiPpvStreamsRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
+  '/api/public/games-feed': typeof ApiPublicGamesFeedRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
@@ -211,6 +219,7 @@ export interface FileRoutesById {
   '/api/ppv/streams': typeof ApiPpvStreamsRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/febbox-proxy': typeof ApiPublicFebboxProxyRoute
+  '/api/public/games-feed': typeof ApiPublicGamesFeedRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
@@ -237,6 +246,7 @@ export interface FileRouteTypes {
     | '/api/ppv/streams'
     | '/api/public/download'
     | '/api/public/febbox-proxy'
+    | '/api/public/games-feed'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
@@ -261,6 +271,7 @@ export interface FileRouteTypes {
     | '/api/ppv/streams'
     | '/api/public/download'
     | '/api/public/febbox-proxy'
+    | '/api/public/games-feed'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/api/ppv/streams'
     | '/api/public/download'
     | '/api/public/febbox-proxy'
+    | '/api/public/games-feed'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
@@ -309,6 +321,7 @@ export interface RootRouteChildren {
   ApiPpvStreamsRoute: typeof ApiPpvStreamsRoute
   ApiPublicDownloadRoute: typeof ApiPublicDownloadRoute
   ApiPublicFebboxProxyRoute: typeof ApiPublicFebboxProxyRoute
+  ApiPublicGamesFeedRoute: typeof ApiPublicGamesFeedRoute
   ApiPublicIptvProxyRoute: typeof ApiPublicIptvProxyRoute
   ApiPublicSubtitleRoute: typeof ApiPublicSubtitleRoute
   ApiPublicYtPlaylistRoute: typeof ApiPublicYtPlaylistRoute
@@ -450,6 +463,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicIptvProxyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/games-feed': {
+      id: '/api/public/games-feed'
+      path: '/api/public/games-feed'
+      fullPath: '/api/public/games-feed'
+      preLoaderRoute: typeof ApiPublicGamesFeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/febbox-proxy': {
       id: '/api/public/febbox-proxy'
       path: '/api/public/febbox-proxy'
@@ -503,6 +523,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPpvStreamsRoute: ApiPpvStreamsRoute,
   ApiPublicDownloadRoute: ApiPublicDownloadRoute,
   ApiPublicFebboxProxyRoute: ApiPublicFebboxProxyRoute,
+  ApiPublicGamesFeedRoute: ApiPublicGamesFeedRoute,
   ApiPublicIptvProxyRoute: ApiPublicIptvProxyRoute,
   ApiPublicSubtitleRoute: ApiPublicSubtitleRoute,
   ApiPublicYtPlaylistRoute: ApiPublicYtPlaylistRoute,
