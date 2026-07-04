@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { X, Sparkles, User, Palette, Zap, Settings, Eye } from "lucide-react";
 
 const KEY = "sleepy.update-notice.v4";
-const CURRENT_VERSION = "2.6.0";
+const CURRENT_VERSION = "2.7.0";
 
 const UPDATE_HIGHLIGHTS = [
   { icon: User, text: "Games page so you can play with friends!" },
