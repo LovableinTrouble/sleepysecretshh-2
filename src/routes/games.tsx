@@ -274,16 +274,33 @@ function GamePlayer({ game, onClose }: { game: CatalogGame; onClose: () => void 
   const [stuck, setStuck] = useState(false);
 
   useEffect(() => {
+    const savedX = window.scrollX;
+    const savedY = window.scrollY;
+    const restoreScroll = () => window.scrollTo(savedX, savedY);
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
+    // Chrome/Safari scroll the page to reveal whatever just exited
+    // fullscreen. The player is `fixed`, so nothing visibly moves until
+    // the player closes and the real page scroll position shows through —
+    // at which point it looked like "the screen jumped". Snap it back.
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        requestAnimationFrame(restoreScroll);
+      }
+    };
+
     window.addEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
     document.body.style.overflow = "hidden";
     document.body.classList.add("game-open");
     return () => {
       window.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
       document.body.style.overflow = "";
       document.body.classList.remove("game-open");
+      restoreScroll();
     };
   }, [onClose]);
 
