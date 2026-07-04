@@ -686,14 +686,6 @@ function EmbedSurface({
         {...iframeExtra}
       />
 
-      {source.noSandbox && swallowClick && (
-        <div
-          className="absolute inset-0 z-20 cursor-pointer"
-          onClick={() => setSwallowClick(false)}
-          aria-hidden="true"
-        />
-      )}
-
       <button
         onClick={onClose}
         className="absolute left-3 top-3 z-30 inline-flex items-center gap-2 rounded-full bg-black/65 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-black/85 md:left-5 md:top-5"
