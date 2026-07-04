@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { MediaCard } from "@/components/MediaCard";
+import { Shuffle, Sparkles } from "lucide-react";
 import {
   fetchPopular,
   fetchTrending,
@@ -11,9 +12,11 @@ import {
   fetchByGenre,
   fetchUpcoming,
   fetchByProvider,
+  fetchTopRated,
   STREAMING_SERVICES,
 } from "@/lib/tmdb";
 import type { Media } from "@/lib/catalog";
+import { stashWatchMedia } from "@/lib/watch-stash";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -59,12 +62,14 @@ const TV_GENRES: { id: number; name: string }[] = [
 ];
 
 function ExplorePage() {
+  const navigate = useNavigate();
   const [type, setType] = useState<ContentType>("all");
   const [genreId, setGenreId] = useState<number | null>(null);
   const [sort, setSort] = useState<SortKey>("popularity");
   const [minRating, setMinRating] = useState(0);
   const [providerId, setProviderId] = useState<number | null>(null);
   const [providerOpen, setProviderOpen] = useState(false);
+  const [randomLoading, setRandomLoading] = useState(false);
 
   useEffect(() => {
     setGenreId(null);
@@ -119,6 +124,36 @@ function ExplorePage() {
       return 0;
     });
   }, [query.data, minRating, sort]);
+
+  const pickRandomMovie = async () => {
+    setRandomLoading(true);
+    try {
+      // Fetch more data to have a bigger pool
+      const [trending, popular, topRated] = await Promise.all([
+        fetchTrending("all"),
+        fetchPopular("movie", 2),
+        fetchTopRated("movie", 1),
+      ]);
+      const all = dedup([...trending, ...popular, ...topRated]);
+      const pool = all.filter((m) => {
+        if (type !== "all" && m.type !== type) return false;
+        if (genreId != null) {
+          // Genre filter is approximate since we don't have genre data on media
+          return true;
+        }
+        if (m.rating < minRating) return false;
+        return true;
+      });
+
+      if (pool.length > 0) {
+        const random = pool[Math.floor(Math.random() * pool.length)];
+        stashWatchMedia(random);
+        navigate({ to: "/media/$type/$id", params: { type: random.type, id: String(random.id) } });
+      }
+    } finally {
+      setRandomLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen pb-32 pt-16 animate-page-in md:pt-20">
@@ -197,6 +232,19 @@ function ExplorePage() {
                     {g.name}
                   </button>
                 ))}
+                {/* Random movie button */}
+                <button
+                  onClick={pickRandomMovie}
+                  disabled={randomLoading}
+                  className="ml-2 flex h-9 shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-primary/80 to-accent/80 px-4 text-xs font-semibold text-white shadow-lg transition hover:brightness-110 disabled:opacity-60"
+                >
+                  {randomLoading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  ) : (
+                    <Shuffle className="h-4 w-4" />
+                  )}
+                  <span>I'm feeling lucky</span>
+                </button>
               </div>
           </div>
         </div>

@@ -541,3 +541,23 @@ export async function fetchByProvider(providerId: number, pages = 2, region = "U
   }
   return remember(out);
 }
+
+// Fetch videos (trailers, clips) for a movie
+export async function fetchMovieVideos(movieId: number): Promise<{ key: string; type: string; site: string }[]> {
+  try {
+    const data = await tmdb<{ results: { key: string; type: string; site: string }[] }>(`/movie/${movieId}/videos`);
+    return data.results ?? [];
+  } catch {
+    return [];
+  }
+}
+
+// Fetch videos (trailers, clips) for a TV show
+export async function fetchTVVideos(tvId: number): Promise<{ key: string; type: string; site: string }[]> {
+  try {
+    const data = await tmdb<{ results: { key: string; type: string; site: string }[] }>(`/tv/${tvId}/videos`);
+    return data.results ?? [];
+  } catch {
+    return [];
+  }
+}
