@@ -1,10 +1,8 @@
 // Account sync - simple account number system for cross-device sync
 import { createClient } from "@supabase/supabase-js";
 
-// Public Supabase project connection details. Safe to hardcode: the anon/publishable
-// key is designed to be exposed in client-side code and is gated by Row Level Security.
-const supabaseUrl = "https://nhszrnsqyaqsfbrwrkrc.supabase.co";
-const supabaseAnonKey = "sb_publishable_4s0Ru3tNOkeO1MX2aNVzYw_OF7sSqew";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -191,7 +189,7 @@ export async function syncWatchProgress(
   positionSeconds: number,
   durationSeconds: number,
   season?: number,
-  episode?: number,
+  episode?: number
 ): Promise<boolean> {
   const accountNumber = getStoredAccountNumber();
   if (!accountNumber) return false;
@@ -205,21 +203,23 @@ export async function syncWatchProgress(
 
     if (!account) return false;
 
-    await supabase.from("watch_history").upsert(
-      {
-        account_id: account.id,
-        media_id: String(mediaId),
-        media_type: mediaType,
-        title,
-        poster,
-        position_seconds: Math.floor(positionSeconds),
-        duration_seconds: Math.floor(durationSeconds),
-        season: season ?? null,
-        episode: episode ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "account_id,media_id,media_type,season,episode" },
-    );
+    await supabase
+      .from("watch_history")
+      .upsert(
+        {
+          account_id: account.id,
+          media_id: String(mediaId),
+          media_type: mediaType,
+          title,
+          poster,
+          position_seconds: Math.floor(positionSeconds),
+          duration_seconds: Math.floor(durationSeconds),
+          season: season ?? null,
+          episode: episode ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "account_id,media_id,media_type,season,episode" }
+      );
 
     return true;
   } catch {
@@ -286,14 +286,16 @@ export async function syncPreferences(prefs: SyncedPreferences): Promise<boolean
 
     if (!account) return false;
 
-    const { error } = await supabase.from("preferences").upsert(
-      {
-        account_id: account.id,
-        settings_json: prefs,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "account_id" },
-    );
+    const { error } = await supabase
+      .from("preferences")
+      .upsert(
+        {
+          account_id: account.id,
+          settings_json: prefs,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "account_id" }
+      );
 
     return !error;
   } catch {
@@ -332,7 +334,10 @@ export async function getPreferences(): Promise<SyncedPreferences | null> {
 // Delete watch history item
 export async function deleteWatchHistoryItem(itemId: string): Promise<boolean> {
   try {
-    const { error } = await supabase.from("watch_history").delete().eq("id", itemId);
+    const { error } = await supabase
+      .from("watch_history")
+      .delete()
+      .eq("id", itemId);
 
     return !error;
   } catch {

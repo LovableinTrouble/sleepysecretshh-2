@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
   Home,
@@ -6,8 +7,10 @@ import {
   Bookmark,
   RadioTower,
   Settings as SettingsIcon,
+  User,
   type LucideIcon,
 } from "lucide-react";
+import { AccountPopup } from "@/components/AccountPopup";
 
 const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/", label: "Home", icon: Home },
@@ -30,6 +33,7 @@ function DiscordIcon({ className }: { className?: string }) {
 
 export function BottomNav() {
   const loc = useLocation();
+  const [accountOpen, setAccountOpen] = useState(false);
 
   // Don't render over the immersive player — it covers the bottom control bar.
   // Use exact "/watch/" prefix so /watchlist still gets the nav.
@@ -40,46 +44,60 @@ export function BottomNav() {
   ) return null;
 
   return (
-    <nav className="fixed bottom-3 left-1/2 z-40 w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 animate-fade-in md:bottom-6 md:w-auto">
-      <div className="glass-strong flex items-center justify-between gap-0.5 rounded-2xl px-1.5 py-1.5 shadow-[var(--shadow-glow)] md:gap-1 md:rounded-full md:px-2.5 md:py-2.5">
-        {items.map(({ to, label, icon: Icon }) => {
-          const active = to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(to);
-          return (
-            <Link
-              key={to}
-              to={to}
-              aria-label={label}
-              className={`group relative flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-sm font-semibold transition-colors duration-150 md:flex-none md:rounded-full md:px-4 md:py-2.5 ${
-                active
-                  ? "bg-primary/20 text-foreground ring-1 ring-primary/40 shadow-[0_0_20px_oklch(0.72_0.18_305_/_0.35)]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-              }`}
-            >
-              <Icon className="h-[1.15rem] w-[1.15rem] shrink-0 md:h-5 md:w-5" strokeWidth={2.15} />
-              <span
-                className={`hidden overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 md:inline-block ${
-                  active ? "max-w-[88px] opacity-100" : "max-w-0 opacity-0 group-hover:max-w-[88px] group-hover:opacity-100"
+    <>
+      <nav className="fixed bottom-3 left-1/2 z-40 w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 animate-fade-in md:bottom-6 md:w-auto">
+        <div className="glass-strong flex items-center justify-between gap-0.5 rounded-2xl px-1.5 py-1.5 shadow-[var(--shadow-glow)] md:gap-1 md:rounded-full md:px-2.5 md:py-2.5">
+          {items.map(({ to, label, icon: Icon }) => {
+            const active = to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(to);
+            return (
+              <Link
+                key={to}
+                to={to}
+                aria-label={label}
+                className={`group relative flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-sm font-semibold transition-colors duration-150 md:flex-none md:rounded-full md:px-4 md:py-2.5 ${
+                  active
+                    ? "bg-primary/20 text-foreground ring-1 ring-primary/40 shadow-[0_0_20px_oklch(0.72_0.18_305_/_0.35)]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                 }`}
               >
-                {label}
-              </span>
-            </Link>
-          );
-        })}
-        <a
-          href={DISCORD_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Join our Discord"
-          title="Join our Discord"
-          className="group relative flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-sm font-semibold text-[#5865F2] transition-colors duration-150 hover:bg-[#5865F2]/15 hover:text-[#7983f7] md:flex-none md:rounded-full md:px-4 md:py-2.5"
-        >
-          <DiscordIcon className="h-[1.15rem] w-[1.15rem] shrink-0 md:h-5 md:w-5" />
-          <span className="hidden overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 md:inline-block max-w-0 opacity-0 group-hover:max-w-[88px] group-hover:opacity-100">
-            Discord
-          </span>
-        </a>
-      </div>
-    </nav>
+                <Icon className="h-[1.15rem] w-[1.15rem] shrink-0 md:h-5 md:w-5" strokeWidth={2.15} />
+                <span
+                  className={`hidden overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 md:inline-block ${
+                    active ? "max-w-[88px] opacity-100" : "max-w-0 opacity-0 group-hover:max-w-[88px] group-hover:opacity-100"
+                  }`}
+                >
+                  {label}
+                </span>
+              </Link>
+            );
+          })}
+          {/* Account button - before Discord */}
+          <button
+            onClick={() => setAccountOpen(true)}
+            aria-label="Account"
+            className="group relative flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-sm font-semibold text-muted-foreground transition-colors duration-150 hover:text-foreground hover:bg-white/5 md:flex-none md:rounded-full md:px-4 md:py-2.5"
+          >
+            <User className="h-[1.15rem] w-[1.15rem] shrink-0 md:h-5 md:w-5" strokeWidth={2.15} />
+            <span className="hidden overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 md:inline-block max-w-0 opacity-0 group-hover:max-w-[88px] group-hover:opacity-100">
+              Account
+            </span>
+          </button>
+          <a
+            href={DISCORD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Join our Discord"
+            title="Join our Discord"
+            className="group relative flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-sm font-semibold text-[#5865F2] transition-colors duration-150 hover:bg-[#5865F2]/15 hover:text-[#7983f7] md:flex-none md:rounded-full md:px-4 md:py-2.5"
+          >
+            <DiscordIcon className="h-[1.15rem] w-[1.15rem] shrink-0 md:h-5 md:w-5" />
+            <span className="hidden overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 md:inline-block max-w-0 opacity-0 group-hover:max-w-[88px] group-hover:opacity-100">
+              Discord
+            </span>
+          </a>
+        </div>
+      </nav>
+      <AccountPopup open={accountOpen} onClose={() => setAccountOpen(false)} />
+    </>
   );
 }

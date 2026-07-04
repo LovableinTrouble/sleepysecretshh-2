@@ -5,10 +5,10 @@ const KEY = "sleepy.update-notice.v4";
 const CURRENT_VERSION = "2.6.0";
 
 const UPDATE_HIGHLIGHTS = [
-  { icon: User, text: "Fixed dead and broken code" },
+  { icon: User, text: "Account sync — watch history across devices" },
   { icon: Settings, text: "Cleaner settings with better dropdowns" },
   { icon: Palette, text: "Instant custom themes with no lag" },
-  { icon: Eye, text: "Better and faster playback, free downloads" },
+  { icon: Eye, text: "Ratings display on media cards" },
 ];
 
 export function SharePopup() {
