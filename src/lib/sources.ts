@@ -39,9 +39,9 @@ const VIDSRC: Source = {
   noSandbox: true,
   build: (m, s, e) => {
     if (m.type === "movie") {
-      return `https://v.zxcstream.xyz/player/movie/${m.id}?autoplay=true&color=ff3b30&back=false`;
+      return `https://v.zxcstream.xyz/player/movie/${m.id}?autoplay=true&color=fffff&back=false`;
     }
-    return `https://v.zxcstream.xyz/player/tv/${m.id}/${s ?? 1}/${e ?? 1}?autoplay=true&color=ff3b30&back=false`;
+    return `https://v.zxcstream.xyz/player/tv/${m.id}/${s ?? 1}/${e ?? 1}?autoplay=true&color=fffff&back=false`;
   },
 };
 
