@@ -561,3 +561,36 @@ export async function fetchTVVideos(tvId: number): Promise<{ key: string; type: 
     return [];
   }
 }
+
+// Paginated feed used by /shorts for infinite scroll of trailer-worthy titles.
+export async function fetchTrendingPage(
+  kind: "movie" | "tv" | "all",
+  page: number,
+): Promise<Media[]> {
+  const [d, mg, tg] = await Promise.all([
+    tmdb<{ results: any[] }>(`/trending/${kind}/week`, { page }),
+    genreMap("movie"),
+    genreMap("tv"),
+  ]);
+  return remember(
+    d.results
+      .filter((r) => r.poster_path && isReleased(r) && isSafeForMode(r))
+      .map((r) => {
+        const k: MediaKind = r.media_type === "tv" ? "tv" : "movie";
+        return toMedia(r, k, k === "tv" ? tg : mg);
+      }),
+  );
+}
+
+export async function fetchPopularPage(
+  kind: "movie" | "tv",
+  page: number,
+): Promise<Media[]> {
+  const g = await genreMap(kind);
+  const d = await tmdb<{ results: any[] }>(`/${kind}/popular`, { page });
+  return remember(
+    d.results
+      .filter((r) => r.poster_path && isReleased(r) && isSafeForMode(r))
+      .map((r) => toMedia(r, kind, g)),
+  );
+}
