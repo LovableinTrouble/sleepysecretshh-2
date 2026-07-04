@@ -386,10 +386,22 @@ function ShortSlide({
       ref={registerRef}
       data-index={index}
       className="relative flex h-full w-full snap-start snap-always items-center justify-center gap-3"
+      style={{ contentVisibility: "auto", containIntrinsicSize: "0 100vh" }}
     >
       {short.backdrop && (
-        <img src={short.backdrop} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40 blur-2xl" />
+        <img
+          src={short.backdrop}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover opacity-40 blur-lg"
+        />
       )}
+
+      {/* Mirrors the button column's width on the other side of the card,
+          so `justify-center` centers the CARD, not the card+buttons row
+          (without this, the buttons' width pushed the card off-center). */}
+      <div className="hidden w-12 shrink-0 md:block" />
 
       {/* Card */}
       <div className="relative h-full w-full max-w-[min(100vw,calc(100vh*9/16))] overflow-hidden bg-black md:h-[min(100vh,900px)] md:aspect-[9/16] md:w-auto md:rounded-2xl md:my-4 md:max-h-[calc(100vh-2rem)]">
@@ -414,7 +426,13 @@ function ShortSlide({
           </>
         ) : (
           short.poster && (
-            <img src={short.poster} alt={short.title} className="absolute inset-0 h-full w-full object-cover" />
+            <img
+              src={short.poster}
+              alt={short.title}
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           )
         )}
 
@@ -424,7 +442,7 @@ function ShortSlide({
         {active && (
           <button
             onClick={onToggleMute}
-            className="absolute bottom-4 left-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
+            className="absolute top-4 left-4 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white ring-1 ring-white/10 backdrop-blur-md transition hover:bg-black/55"
             aria-label={muted ? "Unmute" : "Mute"}
           >
             {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -450,33 +468,37 @@ function ShortSlide({
 
       {/* Button column: overlays the card on mobile (no room beside it),
           sits as a normal sibling right next to the card on desktop —
-          the TikTok/Shorts-desktop layout. */}
-      {active && (
-        <div className="absolute right-3 bottom-24 z-40 flex flex-col items-center gap-2.5 md:static md:bottom-auto md:right-auto md:self-center">
-          <ActionButton
-            label="Previous"
-            size="sm"
-            disabled={isFirst}
-            onClick={onPrev}
-            className="bg-white/15 text-white"
-          >
-            <ChevronUp className="h-4 w-4" />
-          </ActionButton>
-          <ActionButton label="Next" size="sm" disabled={isLast} onClick={onNext} className="bg-white/15 text-white">
-            <ChevronDown className="h-4 w-4" />
-          </ActionButton>
-          <ActionButton label="Watch" onClick={onWatch} className="bg-primary text-primary-foreground">
-            <Play className="h-5 w-5" fill="currentColor" />
-          </ActionButton>
-          <ActionButton
-            label={isSaved ? "Saved" : "Save"}
-            onClick={onToggleSaved}
-            className={isSaved ? "bg-primary text-primary-foreground" : "bg-white/15 text-white"}
-          >
-            {isSaved ? <Check className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
-          </ActionButton>
-        </div>
-      )}
+          the TikTok/Shorts-desktop layout. The wrapper's width is always
+          reserved on desktop (matching the spacer above) even when empty,
+          so the card doesn't shift when a slide becomes active/inactive. */}
+      <div className="absolute right-3 bottom-24 z-40 flex w-12 flex-col items-center gap-2.5 md:static md:bottom-auto md:right-auto md:self-center">
+        {active && (
+          <>
+            <ActionButton
+              label="Previous"
+              size="sm"
+              disabled={isFirst}
+              onClick={onPrev}
+              className="bg-white/15 text-white"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </ActionButton>
+            <ActionButton label="Next" size="sm" disabled={isLast} onClick={onNext} className="bg-white/15 text-white">
+              <ChevronDown className="h-4 w-4" />
+            </ActionButton>
+            <ActionButton label="Watch" onClick={onWatch} className="bg-primary text-primary-foreground">
+              <Play className="h-5 w-5" fill="currentColor" />
+            </ActionButton>
+            <ActionButton
+              label={isSaved ? "Saved" : "Save"}
+              onClick={onToggleSaved}
+              className={isSaved ? "bg-primary text-primary-foreground" : "bg-white/15 text-white"}
+            >
+              {isSaved ? <Check className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
+            </ActionButton>
+          </>
+        )}
+      </div>
     </div>
   );
 }
