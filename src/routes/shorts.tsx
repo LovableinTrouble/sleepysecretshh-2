@@ -445,7 +445,7 @@ function ShortSlide({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-40 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
 
         {/* Text info */}
-        <div className="absolute bottom-4 left-4 right-16 z-30">
+        <div className="absolute bottom-24 left-4 right-16 z-30">
           <div className="mb-1 inline-flex items-center gap-2">
             <span className="rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
               {short.mediaType === "tv" ? "TV" : "Movie"}
@@ -458,13 +458,6 @@ function ShortSlide({
           </div>
           <h3 className="text-lg font-bold text-white drop-shadow md:text-xl">{short.title}</h3>
           <p className="mt-1 line-clamp-2 text-xs text-white/80 drop-shadow md:text-sm">{short.overview}</p>
-          <button
-            onClick={onWatch}
-            className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/95 px-4 py-1.5 text-xs font-bold text-black transition hover:bg-white"
-          >
-            <Play className="h-3.5 w-3.5" fill="currentColor" />
-            Watch now
-          </button>
         </div>
       </div>
 
