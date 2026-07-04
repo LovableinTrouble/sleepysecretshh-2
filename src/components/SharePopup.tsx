@@ -5,9 +5,9 @@ const KEY = "sleepy.update-notice.v4";
 const CURRENT_VERSION = "2.7.0";
 
 const UPDATE_HIGHLIGHTS = [
-  { icon: User, text: "Games page so you can play with friends!" },
+  { icon: User, text: "Games page removed cuz it was useless to yall" },
   { icon: Settings, text: "Customizable shorts page with fast scrolling" },
-  { icon: Palette, text: "APK page to download for andrioid" },
+  { icon: Palette, text: "APK page to download for andrioid moved to settings" },
   { icon: Eye, text: "Better experience for YOU!" },
 ];
 
