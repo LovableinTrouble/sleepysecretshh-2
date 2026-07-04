@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Hls from "hls.js";
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings as SettingsIcon, Bubbles as SubtitlesIcon, PictureInPicture2, Cast, ChevronLeft, RotateCcw, RotateCw } from "lucide-react";
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize,
+  Settings as SettingsIcon,
+  Bubbles as SubtitlesIcon,
+  PictureInPicture2,
+  Cast,
+  ChevronLeft,
+  RotateCcw,
+  RotateCw,
+} from "lucide-react";
 
 import type { Media } from "@/lib/catalog";
 import { useSettings } from "@/lib/store";
@@ -12,11 +26,7 @@ import {
   type Source,
   type SourceKey,
 } from "@/lib/sources";
-import {
-  resolveCineproStream,
-  resolveFebboxStream,
-  type ResolvedQuality,
-} from "@/lib/api/streams.functions";
+import { resolveCineproStream, resolveFebboxStream, type ResolvedQuality } from "@/lib/api/streams.functions";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
 
 function buildSourceUrl(source: Source, media: Media, season?: number, episode?: number): string {
@@ -51,13 +61,24 @@ type Status =
   | { kind: "failed"; detail?: string; logs?: { step: string; status: "ok" | "fail"; detail?: string }[] };
 
 const QUALITY_RANK: Record<string, number> = {
-  "4k": 100, "2160": 100, "2k": 90, "1440": 90,
-  "1080": 80, "hd": 80, "fhd": 80, "720": 60, "480": 40, "360": 20,
-  "org": 75, "original": 75,
+  "4k": 100,
+  "2160": 100,
+  "2k": 90,
+  "1440": 90,
+  "1080": 80,
+  hd: 80,
+  fhd: 80,
+  "720": 60,
+  "480": 40,
+  "360": 20,
+  org: 75,
+  original: 75,
 };
 
 function rankQuality(q: string) {
-  const k = String(q || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const k = String(q || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
   for (const key of Object.keys(QUALITY_RANK)) if (k.includes(key)) return QUALITY_RANK[key];
   return 1;
 }
@@ -97,10 +118,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   // Only try FebBox up-front if the user has configured a UI cookie. Without
   // one, jump straight to the embed providers — anonymous FebBox calls almost
   // always fail and just delay playback.
-  const computeInitialKey = useCallback(
-    (): SourceKey => (hasFebboxCookie ? "gamma" : "toro"),
-    [hasFebboxCookie],
-  );
+  const computeInitialKey = useCallback((): SourceKey => (hasFebboxCookie ? "gamma" : "toro"), [hasFebboxCookie]);
   const [sourceKey, setSourceKey] = useState<SourceKey>(() => computeInitialKey());
   const [preferredEmbedId, setPreferredEmbedId] = useState<string | null>(settings.embedProvider);
   const userPickedRef = useRef(false);
@@ -190,12 +208,10 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
         return;
       }
 
-
       // Toro — embed
       setScanStep("Loading backup embed…");
       const embedList = sourcesForKey("toro");
-      const embed =
-        embedList.find((e) => e.id === preferredEmbedId) ?? embedList[0];
+      const embed = embedList.find((e) => e.id === preferredEmbedId) ?? embedList[0];
       if (isStale()) return;
       if (embed) {
         const embedUrl = embed.build(media, season, episode);
@@ -217,8 +233,18 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       cancelRef.current = true;
       if (slowTimer) window.clearTimeout(slowTimer);
     };
-    
-  }, [media.id, media.title, media.type, season, episode, sourceKey, febboxCookie, qualityPref, preferredEmbedId, ordered]);
+  }, [
+    media.id,
+    media.title,
+    media.type,
+    season,
+    episode,
+    sourceKey,
+    febboxCookie,
+    qualityPref,
+    preferredEmbedId,
+    ordered,
+  ]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -245,11 +271,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     >
       <div className="relative flex-1 bg-black">
         {status.kind === "scanning" && (
-          <ScanningOverlay
-            step={scanStep}
-            tier={SOURCE_TIER_LABEL[sourceKey]}
-            notice={fallbackNotice}
-          />
+          <ScanningOverlay step={scanStep} tier={SOURCE_TIER_LABEL[sourceKey]} notice={fallbackNotice} />
         )}
 
         {status.kind === "failed" && (
@@ -275,9 +297,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             onSwitchSource={switchSource}
             onPickEmbed={pickEmbed}
             onClose={onClose}
-            onSwitchQuality={(q) =>
-              setStatus({ kind: "direct", stream: { ...status.stream, active: q } })
-            }
+            onSwitchQuality={(q) => setStatus({ kind: "direct", stream: { ...status.stream, active: q } })}
           />
         )}
 
@@ -321,7 +341,14 @@ function ScanningOverlay({ step, tier, notice }: { step?: string; tier?: string;
         <div className="absolute inset-0 rounded-full border border-primary/30 animate-[ping_2.4s_ease-out_infinite]" />
         <div className="absolute inset-3 rounded-full bg-primary/15 blur-2xl" />
         <div className="absolute inset-0 flex items-center justify-center">
-          <svg viewBox="0 0 24 24" className="h-7 w-7 animate-spin text-primary" fill="none" stroke="currentColor" strokeWidth="2" style={{ animationDuration: "1.4s" }}>
+          <svg
+            viewBox="0 0 24 24"
+            className="h-7 w-7 animate-spin text-primary"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            style={{ animationDuration: "1.4s" }}
+          >
             <path d="M21 12a9 9 0 1 1-6.2-8.55" />
           </svg>
         </div>
@@ -371,9 +398,7 @@ function FailedOverlay({
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-6 text-center text-white animate-fade-in">
       <div className="text-xs uppercase tracking-[0.3em] text-white/55">No stream found</div>
-      <div className="text-lg font-semibold">
-        {SOURCE_TIER_LABEL[sourceKey]} couldn't load this title.
-      </div>
+      <div className="text-lg font-semibold">{SOURCE_TIER_LABEL[sourceKey]} couldn't load this title.</div>
       {detail && <p className="max-w-sm text-sm text-white/50">{detail}</p>}
       {logs && logs.length > 0 && (
         <div className="w-full max-w-sm">
@@ -410,17 +435,13 @@ function FailedOverlay({
         >
           Open Settings
         </a>
-        <button
-          onClick={onClose}
-          className="rounded-lg px-4 h-10 text-sm font-medium text-white/60 hover:text-white"
-        >
+        <button onClick={onClose} className="rounded-lg px-4 h-10 text-sm font-medium text-white/60 hover:text-white">
           Close
         </button>
       </div>
     </div>
   );
 }
-
 
 /* ============================================================
  * Right-edge unified source rail (Delta / Gamma / Toro)
@@ -479,9 +500,7 @@ function SourceRail({
       >
         {onSwitchSource && primaryItems.length > 0 && (
           <>
-            <div className="px-2 pb-2 pt-1 text-[10px] uppercase tracking-[0.22em] text-white/45">
-              Direct
-            </div>
+            <div className="px-2 pb-2 pt-1 text-[10px] uppercase tracking-[0.22em] text-white/45">Direct</div>
             {primaryItems.map((it) => {
               const isActive = active === it.key;
               return (
@@ -507,9 +526,7 @@ function SourceRail({
             })}
           </>
         )}
-        <div className="px-2 pb-2 pt-2 text-[10px] uppercase tracking-[0.22em] text-white/45">
-          Backup Embeds
-        </div>
+        <div className="px-2 pb-2 pt-2 text-[10px] uppercase tracking-[0.22em] text-white/45">Backup Embeds</div>
         {embedItems.map((it) => {
           const isActive = active === "toro" && activeEmbedId === it.id;
           return (
@@ -537,7 +554,6 @@ function SourceRail({
     </div>
   );
 }
-
 
 /* ============================================================
  * Embed surface
@@ -567,6 +583,16 @@ function EmbedSurface({
   const [settings] = useSettings();
   const [source, setSource] = useState(initialSource);
   const [embedUrl, setEmbedUrl] = useState(initialUrl);
+  // Popup-trap embeds fire their popup on literally the first click/tap
+  // anywhere in the iframe, before the player even registers it as a real
+  // interaction. Sandboxing would block that, but it also breaks the
+  // postMessage progress API for VoidX — so instead, an invisible overlay
+  // eats exactly one click (never forwarding it into the iframe) and then
+  // gets out of the way for real interaction.
+  const [swallowClick, setSwallowClick] = useState(true);
+  useEffect(() => {
+    setSwallowClick(true);
+  }, [source.id, embedUrl]);
   const embeds = useMemo(() => {
     const enabled = EMBED_SOURCES.filter((s) => (s.legacy ? Boolean(settings.useLegacyEmbeds) : true));
     const ordered = [initialSource, ...enabled.filter((s) => s.id !== initialSource.id)];
@@ -578,8 +604,6 @@ function EmbedSurface({
     const newUrl = buildSourceUrl(source, media, season, episode);
     if (newUrl) setEmbedUrl(newUrl);
   }, [source, media, season, episode]);
-
-  
 
   useEffect(() => {
     const seasonKey = season ?? null;
@@ -632,8 +656,10 @@ function EmbedSurface({
       if (!e.data || typeof e.data !== "object") return;
       const blocked = ["AD_SHOW", "POPUP_OPEN", "open_url", "ad_click", "redirect", "popup", "window.open"];
       const data = e.data as { type?: string; event?: string };
-      if ((data.type && blocked.some(b => data.type?.toLowerCase().includes(b.toLowerCase()))) ||
-          (data.event && blocked.some(b => data.event?.toLowerCase().includes(b.toLowerCase())))) {
+      if (
+        (data.type && blocked.some((b) => data.type?.toLowerCase().includes(b.toLowerCase()))) ||
+        (data.event && blocked.some((b) => data.event?.toLowerCase().includes(b.toLowerCase())))
+      ) {
         e.stopImmediatePropagation();
       }
     };
@@ -660,6 +686,14 @@ function EmbedSurface({
         {...iframeExtra}
       />
 
+      {source.noSandbox && swallowClick && (
+        <div
+          className="absolute inset-0 z-20 cursor-pointer"
+          onClick={() => setSwallowClick(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <button
         onClick={onClose}
         className="absolute left-3 top-3 z-30 inline-flex items-center gap-2 rounded-full bg-black/65 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-black/85 md:left-5 md:top-5"
@@ -671,8 +705,6 @@ function EmbedSurface({
       </button>
 
       {/* SourceRail removed — use settings to switch sources */}
-
-
     </div>
   );
 }
@@ -814,8 +846,7 @@ function DirectVideo({
   const controlsVisibleRef = useRef(true);
   const ignoreNextVideoClickRef = useRef(false);
   const [openMenu, setOpenMenu] = useState<null | "settings" | "party">(null);
-  const [settingsTab, setSettingsTab] =
-    useState<"quality" | "subs" | "speed" | "playback">("quality");
+  const [settingsTab, setSettingsTab] = useState<"quality" | "subs" | "speed" | "playback">("quality");
   const [activeSub, setActiveSub] = useState<string | null>(null);
   const [partyToast, setPartyToast] = useState<string | null>(null);
 
@@ -838,10 +869,11 @@ function DirectVideo({
     return !window.localStorage.getItem("peachify:nudge:febbox-controls");
   });
   const dismissFebboxControlsHint = useCallback(() => {
-    try { window.localStorage.setItem("peachify:nudge:febbox-controls", "1"); } catch {}
+    try {
+      window.localStorage.setItem("peachify:nudge:febbox-controls", "1");
+    } catch {}
     setShowFebboxControlsHint(false);
   }, []);
-
 
   const party = useWatchParty(videoRef);
 
@@ -862,9 +894,7 @@ function DirectVideo({
 
   const tryNextSource = useCallback(() => {
     failedUrlsRef.current.add(stream.active.url);
-    const next = stream.qualities.find(
-      (q) => q.url !== stream.active.url && !failedUrlsRef.current.has(q.url),
-    );
+    const next = stream.qualities.find((q) => q.url !== stream.active.url && !failedUrlsRef.current.has(q.url));
     if (next) {
       setError(false);
       setBuffering(false);
@@ -872,7 +902,14 @@ function DirectVideo({
     } else if (sourceKey === "delta") {
       onSwitchSource("gamma");
     } else setError(true);
-  }, [stream.active.url, stream.qualities, switchQuality, sourceKey, onSwitchSource, settings.integrations.febboxCookie]);
+  }, [
+    stream.active.url,
+    stream.qualities,
+    switchQuality,
+    sourceKey,
+    onSwitchSource,
+    settings.integrations.febboxCookie,
+  ]);
 
   useEffect(() => {
     failedUrlsRef.current = new Set();
@@ -978,7 +1015,9 @@ function DirectVideo({
       let startedPlayback = false;
       const startupTimer = window.setTimeout(() => {
         if (!settings.player.autoplay || startedPlayback || video.currentTime >= 0.5) return;
-        try { hls.startLoad(0); } catch {}
+        try {
+          hls.startLoad(0);
+        } catch {}
         void requestPlay(true);
         window.setTimeout(() => {
           if (!startedPlayback && video.currentTime < 0.5 && !video.paused) tryNextSource();
@@ -1004,9 +1043,13 @@ function DirectVideo({
             data?.details === Hls.ErrorDetails.FRAG_LOAD_ERROR
           ) {
             stallRecoveries += 1;
-            try { hls.startLoad(video.currentTime || -1); } catch {}
+            try {
+              hls.startLoad(video.currentTime || -1);
+            } catch {}
             if (stallRecoveries >= 3) {
-              try { hls.recoverMediaError(); } catch {}
+              try {
+                hls.recoverMediaError();
+              } catch {}
               stallRecoveries = 0;
             }
           }
@@ -1050,8 +1093,16 @@ function DirectVideo({
       let lastT = video.currentTime;
       let stuck = 0;
       const stallTick = window.setInterval(() => {
-        if (video.paused || video.ended || video.seeking) { stuck = 0; lastT = video.currentTime; return; }
-        if (video.readyState >= 3) { stuck = 0; lastT = video.currentTime; return; }
+        if (video.paused || video.ended || video.seeking) {
+          stuck = 0;
+          lastT = video.currentTime;
+          return;
+        }
+        if (video.readyState >= 3) {
+          stuck = 0;
+          lastT = video.currentTime;
+          return;
+        }
         if (Math.abs(video.currentTime - lastT) > 0.05) {
           lastT = video.currentTime;
           stuck = 0;
@@ -1059,8 +1110,12 @@ function DirectVideo({
         }
         stuck += 1;
         if (stuck >= 3) {
-          try { hls.startLoad(video.currentTime); } catch {}
-          try { hls.recoverMediaError(); } catch {}
+          try {
+            hls.startLoad(video.currentTime);
+          } catch {}
+          try {
+            hls.recoverMediaError();
+          } catch {}
           try {
             const b = video.buffered;
             for (let i = 0; i < b.length; i++) {
@@ -1080,7 +1135,6 @@ function DirectVideo({
         video.removeEventListener("playing", markStarted);
         video.removeEventListener("timeupdate", markStarted);
       });
-
     } else {
       video.src = url;
       const tryPlay = () => {
@@ -1131,7 +1185,7 @@ function DirectVideo({
       bufferingTimer.current = window.setTimeout(() => {
         bufferingTimer.current = null;
         setBuffering(true);
-        }, 900);
+      }, 900);
     };
     const onReady = () => {
       if (bufferingTimer.current) {
@@ -1281,7 +1335,6 @@ function DirectVideo({
     }, 3000);
   }, [openMenu]);
 
-
   const revealControls = scheduleHide;
   useEffect(() => {
     scheduleHide();
@@ -1308,7 +1361,6 @@ function DirectVideo({
       document.removeEventListener("mousemove", wake);
     };
   }, [revealControls]);
-
 
   useEffect(() => {
     const v = videoRef.current;
@@ -1363,7 +1415,11 @@ function DirectVideo({
       }
       // Fallback: Chromecast extension on stock <video>
       const cast = (window as any).chrome?.cast;
-      if (cast?.requestSession) cast.requestSession(() => {}, () => {});
+      if (cast?.requestSession)
+        cast.requestSession(
+          () => {},
+          () => {},
+        );
     } catch {}
   }, []);
 
@@ -1407,7 +1463,7 @@ function DirectVideo({
         case "c": {
           const next = activeSub
             ? null
-            : stream.subs.find((s) => s.language === "en")?.language ?? stream.subs[0]?.language ?? null;
+            : (stream.subs.find((s) => s.language === "en")?.language ?? stream.subs[0]?.language ?? null);
           setActiveSub(next);
           break;
         }
@@ -1423,8 +1479,8 @@ function DirectVideo({
     sub.edgeStyle === "outline"
       ? "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
       : sub.edgeStyle === "shadow"
-      ? "0 2px 6px rgba(0,0,0,0.85)"
-      : "none";
+        ? "0 2px 6px rgba(0,0,0,0.85)"
+        : "none";
   const fontFamily =
     sub.font === "Mono" ? "ui-monospace, SFMono-Regular, Menlo, monospace" : `${sub.font}, system-ui, sans-serif`;
 
@@ -1499,10 +1555,6 @@ function DirectVideo({
 
       {/* SourceRail removed — VidAPI is the only embed source. */}
 
-
-
-
-
       {/* Top bar — reliably wakes on hover/pointer activity in both windowed and fullscreen. */}
       <div
         className={`pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-4 pb-10 pt-4 md:px-6 md:pt-5 transition-all duration-300 ${
@@ -1531,7 +1583,6 @@ function DirectVideo({
           </span>
         </div>
       </div>
-
 
       {/* Subtitle style */}
       <style>{`
@@ -1591,7 +1642,8 @@ function DirectVideo({
           <div className="flex items-start gap-3 p-3.5">
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary ring-1 ring-primary/40">
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M9 11V7a3 3 0 1 1 6 0v4" /><rect x="5" y="11" width="14" height="10" rx="2" />
+                <path d="M9 11V7a3 3 0 1 1 6 0v4" />
+                <rect x="5" y="11" width="14" height="10" rx="2" />
               </svg>
             </div>
             <div className="min-w-0 flex-1">
@@ -1612,8 +1664,6 @@ function DirectVideo({
           </div>
         </div>
       )}
-
-
 
       {/* Center play button — clean, minimal, only when not yet started */}
       {!playing && current === 0 && !error && (
@@ -1650,143 +1700,154 @@ function DirectVideo({
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
         <div className="flex w-full flex-col gap-2 px-4 md:px-8">
-        {/* Seekbar — thicker track, larger hit area, visible handle on hover/touch */}
-        <div className="pointer-events-auto group/seek relative px-0.5 py-2">
-          <div className="relative h-1.5 w-full overflow-visible rounded-full bg-white/15 transition-[height] duration-150 group-hover/seek:h-2">
-            <div
-              className="absolute inset-y-0 left-0 rounded-full bg-white/30"
-              style={{ width: duration ? `${(buffered / duration) * 100}%` : "0%" }}
-            />
-            <div
-              className="absolute inset-y-0 left-0 rounded-full bg-primary shadow-[0_0_10px_color-mix(in_oklab,var(--primary)_60%,transparent)]"
-              style={{ width: duration ? `${(current / duration) * 100}%` : "0%" }}
-            />
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              step={0.1}
-              value={current}
-              onChange={(e) => {
-                const v = videoRef.current;
-                if (v) v.currentTime = Number(e.target.value);
-              }}
-              aria-label="Seek"
-              className="absolute -inset-y-3 inset-x-0 h-[calc(100%+1.5rem)] w-full cursor-pointer opacity-0"
-            />
-            <div
-              className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary opacity-0 ring-2 ring-white shadow-lg transition-opacity group-hover/seek:opacity-100"
-              style={{ left: duration ? `${(current / duration) * 100}%` : "0%" }}
-            />
-          </div>
-        </div>
-
-        {/* Buttons row — left cluster + spacer + right cluster.
-            No interior pill — gradient + spacing carry the visual weight. */}
-        <div className="pointer-events-auto flex items-center gap-1 text-white">
-          <IconBtn label={playing ? "Pause (k)" : "Play (k)"} onClick={togglePlay}>
-            {playing ? <Pause className="h-6 w-6 fill-current" strokeWidth={0} /> : <Play className="h-6 w-6 fill-current" strokeWidth={0} />}
-          </IconBtn>
-
-          <IconBtn label="Back 10s (j)" onClick={() => seekBy(-10)}>
-            <span className="relative inline-flex h-6 w-6 items-center justify-center">
-              <RotateCcw className="h-6 w-6" strokeWidth={2} />
-              <span className="absolute text-[8px] font-bold tabular-nums">10</span>
-            </span>
-          </IconBtn>
-          <IconBtn label="Forward 10s (l)" onClick={() => seekBy(10)}>
-            <span className="relative inline-flex h-6 w-6 items-center justify-center">
-              <RotateCw className="h-6 w-6" strokeWidth={2} />
-              <span className="absolute text-[8px] font-bold tabular-nums">10</span>
-            </span>
-          </IconBtn>
-
-          <div className="group/vol ml-1 flex items-center">
-            <IconBtn label="Mute (m)" onClick={toggleMute}>
-              {muted || volume === 0 ? <VolumeX className="h-5 w-5" strokeWidth={2} /> : <Volume2 className="h-5 w-5" strokeWidth={2} />}
-            </IconBtn>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={muted ? 0 : volume}
-              onChange={(e) => {
-                const v = videoRef.current;
-                if (v) {
-                  v.muted = false;
-                  v.volume = Number(e.target.value);
-                }
-              }}
-              aria-label="Volume"
-              className="ml-1 hidden h-1 w-24 cursor-pointer accent-primary group-hover/vol:block"
-            />
-          </div>
-
-          <div className="ml-3 text-[13px] font-medium tabular-nums text-white/95">
-            {formatTime(current)}
-            <span className="mx-1 text-white/40">/</span>
-            <span className="text-white/55">{formatTime(duration)}</span>
-          </div>
-
-          <div className="ml-auto flex items-center gap-0.5">
-            <IconBtn label="Picture in Picture (p)" onClick={togglePip}>
-              <PictureInPicture2 className="h-5 w-5" strokeWidth={2} />
-            </IconBtn>
-            <IconBtn label="Cast" onClick={startCast}>
-              <Cast className="h-5 w-5" strokeWidth={2} />
-            </IconBtn>
-            <IconBtn
-              label="Subtitles (c)"
-              onClick={() => {
-                const next = activeSub
-                  ? null
-                  : stream.subs.find((s) => s.language === "en")?.language ?? stream.subs[0]?.language ?? null;
-                setActiveSub(next);
-              }}
-            >
-              <SubtitlesIcon className={`h-5 w-5 ${activeSub ? "text-primary" : ""}`} strokeWidth={2} />
-            </IconBtn>
-            <MenuBtn
-              label="Settings"
-              open={openMenu === "settings"}
-              onToggle={() => setOpenMenu(openMenu === "settings" ? null : "settings")}
-            >
-              <SettingsIcon className="h-5 w-5" strokeWidth={1.9} />
-            </MenuBtn>
-            {openMenu === "settings" && (
-              <SettingsPanel
-                onClose={() => setOpenMenu(null)}
-                tab={settingsTab}
-                setTab={setSettingsTab}
-                stream={stream}
-                onSwitchQuality={(q) => switchQuality(q)}
-                activeSub={activeSub}
-                setActiveSub={setActiveSub}
-                sub={sub}
-                setSettings={setSettings}
-                rate={rate}
-                onSetRate={(r) => {
-                  const v = videoRef.current;
-                  if (v) v.playbackRate = r;
-                  party.send({ t: "rate", rate: r });
-                }}
-                sourceKey={sourceKey}
-                onSwitchSource={onSwitchSource}
-                pipEnabled={settings.player.pip}
-                onTogglePip={togglePip}
-                autoplay={settings.player.autoplay}
-                onToggleAutoplay={(v) => setSettings({ player: { ...settings.player, autoplay: v } })}
+          {/* Seekbar — thicker track, larger hit area, visible handle on hover/touch */}
+          <div className="pointer-events-auto group/seek relative px-0.5 py-2">
+            <div className="relative h-1.5 w-full overflow-visible rounded-full bg-white/15 transition-[height] duration-150 group-hover/seek:h-2">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-white/30"
+                style={{ width: duration ? `${(buffered / duration) * 100}%` : "0%" }}
               />
-            )}
-            <IconBtn label="Fullscreen (f)" onClick={toggleFullscreen}>
-              {fullscreen ? <Minimize className="h-5 w-5" strokeWidth={2} /> : <Maximize className="h-5 w-5" strokeWidth={2} />}
-            </IconBtn>
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-primary shadow-[0_0_10px_color-mix(in_oklab,var(--primary)_60%,transparent)]"
+                style={{ width: duration ? `${(current / duration) * 100}%` : "0%" }}
+              />
+              <input
+                type="range"
+                min={0}
+                max={duration || 0}
+                step={0.1}
+                value={current}
+                onChange={(e) => {
+                  const v = videoRef.current;
+                  if (v) v.currentTime = Number(e.target.value);
+                }}
+                aria-label="Seek"
+                className="absolute -inset-y-3 inset-x-0 h-[calc(100%+1.5rem)] w-full cursor-pointer opacity-0"
+              />
+              <div
+                className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary opacity-0 ring-2 ring-white shadow-lg transition-opacity group-hover/seek:opacity-100"
+                style={{ left: duration ? `${(current / duration) * 100}%` : "0%" }}
+              />
+            </div>
           </div>
-        </div>
+
+          {/* Buttons row — left cluster + spacer + right cluster.
+            No interior pill — gradient + spacing carry the visual weight. */}
+          <div className="pointer-events-auto flex items-center gap-1 text-white">
+            <IconBtn label={playing ? "Pause (k)" : "Play (k)"} onClick={togglePlay}>
+              {playing ? (
+                <Pause className="h-6 w-6 fill-current" strokeWidth={0} />
+              ) : (
+                <Play className="h-6 w-6 fill-current" strokeWidth={0} />
+              )}
+            </IconBtn>
+
+            <IconBtn label="Back 10s (j)" onClick={() => seekBy(-10)}>
+              <span className="relative inline-flex h-6 w-6 items-center justify-center">
+                <RotateCcw className="h-6 w-6" strokeWidth={2} />
+                <span className="absolute text-[8px] font-bold tabular-nums">10</span>
+              </span>
+            </IconBtn>
+            <IconBtn label="Forward 10s (l)" onClick={() => seekBy(10)}>
+              <span className="relative inline-flex h-6 w-6 items-center justify-center">
+                <RotateCw className="h-6 w-6" strokeWidth={2} />
+                <span className="absolute text-[8px] font-bold tabular-nums">10</span>
+              </span>
+            </IconBtn>
+
+            <div className="group/vol ml-1 flex items-center">
+              <IconBtn label="Mute (m)" onClick={toggleMute}>
+                {muted || volume === 0 ? (
+                  <VolumeX className="h-5 w-5" strokeWidth={2} />
+                ) : (
+                  <Volume2 className="h-5 w-5" strokeWidth={2} />
+                )}
+              </IconBtn>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={muted ? 0 : volume}
+                onChange={(e) => {
+                  const v = videoRef.current;
+                  if (v) {
+                    v.muted = false;
+                    v.volume = Number(e.target.value);
+                  }
+                }}
+                aria-label="Volume"
+                className="ml-1 hidden h-1 w-24 cursor-pointer accent-primary group-hover/vol:block"
+              />
+            </div>
+
+            <div className="ml-3 text-[13px] font-medium tabular-nums text-white/95">
+              {formatTime(current)}
+              <span className="mx-1 text-white/40">/</span>
+              <span className="text-white/55">{formatTime(duration)}</span>
+            </div>
+
+            <div className="ml-auto flex items-center gap-0.5">
+              <IconBtn label="Picture in Picture (p)" onClick={togglePip}>
+                <PictureInPicture2 className="h-5 w-5" strokeWidth={2} />
+              </IconBtn>
+              <IconBtn label="Cast" onClick={startCast}>
+                <Cast className="h-5 w-5" strokeWidth={2} />
+              </IconBtn>
+              <IconBtn
+                label="Subtitles (c)"
+                onClick={() => {
+                  const next = activeSub
+                    ? null
+                    : (stream.subs.find((s) => s.language === "en")?.language ?? stream.subs[0]?.language ?? null);
+                  setActiveSub(next);
+                }}
+              >
+                <SubtitlesIcon className={`h-5 w-5 ${activeSub ? "text-primary" : ""}`} strokeWidth={2} />
+              </IconBtn>
+              <MenuBtn
+                label="Settings"
+                open={openMenu === "settings"}
+                onToggle={() => setOpenMenu(openMenu === "settings" ? null : "settings")}
+              >
+                <SettingsIcon className="h-5 w-5" strokeWidth={1.9} />
+              </MenuBtn>
+              {openMenu === "settings" && (
+                <SettingsPanel
+                  onClose={() => setOpenMenu(null)}
+                  tab={settingsTab}
+                  setTab={setSettingsTab}
+                  stream={stream}
+                  onSwitchQuality={(q) => switchQuality(q)}
+                  activeSub={activeSub}
+                  setActiveSub={setActiveSub}
+                  sub={sub}
+                  setSettings={setSettings}
+                  rate={rate}
+                  onSetRate={(r) => {
+                    const v = videoRef.current;
+                    if (v) v.playbackRate = r;
+                    party.send({ t: "rate", rate: r });
+                  }}
+                  sourceKey={sourceKey}
+                  onSwitchSource={onSwitchSource}
+                  pipEnabled={settings.player.pip}
+                  onTogglePip={togglePip}
+                  autoplay={settings.player.autoplay}
+                  onToggleAutoplay={(v) => setSettings({ player: { ...settings.player, autoplay: v } })}
+                />
+              )}
+              <IconBtn label="Fullscreen (f)" onClick={toggleFullscreen}>
+                {fullscreen ? (
+                  <Minimize className="h-5 w-5" strokeWidth={2} />
+                ) : (
+                  <Maximize className="h-5 w-5" strokeWidth={2} />
+                )}
+              </IconBtn>
+            </div>
+          </div>
         </div>
       </div>
-
 
       {error && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/90 text-center text-white">
@@ -1818,15 +1879,7 @@ function DirectVideo({
  * Shared building blocks
  * ============================================================ */
 
-function IconBtn({
-  children,
-  label,
-  onClick,
-}: {
-  children: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
+function IconBtn({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -1864,15 +1917,7 @@ function MenuBtn({
   );
 }
 
-function Menu({
-  children,
-  title,
-  onClose,
-}: {
-  children: React.ReactNode;
-  title: string;
-  onClose: () => void;
-}) {
+function Menu({ children, title, onClose }: { children: React.ReactNode; title: string; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -1970,7 +2015,6 @@ function SettingsPanel({
     >
       {/* Source switcher removed — VidAPI is the only embed source. */}
 
-
       {/* Tab strip */}
       <div className="flex border-b border-white/10 px-2 pt-2">
         {tabs.map((t) => (
@@ -2000,9 +2044,7 @@ function SettingsPanel({
                   onClose();
                 }}
                 className={`flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-sm ${
-                  q.url === stream.active.url
-                    ? "bg-primary text-primary-foreground"
-                    : "text-white/85 hover:bg-white/10"
+                  q.url === stream.active.url ? "bg-primary text-primary-foreground" : "text-white/85 hover:bg-white/10"
                 }`}
               >
                 <span>{q.label || q.quality}</span>
@@ -2033,18 +2075,14 @@ function SettingsPanel({
                   onClose();
                 }}
                 className={`block w-full rounded-md px-3 py-1.5 text-left text-sm ${
-                  activeSub === s.language
-                    ? "bg-primary text-primary-foreground"
-                    : "text-white/85 hover:bg-white/10"
+                  activeSub === s.language ? "bg-primary text-primary-foreground" : "text-white/85 hover:bg-white/10"
                 }`}
               >
                 {s.label}
               </button>
             ))}
             <div className="mt-3 border-t border-white/10 pt-2">
-              <div className="px-2 pb-1 text-[10px] uppercase tracking-wider text-white/40">
-                Caption style
-              </div>
+              <div className="px-2 pb-1 text-[10px] uppercase tracking-wider text-white/40">Caption style</div>
               <label className="flex items-center justify-between px-2 py-1 text-xs text-white/80">
                 <span>Size</span>
                 <input
@@ -2063,9 +2101,7 @@ function SettingsPanel({
                   min={0}
                   max={100}
                   value={sub.bgOpacity}
-                  onChange={(e) =>
-                    setSettings({ subtitle: { ...sub, bgOpacity: Number(e.target.value) } })
-                  }
+                  onChange={(e) => setSettings({ subtitle: { ...sub, bgOpacity: Number(e.target.value) } })}
                   className="ml-3 w-32 accent-primary"
                 />
               </label>
@@ -2076,9 +2112,7 @@ function SettingsPanel({
                     <button
                       key={c}
                       onClick={() => setSettings({ subtitle: { ...sub, color: c } })}
-                      className={`h-5 w-5 rounded-full ring-2 ${
-                        sub.color === c ? "ring-primary" : "ring-white/20"
-                      }`}
+                      className={`h-5 w-5 rounded-full ring-2 ${sub.color === c ? "ring-primary" : "ring-white/20"}`}
                       style={{ background: c }}
                     />
                   ))}
@@ -2092,9 +2126,7 @@ function SettingsPanel({
                       key={e}
                       onClick={() => setSettings({ subtitle: { ...sub, edgeStyle: e } })}
                       className={`rounded-md px-2 py-0.5 text-[10px] capitalize ${
-                        sub.edgeStyle === e
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-white/10 hover:bg-white/20"
+                        sub.edgeStyle === e ? "bg-primary text-primary-foreground" : "bg-white/10 hover:bg-white/20"
                       }`}
                     >
                       {e}
@@ -2116,9 +2148,7 @@ function SettingsPanel({
                   onClose();
                 }}
                 className={`rounded-md px-2 py-1.5 text-sm font-medium ${
-                  rate === r
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-white/8 text-white/85 hover:bg-white/15"
+                  rate === r ? "bg-primary text-primary-foreground" : "bg-white/8 text-white/85 hover:bg-white/15"
                 }`}
               >
                 {r === 1 ? "Normal" : `${r}x`}
@@ -2162,15 +2192,9 @@ function SettingToggle({
         <span className="block text-sm font-medium">{label}</span>
         {hint && <span className="mt-0.5 block text-[11px] text-white/55">{hint}</span>}
       </span>
-      <span
-        className={`relative h-5 w-9 shrink-0 rounded-full transition ${
-          value ? "bg-primary" : "bg-white/15"
-        }`}
-      >
+      <span className={`relative h-5 w-9 shrink-0 rounded-full transition ${value ? "bg-primary" : "bg-white/15"}`}>
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${
-            value ? "left-[18px]" : "left-0.5"
-          }`}
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${value ? "left-[18px]" : "left-0.5"}`}
         />
       </span>
     </button>
