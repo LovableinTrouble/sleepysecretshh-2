@@ -1,24 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect, useRef } from "react";
-import {
-  Search,
-  X,
-  Gamepad2,
-  ArrowDownAZ,
-  Flame,
-  Clock,
-  Fullscreen,
-  Loader2,
-  ExternalLink,
-  Play,
-} from "lucide-react";
+import { Search, X, Gamepad2, ArrowDownAZ, Flame, Clock, Fullscreen, Loader2, ExternalLink, Play } from "lucide-react";
 
 const ZONES_URL = "https://cdn.jsdelivr.net/gh/gn-math/assets@main/zones.json";
 const COVER_URL = "https://cdn.jsdelivr.net/gh/gn-math/covers@main";
 const HTML_URL = "https://cdn.jsdelivr.net/gh/gn-math/html@main";
-const POPULARITY_URL =
-  "https://data.jsdelivr.net/v1/stats/packages/gh/gn-math/html@main/files?period=year";
+const POPULARITY_URL = "https://data.jsdelivr.net/v1/stats/packages/gh/gn-math/html@main/files?period=year";
 
 type ZoneGame = {
   id: number;
@@ -57,10 +45,10 @@ function resolveAsset(input: string) {
 
 async function loadGames(): Promise<Game[]> {
   const [zonesRes, popRes] = await Promise.all([
-    fetch(ZONES_URL, { cache: "force-cache" }),
-    fetch(POPULARITY_URL).catch(() => null),
+    fetch(ZONES_URL, { signal: AbortSignal.timeout(10000) }),
+    fetch(POPULARITY_URL, { signal: AbortSignal.timeout(10000) }).catch(() => null),
   ]);
-  if (!zonesRes.ok) throw new Error("Failed to load games");
+  if (!zonesRes.ok) throw new Error(`Failed to load games (${zonesRes.status})`);
   const zones = (await zonesRes.json()) as ZoneGame[];
 
   const hitMap = new Map<number, number>();
@@ -103,17 +91,19 @@ function GamesPage() {
   const [sort, setSort] = useState<SortMode>("popular");
   const [active, setActive] = useState<Game | null>(null);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["gn-math-games"],
     queryFn: loadGames,
     staleTime: 60 * 60 * 1000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
   const games = useMemo(() => {
     if (!data) return [] as Game[];
     const q = query.trim().toLowerCase();
     const filtered = q
-      ? data.filter((g) => g.name.toLowerCase().includes(q))
+      ? data.filter((g) => g.name.toLowerCase().includes(q) || g.author?.toLowerCase().includes(q))
       : data;
     return sortGames(filtered, sort);
   }, [data, query, sort]);
@@ -190,8 +180,19 @@ function GamesPage() {
         )}
 
         {error && (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-sm text-red-300">
-            Couldn't load games. Please try again shortly.
+          <div className="flex flex-col items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-sm text-red-300">
+            <p>
+              Couldn't load games{error instanceof Error ? `: ${error.message}` : ""}. This is usually the game catalog
+              CDN being slow or blocked on your network.
+            </p>
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="flex items-center gap-2 rounded-full bg-red-500/15 px-4 py-1.5 text-xs font-semibold text-red-200 transition hover:bg-red-500/25 disabled:opacity-50"
+            >
+              {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Try again
+            </button>
           </div>
         )}
 
@@ -205,9 +206,7 @@ function GamesPage() {
         )}
 
         {!isLoading && !error && games.length === 0 && (
-          <div className="mt-16 text-center text-sm text-muted-foreground">
-            No games match "{query}".
-          </div>
+          <div className="mt-16 text-center text-sm text-muted-foreground">No games match "{query}".</div>
         )}
       </div>
 
@@ -254,13 +253,9 @@ function GameCard({ game, onOpen }: { game: Game; onOpen: () => void }) {
         </div>
       </div>
       <div className="absolute inset-x-0 bottom-0 p-2">
-        <p className="line-clamp-2 text-[11px] font-semibold text-white drop-shadow md:text-xs">
-          {game.name}
-        </p>
+        <p className="line-clamp-2 text-[11px] font-semibold text-white drop-shadow md:text-xs">{game.name}</p>
         {!game.pinned && game.hits > 0 && (
-          <p className="mt-0.5 text-[10px] font-medium text-white/60">
-            {formatHits(game.hits)} plays
-          </p>
+          <p className="mt-0.5 text-[10px] font-medium text-white/60">{formatHits(game.hits)} plays</p>
         )}
       </div>
     </button>
@@ -276,6 +271,7 @@ function formatHits(n: number): string {
 function GamePlayer({ game, onClose }: { game: Game; onClose: () => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
+  const [stuck, setStuck] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -288,6 +284,16 @@ function GamePlayer({ game, onClose }: { game: Game; onClose: () => void }) {
       document.body.style.overflow = "";
     };
   }, [onClose]);
+
+  // Some individual game files (or a slow/blocked CDN edge) never fire onLoad.
+  // Surface a fallback instead of spinning forever.
+  useEffect(() => {
+    setStuck(false);
+    const t = window.setTimeout(() => {
+      if (loading) setStuck(true);
+    }, 12000);
+    return () => window.clearTimeout(t);
+  }, [game.playUrl, loading]);
 
   const goFullscreen = () => {
     const el = wrapRef.current;
@@ -304,9 +310,7 @@ function GamePlayer({ game, onClose }: { game: Game; onClose: () => void }) {
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-white">{game.name}</p>
-          {game.author && (
-            <p className="truncate text-[11px] text-white/50">by {game.author}</p>
-          )}
+          {game.author && <p className="truncate text-[11px] text-white/50">by {game.author}</p>}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -328,9 +332,24 @@ function GamePlayer({ game, onClose }: { game: Game; onClose: () => void }) {
         </div>
       </div>
       <div ref={wrapRef} className="relative flex-1 bg-black">
-        {loading && (
+        {loading && !stuck && (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+        {loading && stuck && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black px-6 text-center">
+            <p className="text-sm text-white/70">
+              This game is taking a while to load — it may be blocked on your network.
+            </p>
+            <a
+              href={game.playUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
+            >
+              Open in a new tab instead
+            </a>
           </div>
         )}
         <iframe
