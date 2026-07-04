@@ -1,13 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Play, Bookmark, Volume2, VolumeX, Check, ListFilter as Filter, Loader2 } from "lucide-react";
-import {
-  fetchTrendingPage,
-  fetchPopularPage,
-  fetchMovieVideos,
-  fetchTVVideos,
-} from "@/lib/tmdb";
+import { fetchTrendingPage, fetchPopularPage, fetchMovieVideos, fetchTVVideos } from "@/lib/tmdb";
 import type { Media } from "@/lib/catalog";
 
 export const Route = createFileRoute("/shorts")({
@@ -55,14 +50,16 @@ function getWatchlist(): Media[] {
 function toggleWatchlist(m: Media) {
   const list = getWatchlist();
   const exists = list.some((x) => x.id === m.id && x.type === m.type);
-  const next = exists
-    ? list.filter((x) => !(x.id === m.id && x.type === m.type))
-    : [m, ...list.slice(0, 199)];
+  const next = exists ? list.filter((x) => !(x.id === m.id && x.type === m.type)) : [m, ...list.slice(0, 199)];
   localStorage.setItem(WATCHLIST_KEY, JSON.stringify(next));
   window.dispatchEvent(new CustomEvent("watchlist-changed"));
 }
 
-async function loadPage(filter: FilterId, page: number): Promise<Short[]> {
+async function loadPage(
+  filter: FilterId,
+  page: number,
+  queryClient: ReturnType<typeof useQueryClient>,
+): Promise<Short[]> {
   let items: Media[] = [];
   try {
     if (filter === "movie") items = await fetchPopularPage("movie", page);
@@ -70,10 +67,7 @@ async function loadPage(filter: FilterId, page: number): Promise<Short[]> {
     else if (filter === "trending") items = await fetchTrendingPage("all", page);
     else {
       // "all" — interleave movies + tv
-      const [m, t] = await Promise.all([
-        fetchPopularPage("movie", page),
-        fetchPopularPage("tv", page),
-      ]);
+      const [m, t] = await Promise.all([fetchPopularPage("movie", page), fetchPopularPage("tv", page)]);
       items = [];
       const max = Math.max(m.length, t.length);
       for (let i = 0; i < max; i++) {
@@ -87,13 +81,18 @@ async function loadPage(filter: FilterId, page: number): Promise<Short[]> {
   // Only movie/tv items are supported here.
   items = items.filter((i) => i.type === "movie" || i.type === "tv");
 
-  // Fetch trailers in parallel.
+  // Fetch trailers in parallel, but cache each lookup by media id so we
+  // never re-hit TMDB for a title we've already resolved a trailer for
+  // (this repeats a lot: "trending" and "all" overlap heavily, and
+  // switching filters back and forth used to refetch everything).
   const results = await Promise.all(
     items.map(async (item) => {
       try {
-        const vids = item.type === "tv"
-          ? await fetchTVVideos(item.id)
-          : await fetchMovieVideos(item.id);
+        const vids = await queryClient.fetchQuery({
+          queryKey: ["short-trailer-videos", item.type, item.id],
+          queryFn: () => (item.type === "tv" ? fetchTVVideos(item.id) : fetchMovieVideos(item.id)),
+          staleTime: Infinity,
+        });
         const trailer =
           vids.find((v) => v.site === "YouTube" && v.type === "Trailer") ||
           vids.find((v) => v.site === "YouTube" && v.type === "Teaser") ||
@@ -138,11 +137,17 @@ function ShortsPage() {
     return () => window.removeEventListener("watchlist-changed", update);
   }, []);
 
+  const queryClient = useQueryClient();
+
   const query = useInfiniteQuery({
     queryKey: ["shorts-feed", filter],
-    queryFn: ({ pageParam }) => loadPage(filter, pageParam as number),
+    queryFn: ({ pageParam }) => loadPage(filter, pageParam as number, queryClient),
     initialPageParam: 1,
-    getNextPageParam: (_last, all) => all.length + 1,
+    // Stop paginating once a page comes back empty (TMDB ran out of pages,
+    // or every item on it lacked a trailer) — previously this kept
+    // incrementing forever and would hammer TMDB with empty requests
+    // every time the user scrolled near the bottom of a short list.
+    getNextPageParam: (lastPage, allPages) => (lastPage.length === 0 ? undefined : allPages.length + 1),
     staleTime: 10 * 60 * 1000,
   });
 
@@ -175,11 +180,7 @@ function ShortsPage() {
           setCurrentIndex(idx);
         }
         // Load more when nearing end.
-        if (
-          idx >= shorts.length - 3 &&
-          query.hasNextPage &&
-          !query.isFetchingNextPage
-        ) {
+        if (idx >= shorts.length - 5 && query.hasNextPage && !query.isFetchingNextPage) {
           query.fetchNextPage();
         }
         ticking = false;
@@ -225,9 +226,7 @@ function ShortsPage() {
           <button
             onClick={() => setShowFilters((v) => !v)}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
-              showFilters
-                ? "bg-primary text-primary-foreground"
-                : "bg-white/10 text-white hover:bg-white/20"
+              showFilters ? "bg-primary text-primary-foreground" : "bg-white/10 text-white hover:bg-white/20"
             }`}
           >
             <Filter className="h-3.5 w-3.5" />
@@ -252,9 +251,7 @@ function ShortsPage() {
                 containerRef.current?.scrollTo({ top: 0 });
               }}
               className={`rounded-lg px-3 py-1.5 text-left text-xs font-semibold transition ${
-                filter === f.id
-                  ? "bg-primary/20 text-white"
-                  : "text-white/70 hover:bg-white/10"
+                filter === f.id ? "bg-primary/20 text-white" : "text-white/70 hover:bg-white/10"
               }`}
             >
               {f.label}
@@ -318,9 +315,7 @@ function ShortsPage() {
         </button>
       )}
 
-      {current && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 h-4" />
-      )}
+      {current && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 h-4" />}
 
       {/* Side actions */}
       {current && (
@@ -389,21 +384,35 @@ function ShortSlide({
   onToggleMute: () => void;
   onWatch: () => void;
 }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   // YouTube params chosen to hide chrome as much as YT allows.
-  // Reload iframe when mute changes so audio toggles reliably on mobile/iOS.
+  // Always start muted (autoplay policies require it); mute/unmute after
+  // load happens via postMessage below instead of remounting the iframe,
+  // which used to restart the trailer from 0 on every tap.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
   const src = active
-    ? `https://www.youtube-nocookie.com/embed/${short.videoKey}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1&loop=1&playlist=${short.videoKey}`
+    ? `https://www.youtube-nocookie.com/embed/${short.videoKey}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1&loop=1&playlist=${short.videoKey}&enablejsapi=1&origin=${encodeURIComponent(origin)}`
     : "";
+
+  useEffect(() => {
+    if (!active) return;
+    const post = (func: "mute" | "unMute") => {
+      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args: [] }), "*");
+    };
+    // The player may not be listening yet right after the iframe mounts,
+    // so retry briefly until it's had time to attach.
+    const attempts = [0, 250, 800, 1500].map((delay) =>
+      window.setTimeout(() => post(muted ? "mute" : "unMute"), delay),
+    );
+    return () => attempts.forEach((t) => window.clearTimeout(t));
+  }, [muted, active, short.videoKey]);
 
   return (
     <div className="relative flex h-full w-full snap-start snap-always items-center justify-center">
       {/* Backdrop poster while inactive */}
       {short.backdrop && (
-        <img
-          src={short.backdrop}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-40 blur-2xl"
-        />
+        <img src={short.backdrop} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40 blur-2xl" />
       )}
 
       <div className="relative h-full w-full max-w-[min(100vw,calc(100vh*9/16))] overflow-hidden bg-black md:h-[min(100vh,900px)] md:aspect-[9/16] md:w-auto md:rounded-2xl md:my-4 md:max-h-[calc(100vh-2rem)]">
@@ -412,7 +421,8 @@ function ShortSlide({
             {/* Prevent iframe from capturing our tap so user gesture can bubble
                 for mute toggle & navigation. Also visually hides YT hover chrome. */}
             <iframe
-              key={`${short.id}-${muted ? "m" : "u"}`}
+              key={short.id}
+              ref={iframeRef}
               src={src}
               title={short.title}
               className="absolute inset-0 h-full w-full scale-[1.35]"
@@ -422,20 +432,11 @@ function ShortSlide({
             />
             {/* Overlay to swallow clicks on the YouTube iframe (blocks pause on click,
                 blocks YT hover UI, keeps our snap scrolling smooth). */}
-            <div
-              className="absolute inset-0 z-10"
-              onClick={onToggleMute}
-              role="button"
-              aria-label="Toggle sound"
-            />
+            <div className="absolute inset-0 z-10" onClick={onToggleMute} role="button" aria-label="Toggle sound" />
           </>
         ) : (
           short.poster && (
-            <img
-              src={short.poster}
-              alt={short.title}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            <img src={short.poster} alt={short.title} className="absolute inset-0 h-full w-full object-cover" />
           )
         )}
 
@@ -455,12 +456,8 @@ function ShortSlide({
               </span>
             ) : null}
           </div>
-          <h3 className="text-lg font-bold text-white drop-shadow md:text-xl">
-            {short.title}
-          </h3>
-          <p className="mt-1 line-clamp-2 text-xs text-white/80 drop-shadow md:text-sm">
-            {short.overview}
-          </p>
+          <h3 className="text-lg font-bold text-white drop-shadow md:text-xl">{short.title}</h3>
+          <p className="mt-1 line-clamp-2 text-xs text-white/80 drop-shadow md:text-sm">{short.overview}</p>
           <button
             onClick={onWatch}
             className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/95 px-4 py-1.5 text-xs font-bold text-black transition hover:bg-white"
