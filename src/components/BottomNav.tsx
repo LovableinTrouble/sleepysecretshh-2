@@ -8,7 +8,6 @@ import {
   Settings as SettingsIcon,
   Gamepad2,
   Smartphone,
-  Download,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,7 +17,6 @@ const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/iptv", label: "Live TV", icon: RadioTower },
   { to: "/shorts", label: "Shorts", icon: Smartphone },
   { to: "/games", label: "Games", icon: Gamepad2 },
-  { to: "/install", label: "App", icon: Download },
   { to: "/watchlist", label: "Watchlist", icon: Bookmark },
   { to: "/search", label: "Search", icon: Search },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
@@ -38,11 +36,8 @@ export function BottomNav() {
   const loc = useLocation();
 
   // Don't render over the immersive player — it covers the bottom control bar.
-  if (
-    loc.pathname === "/watch" ||
-    loc.pathname.startsWith("/watch/") ||
-    loc.pathname.startsWith("/sports/")
-  ) return null;
+  if (loc.pathname === "/watch" || loc.pathname.startsWith("/watch/") || loc.pathname.startsWith("/sports/"))
+    return null;
 
   return (
     <nav className="fixed bottom-3 left-1/2 z-40 w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 animate-fade-in md:bottom-6 md:w-auto">
@@ -63,7 +58,9 @@ export function BottomNav() {
               <Icon className="h-[1.15rem] w-[1.15rem] shrink-0 md:h-5 md:w-5" strokeWidth={2.15} />
               <span
                 className={`hidden overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 md:inline-block ${
-                  active ? "max-w-[88px] opacity-100" : "max-w-0 opacity-0 group-hover:max-w-[88px] group-hover:opacity-100"
+                  active
+                    ? "max-w-[88px] opacity-100"
+                    : "max-w-0 opacity-0 group-hover:max-w-[88px] group-hover:opacity-100"
                 }`}
               >
                 {label}
