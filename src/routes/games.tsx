@@ -52,11 +52,15 @@ function sortGames(list: CatalogGame[], mode: SortMode): CatalogGame[] {
   return out;
 }
 
+const PAGE_SIZE = 36;
+
 function GamesPage() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("featured");
   const [category, setCategory] = useState<string>("All");
   const [active, setActive] = useState<CatalogGame | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["games-catalog"],
@@ -82,6 +86,30 @@ function GamesPage() {
     }
     return sortGames(filtered, sort);
   }, [data, query, sort, category]);
+
+  // Only mount a page's worth of cards at a time — with a few hundred
+  // games in the catalog, mounting every card (images + hover transitions)
+  // at once is what was causing the page to lag.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [query, sort, category]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((c) => Math.min(c + PAGE_SIZE, games.length));
+        }
+      },
+      { rootMargin: "600px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [games.length]);
+
+  const visibleGames = games.slice(0, visibleCount);
 
   return (
     <div className="min-h-screen px-3 pb-32 pt-16 md:px-6 md:pt-20 animate-page-in">
@@ -189,11 +217,14 @@ function GamesPage() {
 
         {/* Grid */}
         {!isLoading && !error && (
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 md:gap-3 lg:grid-cols-6 xl:grid-cols-7">
-            {games.map((g) => (
-              <GameCard key={g.id} game={g} onOpen={() => setActive(g)} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 md:gap-3 lg:grid-cols-6 xl:grid-cols-7">
+              {visibleGames.map((g) => (
+                <GameCard key={g.id} game={g} onOpen={() => setActive(g)} />
+              ))}
+            </div>
+            {visibleCount < games.length && <div ref={sentinelRef} className="h-10 w-full" />}
+          </>
         )}
 
         {!isLoading && !error && games.length === 0 && (
