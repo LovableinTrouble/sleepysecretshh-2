@@ -383,7 +383,7 @@ function FailedOverlay({
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         {false && (
           <button
-            onClick={() => onSwitchSource("toro")}
+            onClick={() => onSwitchSource("xpass")}
             className="rounded-lg bg-white/10 px-5 h-10 text-sm font-medium text-white ring-1 ring-white/15 hover:bg-white/20"
           >
             Switch to Backup Sources
