@@ -1,5 +1,7 @@
-import { ExternalLink, Download, Settings, MonitorPlay } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Loader2, X } from "lucide-react";
 import type { Media } from "@/lib/catalog";
+import { resolveDownloaderSources, type DownloadItem } from "@/lib/downloads";
 
 interface DownloadsDialogProps {
   open: boolean;
@@ -10,9 +12,43 @@ interface DownloadsDialogProps {
 }
 
 export function DownloadsDialog({ open, media, season, episode, onClose }: DownloadsDialogProps) {
+  const isSeries = media.type === "tv" || media.type === "anime";
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<DownloadItem[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    let dead = false;
+    setLoading(true);
+    setError(null);
+    setItems([]);
+    resolveDownloaderSources({
+      data: {
+        tmdbId: media.id,
+        title: media.title,
+        type: isSeries ? "show" : "movie",
+        season: isSeries ? (season ?? 1) : undefined,
+        episode: isSeries ? (episode ?? 1) : undefined,
+      },
+    })
+      .then((res) => {
+        if (dead) return;
+        if (res.ok) setItems(res.downloads);
+        else setError(res.error || "No downloads found for this title.");
+      })
+      .catch((err: any) => !dead && setError(err?.message || "Failed to load downloads."))
+      .finally(() => !dead && setLoading(false));
+    return () => { dead = true; };
+  }, [open, media.id, media.title, isSeries, season, episode]);
+
   if (!open) return null;
 
-  const isSeries = media.type === "tv" || media.type === "anime";
+  const proxied = (url: string, fileName?: string) => {
+    const params = new URLSearchParams({ url });
+    if (fileName) params.set("filename", fileName);
+    return `/api/public/download?${params.toString()}`;
+  };
 
   return (
     <div
@@ -27,15 +63,14 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
         aria-label="Close downloads"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-card/95 backdrop-blur-xl shadow-2xl">
-        {/* Header */}
+      <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-card/95 backdrop-blur-xl shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15">
               <Download className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-bold text-white">Downloads</p>
+              <p className="text-sm font-bold text-white">Media Downloader</p>
               <p className="text-xs text-white/50">{media.title}</p>
             </div>
           </div>
@@ -45,68 +80,60 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
             className="grid h-8 w-8 place-items-center rounded-full bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
             aria-label="Close"
           >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4">
-              <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-            </svg>
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="px-5 py-6">
-          {/* Media poster preview */}
-          {media.poster && (
-            <div className="mb-5 flex justify-center">
-              <img
-                src={media.poster}
-                alt={media.title}
-                className="h-32 w-24 rounded-lg object-cover ring-1 ring-white/10"
-              />
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {isSeries && (
+            <p className="mb-3 text-xs uppercase tracking-widest text-white/40">
+              Season {season ?? 1} · Episode {episode ?? 1}
+            </p>
+          )}
+          {loading && (
+            <div className="grid place-items-center py-12 text-white/60">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="mt-3 text-xs">Searching download sources…</p>
             </div>
           )}
-
-          <div className="space-y-4 text-center">
-            <p className="text-sm text-white/80">
-              Downloads are available on your primary source.
-            </p>
-
-            {/* Steps */}
-            <div className="rounded-2xl bg-white/[0.03] p-4 text-left">
-              <p className="mb-3 text-xs font-medium uppercase tracking-wider text-white/40">How to download</p>
-              <ol className="space-y-2.5 text-sm text-white/70">
-                <li className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">1</span>
-                  <span>Play the content using the primary source</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">2</span>
-                  <span>Open player settings (<Settings className="inline h-3.5 w-3.5" />) during playback</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">3</span>
-                  <span>Select "Downloads" from the menu</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">4</span>
-                  <span>Choose your quality and download</span>
-                </li>
-              </ol>
+          {!loading && error && (
+            <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
+              {error}
             </div>
-
-            {isSeries && (
-              <p className="text-xs text-white/50">
-                Current: Season {season ?? 1}, Episode {episode ?? 1}
-              </p>
-            )}
-          </div>
+          )}
+          {!loading && !error && items.length > 0 && (
+            <ul className="space-y-2">
+              {items.map((it) => (
+                <li key={it.id}>
+                  <a
+                    href={proxied(it.url, it.fileName)}
+                    className="group flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 p-4 transition hover:border-white/20 hover:bg-black/60"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold uppercase text-white">
+                        {it.source}
+                      </p>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
+                        {it.quality} · {it.type.toUpperCase()}
+                        {it.size ? ` · ${it.size}` : ""}
+                      </p>
+                    </div>
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
+                      <Download className="h-4 w-4" />
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        {/* Footer */}
         <div className="border-t border-white/10 px-5 py-4">
           <button
             onClick={onClose}
-            className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+            className="w-full rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15"
           >
-            Got it
+            Close
           </button>
         </div>
       </div>
