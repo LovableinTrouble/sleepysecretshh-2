@@ -356,29 +356,32 @@ function SettingsPage() {
         {/* Sources */}
         <Section
           title="Sources"
-          desc="FebBox is the primary direct source. Zxcstream is a third-party embed used as a fallback."
+          desc="FebBox is the primary direct source. Prionix is a third-party embed used as a fallback."
         >
           <Row
             label="Preferred source"
-            hint="FebBox runs first when a cookie is configured; Zxcstream is used as a fallback."
+            hint="FebBox runs first when a token is configured; Prionix is used as a fallback."
           >
             <Select
               value={s.preferredSource}
               onChange={(v) => set({ preferredSource: v })}
               options={[
                 { value: "febbox", label: "FebBox — direct HLS, up to 4K" },
-                { value: "zxcstream", label: "Zxcstream — embed backup" },
+                { value: "prionix", label: "Prionix — embed backup" },
               ]}
             />
           </Row>
-          <Row label="FebBox" hint="Direct HLS streams up to 4K. Requires a FebBox ui= cookie pasted below.">
+          <Row label="FebBox" hint="Direct HLS streams up to 4K. Requires a FebBox ui= cookie/token pasted below.">
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${s.integrations.febboxCookie?.trim() ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" : "bg-amber-500/15 text-amber-300 ring-amber-400/30"}`}
             >
               {s.integrations.febboxCookie?.trim() ? "Connected" : "Not configured"}
             </span>
           </Row>
-          <Row label="Zxcstream" hint="Third-party iframe embed fallback, used when FebBox has no stream.">
+          <Row
+            label="Prionix"
+            hint="Third-party iframe embed fallback, used when FebBox isn't enabled or has no stream."
+          >
             <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
               Backup ready
             </span>
