@@ -110,6 +110,12 @@ async function fetchUpstreamWithRetry(
   throw lastErr;
 }
 
+function sameHost(a: string, b: string): boolean {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  return x === y || x.endsWith(`.${y}`) || y.endsWith(`.${x}`);
+}
+
 function rewriteHlsPlaylist(body: string, base: URL, token: string): string {
   const rewrite = (raw: string) => {
     const trimmed = raw.trim();
@@ -163,13 +169,31 @@ async function handle(request: Request, method: "GET" | "HEAD") {
     upstreamUrl = child.toString();
   }
 
+  const upstreamHost = new URL(upstreamUrl).hostname;
+  let refererHost: string | null = null;
+  try {
+    refererHost = target.referer ? new URL(target.referer).hostname : null;
+  } catch {
+    refererHost = null;
+  }
+  const refererBelongsHere = !!refererHost && sameHost(upstreamHost, refererHost);
+
   const upstreamHeaders: Record<string, string> = {
     "user-agent":
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
     accept: "*/*",
   };
-  if (target.cookie) upstreamHeaders.cookie = target.cookie;
-  if (target.referer) upstreamHeaders.referer = target.referer;
+  // Only forward the stored cookie/referer when they actually belong to the
+  // host we're about to hit — e.g. the "file" URL a source's resolver returns
+  // is frequently on a completely different domain (a third-party relay/proxy)
+  // than the site the referer was captured from, and forcing a mismatched
+  // Referer onto an unrelated host is a common way to get rejected outright.
+  if (target.cookie && refererBelongsHere) upstreamHeaders.cookie = target.cookie;
+  if (target.referer && refererBelongsHere) {
+    upstreamHeaders.referer = target.referer;
+  } else {
+    upstreamHeaders.referer = `${new URL(upstreamUrl).origin}/`;
+  }
 
   for (const name of PASS_REQUEST_HEADERS) {
     const value = request.headers.get(name);
@@ -179,6 +203,23 @@ async function handle(request: Request, method: "GET" | "HEAD") {
   let upstream: Response;
   try {
     upstream = await fetchUpstreamWithRetry(upstreamUrl, { method, headers: upstreamHeaders });
+    // A relay/proxy host rejecting a mismatched referer typically fails fast
+    // with a 4xx/5xx rather than hanging — if that happens and we did send a
+    // referer, retry once with no referer/cookie at all before giving up.
+    if (!upstream.ok && upstream.status >= 400 && (upstreamHeaders.referer || upstreamHeaders.cookie)) {
+      const bareHeaders: Record<string, string> = { ...upstreamHeaders };
+      delete bareHeaders.referer;
+      delete bareHeaders.cookie;
+      try {
+        const retryResponse = await fetchUpstreamWithRetry(upstreamUrl, {
+          method,
+          headers: bareHeaders,
+        });
+        if (retryResponse.ok) upstream = retryResponse;
+      } catch {
+        // Keep the original response/error if the bare retry also fails.
+      }
+    }
   } catch (err) {
     return new Response(`upstream fetch failed: ${(err as Error).message}`, {
       status: 502,
