@@ -72,7 +72,15 @@ function extractCookie(res: Response): string | null {
   return raw.map((c) => c.split(";")[0]).join("; ");
 }
 
-async function getToken(pageUrl: string): Promise<{ token: string | null; cookie: string | null; detail: string }> {
+function buildScope(input: z.infer<typeof DownloadsSchema>): string {
+  if (input.type === "show") return `tv/${input.tmdbId}/${input.season ?? 1}/${input.episode ?? 1}`;
+  return `movie/${input.tmdbId}`;
+}
+
+async function getToken(
+  pageUrl: string,
+  scope: string,
+): Promise<{ token: string | null; cookie: string | null; detail: string }> {
   const verifyHeaders: Record<string, string> = {
     "User-Agent":
       "Mozilla/5.0 (X11; U; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6884.98 Safari/537.36",
@@ -109,10 +117,27 @@ async function getToken(pageUrl: string): Promise<{ token: string | null; cookie
   }
   if (cookie) verifyHeaders.cookie = cookie;
 
-  const attemptOnce = async (): Promise<{ token: string | null; cookie: string | null; detail: string }> => {
+  // The upstream verify-robot endpoint now requires the caller to state which
+  // movie/show it's issuing a token for ("a valid media scope is required").
+  // The previous implementation sent no body at all, which is exactly the
+  // "Invalid scope" 400 users were hitting. The exact field name isn't
+  // documented, so try the handful of shapes a JSON API like this is likely
+  // to accept, stopping at the first one that yields a token.
+  const bodyCandidates: (Record<string, unknown> | null)[] = [
+    { scope },
+    { mediaScope: scope },
+    { path: `/api/download/${scope}` },
+    { url: pageUrl },
+    null,
+  ];
+
+  const attemptOnce = async (
+    body: Record<string, unknown> | null,
+  ): Promise<{ token: string | null; cookie: string | null; detail: string }> => {
     const res = await fetch(`${BASE_URL}/api/verify-robot`, {
       method: "POST",
-      headers: verifyHeaders,
+      headers: body ? { ...verifyHeaders, "content-type": "application/json" } : verifyHeaders,
+      body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(15000),
     });
     const verifyCookie = extractCookie(res) || cookie;
@@ -135,18 +160,23 @@ async function getToken(pageUrl: string): Promise<{ token: string | null; cookie
     return { token: json.token, cookie: verifyCookie, detail: "ok" };
   };
 
-  const first = await attemptOnce();
-  if (first.token) return first;
-  if (first.cookie && first.cookie !== cookie) {
-    // Retry once with whatever cookie verify-robot itself just handed back —
-    // some anti-bot flows require the *second* request to carry a cookie
-    // that was only issued by the first.
-    verifyHeaders.cookie = first.cookie;
-    const second = await attemptOnce();
-    if (second.token) return second;
-    return { token: null, cookie: second.cookie, detail: `${first.detail} | retry: ${second.detail}` };
+  const details: string[] = [];
+  for (const body of bodyCandidates) {
+    const attempt = await attemptOnce(body);
+    if (attempt.token) return attempt;
+    details.push(attempt.detail);
+    if (attempt.cookie && attempt.cookie !== cookie) {
+      // Retry once with whatever cookie verify-robot itself just handed back —
+      // some anti-bot flows require the *second* request to carry a cookie
+      // that was only issued by the first.
+      verifyHeaders.cookie = attempt.cookie;
+      const retry = await attemptOnce(body);
+      if (retry.token) return retry;
+      details.push(`retry: ${retry.detail}`);
+      cookie = attempt.cookie;
+    }
   }
-  return first;
+  return { token: null, cookie, detail: details.join(" | ") };
 }
 
 async function fetchPayload(pageUrl: string, token: string, cookie: string | null): Promise<any> {
@@ -242,8 +272,9 @@ export const resolveDownloaderSources = createServerFn({ method: "POST" })
   .inputValidator((data) => DownloadsSchema.parse(data))
   .handler(async ({ data }): Promise<DownloadsResult> => {
     const pageUrl = buildPageUrl(data);
+    const scope = buildScope(data);
     try {
-      const { token, cookie, detail } = await getToken(pageUrl);
+      const { token, cookie, detail } = await getToken(pageUrl, scope);
       if (!token) {
         return { ok: false, downloads: [], subtitles: [], error: `Downloader verification failed: ${detail}` };
       }
