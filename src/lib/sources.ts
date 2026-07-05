@@ -3,22 +3,20 @@ import type { Settings } from "./store";
 
 /**
  * Source registry — FebBox is the primary direct source (up to 4K, requires
- * a ui= cookie). Xpass (play.xpass.top / Pobreflix) is the direct HLS
- * backup, resolved server-side and streamed through our own proxy so playback
- * uses our native player UI. Zxcstream is a third-party iframe embed fallback
- * used when neither direct source has a working stream for a title.
+ * a ui= cookie). Zxcstream is a third-party iframe embed fallback used when
+ * FebBox has no working stream for a title.
  */
 export interface Source {
   id: string;
   name: string;
   badge?: string;
-  kind: "febbox-direct" | "xpass-direct" | "embed";
+  kind: "febbox-direct" | "embed";
   tier: "primary" | "backup";
   legacy?: boolean;
   build: (m: Media, season?: number, episode?: number) => string;
 }
 
-export type SourceKey = "gamma" | "xpass" | "zxcstream";
+export type SourceKey = "gamma" | "zxcstream";
 
 const FEBBOX: Source = {
   id: "febbox",
@@ -29,19 +27,9 @@ const FEBBOX: Source = {
   build: () => "",
 };
 
-// Xpass — direct HLS backup, resolved server-side via `resolveXpassStream`.
-const XPASS: Source = {
-  id: "xpass",
-  name: "Xpass",
-  badge: "Direct · HLS",
-  kind: "xpass-direct",
-  tier: "backup",
-  build: () => "",
-};
-
-// Zxcstream — third-party iframe embed, used as a last-resort fallback when
-// neither direct source works. Query params per api.zxcstream.xyz docs:
-// domainAd (splash), color (accent hex, no '#'), autoplay.
+// Zxcstream — third-party iframe embed, used as a fallback when FebBox
+// doesn't work. Query params per api.zxcstream.xyz docs: domainAd (splash),
+// color (accent hex, no '#'), autoplay.
 const ZXCSTREAM: Source = {
   id: "zxcstream",
   name: "Zxcstream",
@@ -63,24 +51,17 @@ const ZXCSTREAM: Source = {
   },
 };
 
-export const SOURCES: Source[] = [FEBBOX, XPASS, ZXCSTREAM];
-
-function hasFebboxCookie(settings?: Pick<Settings, "integrations">): boolean {
-  return Boolean(settings?.integrations?.febboxCookie?.trim());
-}
+export const SOURCES: Source[] = [FEBBOX, ZXCSTREAM];
 
 export function getOrderedSources(settings?: Pick<Settings, "integrations">): Source[] {
-  return hasFebboxCookie(settings) ? [FEBBOX, XPASS, ZXCSTREAM] : [XPASS, FEBBOX, ZXCSTREAM];
+  return [FEBBOX, ZXCSTREAM];
 }
 
 export function sourceForKey(key: SourceKey): Source {
-  if (key === "gamma") return FEBBOX;
-  if (key === "zxcstream") return ZXCSTREAM;
-  return XPASS;
+  return key === "gamma" ? FEBBOX : ZXCSTREAM;
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
   gamma: "FebBox",
-  xpass: "Xpass",
   zxcstream: "Zxcstream",
 };
