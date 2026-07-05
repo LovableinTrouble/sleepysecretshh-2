@@ -9,7 +9,6 @@ import {
   Maximize,
   Minimize,
   Settings as SettingsIcon,
-  Bubbles as SubtitlesIcon,
   PictureInPicture2,
   ChevronLeft,
   RotateCcw,
@@ -723,6 +722,7 @@ function DirectVideo({
   const hideTimer = useRef<number | null>(null);
   const bufferingTimer = useRef<number | null>(null);
   const resumeRef = useRef<{ time: number; play: boolean } | null>(null);
+  const resumedKeyRef = useRef<string>("");
   const playbackRef = useRef({ current: 0, playing: false });
   const failedUrlsRef = useRef<Set<string>>(new Set());
   const playRequestRef = useRef(0);
@@ -741,8 +741,8 @@ function DirectVideo({
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsVisibleRef = useRef(true);
   const ignoreNextVideoClickRef = useRef(false);
-  const [openMenu, setOpenMenu] = useState<null | "settings" | "party">(null);
-  const [settingsTab, setSettingsTab] = useState<"quality" | "subs" | "speed" | "playback">("quality");
+  const [openMenu, setOpenMenu] = useState<null | "settings" | "party" | "subtitles">(null);
+  const [settingsTab, setSettingsTab] = useState<"quality" | "speed" | "playback">("quality");
   const [activeSub, setActiveSub] = useState<string | null>(null);
   const [partyToast, setPartyToast] = useState<string | null>(null);
 
@@ -840,11 +840,38 @@ function DirectVideo({
     hlsRef.current?.destroy();
     hlsRef.current = null;
 
+    // Seed resumeRef from saved watch progress on the very first load for
+    // this title (not on a manual quality switch, where switchQuality()
+    // already populated resumeRef with the in-progress currentTime). Doing
+    // this here — before the player is constructed — lets us hand HLS a
+    // `startPosition` up front instead of loading from 0 and reseeking
+    // afterwards, which was causing "continue watching" playback to stall
+    // (hls.js would buffer the start of the file, then get yanked to a big
+    // offset via a manual currentTime jump, and its internal loading state
+    // could get stuck instead of resuming the fetch at the new position).
+    const seasonKey = season ?? null;
+    const epKey = episode ?? null;
+    const resumeKey = `${media.id}:${seasonKey}:${epKey}`;
+    if (!resumeRef.current && resumedKeyRef.current !== resumeKey) {
+      resumedKeyRef.current = resumeKey;
+      const saved = getLocalProgressFor(media.id, seasonKey, epKey);
+      if (saved && saved.positionSeconds >= 15) {
+        resumeRef.current = { time: saved.positionSeconds, play: settings.player.autoplay };
+      }
+    }
+
     const { url, isHls } = stream.active;
+    const initialResume = resumeRef.current;
     const restorePlayback = () => {
       const resume = resumeRef.current;
       if (!resume) return;
-      if (resume.time > 1 && Number.isFinite(resume.time)) video.currentTime = resume.time;
+      // For HLS we already asked hls.js to start buffering at the resume
+      // point via `startPosition` below, so re-assigning currentTime here
+      // would just trigger a second, redundant seek — only do the manual
+      // seek for progressive (non-HLS) sources.
+      if (!(isHls && Hls.isSupported())) {
+        if (resume.time > 1 && Number.isFinite(resume.time)) video.currentTime = resume.time;
+      }
       if (resume.play) void requestPlay(true);
       resumeRef.current = null;
     };
@@ -857,6 +884,10 @@ function DirectVideo({
         // Start at the lowest rendition so playback begins ~instantly,
         // then let ABR upgrade as bandwidth is measured.
         startLevel: 0,
+        // Resume ("continue watching") from the saved position directly —
+        // letting hls.js target the right fragment from the start avoids
+        // the load-then-reseek dance that could leave playback stalled.
+        startPosition: initialResume && Number.isFinite(initialResume.time) ? Math.max(0, initialResume.time) : -1,
         autoStartLoad: true,
         capLevelToPlayerSize: true,
         // Larger forward buffer so a brief network dip doesn't stall playback.
@@ -1048,7 +1079,17 @@ function DirectVideo({
       hlsRef.current?.destroy();
       hlsRef.current = null;
     };
-  }, [stream.active, stream.qualities, switchQuality, tryNextSource, requestPlay, settings.player.autoplay]);
+  }, [
+    stream.active,
+    stream.qualities,
+    switchQuality,
+    tryNextSource,
+    requestPlay,
+    settings.player.autoplay,
+    media.id,
+    season,
+    episode,
+  ]);
 
   // Track video state — debounce buffering by 1.5s so brief stalls don't toast.
   useEffect(() => {
@@ -1119,28 +1160,6 @@ function DirectVideo({
       }
     };
   }, [party]);
-
-  // Resume from saved progress
-  const resumedKeyRef = useRef<string>("");
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    const seasonKey = season ?? null;
-    const epKey = episode ?? null;
-    const key = `${media.id}:${seasonKey}:${epKey}`;
-    if (resumedKeyRef.current === key) return;
-    resumedKeyRef.current = key;
-    const saved = getLocalProgressFor(media.id, seasonKey, epKey);
-    if (!saved || saved.positionSeconds < 15) return;
-    const tryResume = () => {
-      if (Number.isFinite(v.duration) && v.duration > 0) {
-        const target = Math.min(saved.positionSeconds, v.duration - 10);
-        if (target > 5) v.currentTime = target;
-      }
-    };
-    if (v.readyState >= 1) tryResume();
-    else v.addEventListener("loadedmetadata", tryResume, { once: true });
-  }, [media.id, season, episode]);
 
   // Save progress every ~5s while playing
   useEffect(() => {
@@ -1451,7 +1470,9 @@ function DirectVideo({
         </div>
       </div>
 
-      {/* Subtitle style */}
+      {/* Subtitle style — cues sit well above the control bar and stay
+          centered there. The position comes from the video's own box, not
+          the controls overlay, so it doesn't shift when the bar fades. */}
       <style>{`
         video::cue {
           color: ${sub.color};
@@ -1460,6 +1481,12 @@ function DirectVideo({
           font-size: ${sub.size}px;
           text-shadow: ${subShadow};
           line-height: 1.25;
+        }
+        video::-webkit-media-text-track-container {
+          bottom: 13% !important;
+        }
+        video::-webkit-media-text-track-display {
+          text-align: center;
         }
       `}</style>
 
@@ -1629,17 +1656,23 @@ function DirectVideo({
               <IconBtn label="Picture in Picture (p)" onClick={togglePip}>
                 <PictureInPicture2 className="h-5 w-5" strokeWidth={2} />
               </IconBtn>
-              <IconBtn
+              <MenuBtn
                 label="Subtitles (c)"
-                onClick={() => {
-                  const next = activeSub
-                    ? null
-                    : (stream.subs.find((s) => s.language === "en")?.language ?? stream.subs[0]?.language ?? null);
-                  setActiveSub(next);
-                }}
+                open={openMenu === "subtitles"}
+                onToggle={() => setOpenMenu(openMenu === "subtitles" ? null : "subtitles")}
               >
-                <SubtitlesIcon className={`h-5 w-5 ${activeSub ? "text-primary" : ""}`} strokeWidth={2} />
-              </IconBtn>
+                <SubtitlesIcon className={`h-5 w-5 ${activeSub ? "text-primary" : ""}`} strokeWidth={1.8} />
+              </MenuBtn>
+              {openMenu === "subtitles" && (
+                <SubtitleMenu
+                  subs={stream.subs}
+                  activeSub={activeSub}
+                  setActiveSub={setActiveSub}
+                  sub={sub}
+                  setSettings={setSettings}
+                  onClose={() => setOpenMenu(null)}
+                />
+              )}
               <MenuBtn
                 label="Settings"
                 open={openMenu === "settings"}
@@ -1654,10 +1687,6 @@ function DirectVideo({
                   setTab={setSettingsTab}
                   stream={stream}
                   onSwitchQuality={(q) => switchQuality(q)}
-                  activeSub={activeSub}
-                  setActiveSub={setActiveSub}
-                  sub={sub}
-                  setSettings={setSettings}
                   rate={rate}
                   onSetRate={(r) => {
                     const v = videoRef.current;
@@ -1713,6 +1742,24 @@ function DirectVideo({
 /* ============================================================
  * Shared building blocks
  * ============================================================ */
+
+function SubtitlesIcon({ className, strokeWidth = 1.8 }: { className?: string; strokeWidth?: number }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
+      <path d="M6.5 10.25h4M6.5 13.75h6" />
+      <path d="M13.5 10.25h4M15.5 13.75h2" />
+    </svg>
+  );
+}
 
 function IconBtn({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
   return (
@@ -1776,10 +1823,146 @@ function Menu({ children, title, onClose }: { children: React.ReactNode; title: 
 }
 
 /* ============================================================
+ * Subtitle picker popup — opened from the CC button. Lets the user pick a
+ * subtitle track (or turn captions off) and tune caption style, without
+ * having to dig into the full Settings panel.
+ * ============================================================ */
+
+function SubtitleMenu({
+  subs,
+  activeSub,
+  setActiveSub,
+  sub,
+  setSettings,
+  onClose,
+}: {
+  subs: Subtitle[];
+  activeSub: string | null;
+  setActiveSub: (s: string | null) => void;
+  sub: {
+    size: number;
+    color: string;
+    bgOpacity: number;
+    font: string;
+    edgeStyle: "none" | "shadow" | "outline";
+  };
+  setSettings: (patch: any) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const id = window.setTimeout(() => document.addEventListener("mousedown", onDoc), 0);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener("mousedown", onDoc);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute bottom-16 right-4 z-40 w-80 overflow-hidden rounded-2xl border border-white/10 bg-black/95 text-white shadow-2xl backdrop-blur-md"
+    >
+      <div className="px-3 pb-1 pt-3 text-[10px] uppercase tracking-wider text-white/40">Subtitles</div>
+      <div className="max-h-80 overflow-y-auto p-2">
+        <div className="space-y-1">
+          <button
+            onClick={() => {
+              setActiveSub(null);
+              onClose();
+            }}
+            className={`block w-full rounded-md px-3 py-1.5 text-left text-sm ${
+              !activeSub ? "bg-primary text-primary-foreground" : "text-white/85 hover:bg-white/10"
+            }`}
+          >
+            Off
+          </button>
+          {subs.length === 0 && (
+            <div className="px-3 py-2 text-xs text-white/55">No subtitles available for this title.</div>
+          )}
+          {subs.map((s) => (
+            <button
+              key={s.url}
+              onClick={() => {
+                setActiveSub(s.language);
+                onClose();
+              }}
+              className={`block w-full rounded-md px-3 py-1.5 text-left text-sm ${
+                activeSub === s.language ? "bg-primary text-primary-foreground" : "text-white/85 hover:bg-white/10"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 border-t border-white/10 pt-2">
+          <div className="px-2 pb-1 text-[10px] uppercase tracking-wider text-white/40">Caption style</div>
+          <label className="flex items-center justify-between px-2 py-1 text-xs text-white/80">
+            <span>Size</span>
+            <input
+              type="range"
+              min={12}
+              max={36}
+              value={sub.size}
+              onChange={(e) => setSettings({ subtitle: { ...sub, size: Number(e.target.value) } })}
+              className="ml-3 w-32 accent-primary"
+            />
+          </label>
+          <label className="flex items-center justify-between px-2 py-1 text-xs text-white/80">
+            <span>Background</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={sub.bgOpacity}
+              onChange={(e) => setSettings({ subtitle: { ...sub, bgOpacity: Number(e.target.value) } })}
+              className="ml-3 w-32 accent-primary"
+            />
+          </label>
+          <div className="flex items-center justify-between px-2 py-1 text-xs text-white/80">
+            <span>Color</span>
+            <div className="flex gap-1">
+              {["#ffffff", "#ffeb3b", "#00e5ff", "#ff8a65"].map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setSettings({ subtitle: { ...sub, color: c } })}
+                  className={`h-5 w-5 rounded-full ring-2 ${sub.color === c ? "ring-primary" : "ring-white/20"}`}
+                  style={{ background: c }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between px-2 py-1 text-xs text-white/80">
+            <span>Edge</span>
+            <div className="flex gap-1">
+              {(["none", "shadow", "outline"] as const).map((e) => (
+                <button
+                  key={e}
+                  onClick={() => setSettings({ subtitle: { ...sub, edgeStyle: e } })}
+                  className={`rounded-md px-2 py-0.5 text-[10px] capitalize ${
+                    sub.edgeStyle === e ? "bg-primary text-primary-foreground" : "bg-white/10 hover:bg-white/20"
+                  }`}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
  * Unified Settings panel (cog) — Sources / Quality / Subs / Speed / Playback
  * ============================================================ */
 
-type SettingsTab = "quality" | "subs" | "speed" | "playback";
+type SettingsTab = "quality" | "speed" | "playback";
 
 function SettingsPanel({
   onClose,
@@ -1787,10 +1970,6 @@ function SettingsPanel({
   setTab,
   stream,
   onSwitchQuality,
-  activeSub,
-  setActiveSub,
-  sub,
-  setSettings,
   rate,
   onSetRate,
   sourceKey,
@@ -1805,16 +1984,6 @@ function SettingsPanel({
   setTab: (t: SettingsTab) => void;
   stream: DirectStream;
   onSwitchQuality: (q: ResolvedQuality) => void;
-  activeSub: string | null;
-  setActiveSub: (s: string | null) => void;
-  sub: {
-    size: number;
-    color: string;
-    bgOpacity: number;
-    font: string;
-    edgeStyle: "none" | "shadow" | "outline";
-  };
-  setSettings: (patch: any) => void;
   rate: number;
   onSetRate: (r: number) => void;
   sourceKey: SourceKey;
@@ -1838,7 +2007,6 @@ function SettingsPanel({
 
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: "quality", label: "Quality" },
-    { id: "subs", label: "Subtitles" },
     { id: "speed", label: "Speed" },
     { id: "playback", label: "Playback" },
   ];
@@ -1886,90 +2054,6 @@ function SettingsPanel({
                 {q.size && <span className="text-[10px] text-white/60">{q.size}</span>}
               </button>
             ))}
-          </div>
-        )}
-
-        {tab === "subs" && (
-          <div className="space-y-1">
-            <button
-              onClick={() => {
-                setActiveSub(null);
-                onClose();
-              }}
-              className={`block w-full rounded-md px-3 py-1.5 text-left text-sm ${
-                !activeSub ? "bg-primary text-primary-foreground" : "text-white/85 hover:bg-white/10"
-              }`}
-            >
-              Off
-            </button>
-            {stream.subs.map((s) => (
-              <button
-                key={s.url}
-                onClick={() => {
-                  setActiveSub(s.language);
-                  onClose();
-                }}
-                className={`block w-full rounded-md px-3 py-1.5 text-left text-sm ${
-                  activeSub === s.language ? "bg-primary text-primary-foreground" : "text-white/85 hover:bg-white/10"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-            <div className="mt-3 border-t border-white/10 pt-2">
-              <div className="px-2 pb-1 text-[10px] uppercase tracking-wider text-white/40">Caption style</div>
-              <label className="flex items-center justify-between px-2 py-1 text-xs text-white/80">
-                <span>Size</span>
-                <input
-                  type="range"
-                  min={12}
-                  max={36}
-                  value={sub.size}
-                  onChange={(e) => setSettings({ subtitle: { ...sub, size: Number(e.target.value) } })}
-                  className="ml-3 w-32 accent-primary"
-                />
-              </label>
-              <label className="flex items-center justify-between px-2 py-1 text-xs text-white/80">
-                <span>Background</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={sub.bgOpacity}
-                  onChange={(e) => setSettings({ subtitle: { ...sub, bgOpacity: Number(e.target.value) } })}
-                  className="ml-3 w-32 accent-primary"
-                />
-              </label>
-              <div className="flex items-center justify-between px-2 py-1 text-xs text-white/80">
-                <span>Color</span>
-                <div className="flex gap-1">
-                  {["#ffffff", "#ffeb3b", "#00e5ff", "#ff8a65"].map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setSettings({ subtitle: { ...sub, color: c } })}
-                      className={`h-5 w-5 rounded-full ring-2 ${sub.color === c ? "ring-primary" : "ring-white/20"}`}
-                      style={{ background: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center justify-between px-2 py-1 text-xs text-white/80">
-                <span>Edge</span>
-                <div className="flex gap-1">
-                  {(["none", "shadow", "outline"] as const).map((e) => (
-                    <button
-                      key={e}
-                      onClick={() => setSettings({ subtitle: { ...sub, edgeStyle: e } })}
-                      className={`rounded-md px-2 py-0.5 text-[10px] capitalize ${
-                        sub.edgeStyle === e ? "bg-primary text-primary-foreground" : "bg-white/10 hover:bg-white/20"
-                      }`}
-                    >
-                      {e}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
