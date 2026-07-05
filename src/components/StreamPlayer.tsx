@@ -19,19 +19,15 @@ import {
 import type { Media } from "@/lib/catalog";
 import { useSettings } from "@/lib/store";
 import {
-  EMBED_SOURCES,
   getOrderedSources,
-  sourcesForKey,
+  sourceForKey,
   SOURCE_TIER_LABEL,
   type Source,
   type SourceKey,
 } from "@/lib/sources";
-import { resolveCineproStream, resolveFebboxStream, type ResolvedQuality } from "@/lib/api/streams.functions";
+import { resolveFebboxStream, resolveXpassStream, type ResolvedQuality } from "@/lib/api/streams.functions";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-
-function buildSourceUrl(source: Source, media: Media, season?: number, episode?: number): string {
-  return source.build(media, season, episode);
-}
+// Note: all playback is direct HLS/MP4; no embed iframes are used anymore.
 
 interface Props {
   media: Media;
@@ -57,7 +53,6 @@ interface DirectStream {
 type Status =
   | { kind: "scanning" }
   | { kind: "direct"; stream: DirectStream }
-  | { kind: "embed"; source: Source; url: string }
   | { kind: "failed"; detail?: string; logs?: { step: string; status: "ok" | "fail"; detail?: string }[] };
 
 const QUALITY_RANK: Record<string, number> = {
@@ -112,25 +107,14 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   const febboxCookie = settings.integrations.febboxCookie || "";
   const hasFebboxCookie = Boolean(febboxCookie.trim());
-  const cineproUrl = settings.integrations.cineproUrl || "";
   const qualityPref = settings.player.quality;
 
   // Only try FebBox up-front if the user has configured a UI cookie. Without
-  // one, jump straight to the embed providers — anonymous FebBox calls almost
-  // always fail and just delay playback.
-  const computeInitialKey = useCallback((): SourceKey => (hasFebboxCookie ? "gamma" : "toro"), [hasFebboxCookie]);
+  // one, jump straight to Xpass (direct HLS backup) — anonymous FebBox calls
+  // almost always fail and just delay playback.
+  const computeInitialKey = useCallback((): SourceKey => (hasFebboxCookie ? "gamma" : "xpass"), [hasFebboxCookie]);
   const [sourceKey, setSourceKey] = useState<SourceKey>(() => computeInitialKey());
-  const [preferredEmbedId, setPreferredEmbedId] = useState<string | null>(settings.embedProvider);
   const userPickedRef = useRef(false);
-
-  // If user changes embed provider in settings, adopt it (unless they've
-  // manually picked one during this session).
-  useEffect(() => {
-    if (userPickedRef.current) return;
-    setPreferredEmbedId(settings.embedProvider);
-    loadSeqRef.current += 1;
-    setStatus({ kind: "scanning" });
-  }, [settings.embedProvider]);
 
   // If the FebBox cookie becomes available after first render (settings hydrate
   // from localStorage after SSR), promote FebBox automatically — unless the
@@ -150,27 +134,16 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     setSourceKey(key);
     setStatus({ kind: "scanning" });
   }, []);
-  const pickEmbed = useCallback((embedId: string) => {
-    userPickedRef.current = true;
-    loadSeqRef.current += 1;
-    setPreferredEmbedId(embedId);
-    setSourceKey("toro");
-    setStatus({ kind: "scanning" });
-  }, []);
 
   useEffect(() => {
     const loadId = ++loadSeqRef.current;
-    let slowTimer: number | null = null;
     cancelRef.current = false;
     const isStale = () => cancelRef.current || loadSeqRef.current !== loadId;
     setStatus({ kind: "scanning" });
 
     (async () => {
-      // Legacy "delta" key now aliases to FebBox.
-      if (sourceKey === "gamma" || sourceKey === "delta") {
+      if (sourceKey === "gamma") {
         const fCookie = febboxCookie.trim();
-        // Stable scan label — no per-step churn that flashes through
-        // "Loading FebBox" → "Fetching" → "NO SHARE LINK" → "Loading backup".
         setScanStep("Connecting to FebBox…");
         try {
           const res = await resolveFebboxStream({
@@ -195,43 +168,46 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             setFallbackNotice(null);
             return;
           }
-          // Generic, non-leaky message — never expose raw "NO SHARE LINK"
-          // or other internal failure detail to the user.
-          setFallbackNotice("FebBox unavailable. Switching to a backup source…");
-          setSourceKey("toro");
+          setFallbackNotice("FebBox unavailable. Switching to Xpass…");
+          setSourceKey("xpass");
         } catch {
           if (!isStale()) {
-            setFallbackNotice("FebBox unavailable. Switching to a backup source…");
-            setSourceKey("toro");
+            setFallbackNotice("FebBox unavailable. Switching to Xpass…");
+            setSourceKey("xpass");
           }
         }
         return;
       }
 
-      // Toro — embed
-      setScanStep("Loading backup embed…");
-      const embedList = sourcesForKey("toro");
-      const embed = embedList.find((e) => e.id === preferredEmbedId) ?? embedList[0];
-      if (isStale()) return;
-      if (embed) {
-        const embedUrl = embed.build(media, season, episode);
-        if (embedUrl) {
-          setStatus({ kind: "embed", source: embed, url: embedUrl });
-          // Notice (if any) stays visible until the embed loads — clearing here
-          // would flash it away before the iframe paints. The Status change
-          // away from "scanning" hides the overlay regardless.
-          setTimeout(() => setFallbackNotice(null), 2500);
+      // Xpass — direct HLS backup via play.xpass.top, proxied through our origin.
+      setScanStep("Connecting to Xpass…");
+      try {
+        const res = await resolveXpassStream({
+          data: {
+            tmdbId: media.id,
+            type: media.type === "movie" ? "movie" : "show",
+            season,
+            episode,
+          },
+        });
+        if (isStale()) return;
+        if (res.ok && res.qualities.length > 0) {
+          const xpass = sourceForKey("xpass");
+          setStatus({
+            kind: "direct",
+            stream: { source: xpass, qualities: res.qualities, active: res.qualities[0], subs: res.subtitles },
+          });
+          setTimeout(() => setFallbackNotice(null), 1500);
         } else {
-          setStatus({ kind: "failed", detail: "Embed source returned empty URL." });
+          setStatus({ kind: "failed", detail: res.error || "No playable source found for this title." });
         }
-      } else {
-        setStatus({ kind: "failed", detail: "No backup embed source available." });
+      } catch (err: any) {
+        if (!isStale()) setStatus({ kind: "failed", detail: err?.message || "Xpass request failed." });
       }
     })();
 
     return () => {
       cancelRef.current = true;
-      if (slowTimer) window.clearTimeout(slowTimer);
     };
   }, [
     media.id,
@@ -242,7 +218,6 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     sourceKey,
     febboxCookie,
     qualityPref,
-    preferredEmbedId,
     ordered,
   ]);
 
