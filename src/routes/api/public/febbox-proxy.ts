@@ -13,8 +13,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
   "Access-Control-Allow-Headers": "Range, Content-Type, Accept",
-  "Access-Control-Expose-Headers":
-    "Content-Length, Content-Range, Accept-Ranges, Content-Type",
+  "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges, Content-Type",
 } as const;
 
 const PASS_REQUEST_HEADERS = ["range", "accept", "accept-encoding"] as const;
@@ -46,8 +45,14 @@ function decodeProxyUrl(value: string): string | null {
   }
 }
 
-function rewriteHlsPlaylist(body: string, upstreamUrl: string, token: string): string {
-  const base = new URL(upstreamUrl);
+// Registrable domain (eTLD+1-ish) so CDN edge subdomains (e.g. cdn3.example.com
+// vs edge7.example.com) are treated as the same origin for our allow-list check.
+function registrableDomain(hostname: string): string {
+  const parts = hostname.split(".");
+  return parts.length <= 2 ? hostname : parts.slice(-2).join(".");
+}
+
+function rewriteHlsPlaylist(body: string, base: URL, token: string): string {
   const rewrite = (raw: string) => {
     const trimmed = raw.trim();
     if (!trimmed) return raw;
@@ -95,7 +100,10 @@ async function handle(request: Request, method: "GET" | "HEAD") {
     if (!decoded) return new Response("bad child url", { status: 400, headers: CORS_HEADERS });
     const child = new URL(decoded);
     const parent = new URL(target.url);
-    if (!/^https?:$/.test(child.protocol) || child.hostname !== parent.hostname) {
+    // Allow same registrable domain rather than exact hostname match — multi-CDN
+    // HLS setups commonly serve the master manifest and its segments/sub-playlists
+    // from different edge subdomains of the same domain.
+    if (!/^https?:$/.test(child.protocol) || registrableDomain(child.hostname) !== registrableDomain(parent.hostname)) {
       return new Response("child url not allowed", { status: 403, headers: CORS_HEADERS });
     }
     upstreamUrl = child.toString();
@@ -128,6 +136,12 @@ async function handle(request: Request, method: "GET" | "HEAD") {
     });
   }
 
+  // Use the final, post-redirect URL as the base for resolving relative HLS
+  // paths — upstreamUrl is the pre-redirect request URL and, when the CDN
+  // redirects the manifest to a different path/host, resolving relative
+  // segment/sub-playlist paths against it produces broken URLs.
+  const resolvedBase = new URL(upstream.url || upstreamUrl);
+
   const responseHeaders: Record<string, string> = { ...CORS_HEADERS };
   for (const name of PASS_RESPONSE_HEADERS) {
     const value = upstream.headers.get(name);
@@ -136,13 +150,13 @@ async function handle(request: Request, method: "GET" | "HEAD") {
 
   const contentType = (upstream.headers.get("content-type") || "").toLowerCase();
   const looksLikeHls =
-    upstreamUrl.toLowerCase().includes(".m3u8") ||
+    resolvedBase.pathname.toLowerCase().includes(".m3u8") ||
     contentType.includes("mpegurl") ||
     contentType.includes("application/x-mpegurl");
 
   if (method === "GET" && looksLikeHls && upstream.ok) {
     const text = await upstream.text();
-    const rewritten = rewriteHlsPlaylist(text, upstreamUrl, token);
+    const rewritten = rewriteHlsPlaylist(text, resolvedBase, token);
     responseHeaders["content-type"] = "application/vnd.apple.mpegurl";
     delete responseHeaders["content-length"];
     return new Response(rewritten, {
@@ -162,8 +176,7 @@ export const Route = createFileRoute("/api/public/febbox-proxy")({
     handlers: {
       GET: async ({ request }) => handle(request, "GET"),
       HEAD: async ({ request }) => handle(request, "HEAD"),
-      OPTIONS: async () =>
-        new Response(null, { status: 204, headers: CORS_HEADERS }),
+      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
     },
   },
 });
