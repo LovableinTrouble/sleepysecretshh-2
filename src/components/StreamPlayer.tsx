@@ -21,7 +21,7 @@ import { useSettings } from "@/lib/store";
 import { getOrderedSources, sourceForKey, SOURCE_TIER_LABEL, type Source, type SourceKey } from "@/lib/sources";
 import { resolveFebboxStream, type ResolvedQuality } from "@/lib/api/streams.functions";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-// Direct HLS/MP4 playback (FebBox) uses our native player UI. Zxcstream is a
+// Direct HLS/MP4 playback (FebBox) uses our native player UI. Prionix is a
 // third-party iframe embed used as a fallback source.
 
 interface Props {
@@ -102,9 +102,13 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const loadSeqRef = useRef(0);
 
   const febboxCookie = settings.integrations.febboxCookie || "";
+  const hasFebboxToken = Boolean(febboxCookie.trim());
   const qualityPref = settings.player.quality;
 
-  const [sourceKey, setSourceKey] = useState<SourceKey>("gamma");
+  // FebBox is only attempted when a token (ui= cookie) is configured —
+  // anonymous FebBox calls almost always fail and just delay playback, so
+  // without one we go straight to Prionix.
+  const [sourceKey, setSourceKey] = useState<SourceKey>(() => (hasFebboxToken ? "gamma" : "prionix"));
   const userPickedRef = useRef(false);
 
   const switchSource = useCallback((key: SourceKey) => {
@@ -122,6 +126,11 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
     (async () => {
       if (sourceKey === "gamma") {
+        if (!hasFebboxToken) {
+          // Token got disabled after this was already selected — bail to Prionix.
+          setSourceKey("prionix");
+          return;
+        }
         const fCookie = febboxCookie.trim();
         setScanStep("Connecting to FebBox…");
         try {
@@ -147,21 +156,22 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             setFallbackNotice(null);
             return;
           }
-          setFallbackNotice("FebBox unavailable. Switching to Zxcstream…");
-          setSourceKey("zxcstream");
+          setFallbackNotice("FebBox unavailable. Switching to Prionix…");
+          setSourceKey("prionix");
         } catch {
           if (!isStale()) {
-            setFallbackNotice("FebBox unavailable. Switching to Zxcstream…");
-            setSourceKey("zxcstream");
+            setFallbackNotice("FebBox unavailable. Switching to Prionix…");
+            setSourceKey("prionix");
           }
         }
         return;
       }
 
-      // Zxcstream — third-party iframe embed, fallback when FebBox has no stream.
-      setScanStep("Connecting to Zxcstream…");
-      const zxcstream = sourceForKey("zxcstream");
-      const embedUrl = zxcstream.build(media, season, episode);
+      // Prionix — third-party iframe embed, fallback when FebBox isn't
+      // enabled or has no stream.
+      setScanStep("Connecting to Prionix…");
+      const prionix = sourceForKey("prionix");
+      const embedUrl = prionix.build(media, season, episode);
       if (isStale()) return;
       if (embedUrl) {
         setStatus({ kind: "embed", url: embedUrl });
@@ -174,7 +184,18 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     return () => {
       cancelRef.current = true;
     };
-  }, [media.id, media.title, media.type, season, episode, sourceKey, febboxCookie, qualityPref, ordered]);
+  }, [
+    media.id,
+    media.title,
+    media.type,
+    season,
+    episode,
+    sourceKey,
+    febboxCookie,
+    hasFebboxToken,
+    qualityPref,
+    ordered,
+  ]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -342,7 +363,7 @@ function FailedOverlay({
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         {false && (
           <button
-            onClick={() => onSwitchSource("zxcstream")}
+            onClick={() => onSwitchSource("prionix")}
             className="rounded-lg bg-white/10 px-5 h-10 text-sm font-medium text-white ring-1 ring-white/15 hover:bg-white/20"
           >
             Switch to Backup Sources
@@ -363,10 +384,10 @@ function FailedOverlay({
 }
 
 /* ============================================================
- * Zxcstream iframe embed + postMessage API
+ * Prionix iframe embed + postMessage API (backed by zxcstream.xyz)
  *
- * https://zxcstream.xyz player posts these message types via
- * window.parent.postMessage() once embedded in an iframe:
+ * The player posts these message types via window.parent.postMessage()
+ * once embedded in an iframe:
  *   VIDEO_PLAY             {"type":"VIDEO_PLAY"}
  *   VIDEO_PAUSE            {"type":"VIDEO_PAUSE"}
  *   VIDEO_PROGRESS         {"type":"VIDEO_PROGRESS","payload":{progressKey,currentTime,duration,percent}}
@@ -374,9 +395,15 @@ function FailedOverlay({
  *   VIDEO_ENDED            {"type":"VIDEO_ENDED","payload":{progressKey}}
  * VIDEO_PROGRESS fires every 60s after the first 60s of playback;
  * VIDEO_NINETY_PERCENT fires once per session. Always check event.data.type.
+ *
+ * The iframe is sandboxed — no allow-popups / allow-popups-to-escape-sandbox
+ * / allow-top-navigation / allow-modals — so the embed can't open popup
+ * windows/tabs, hijack the top-level page, or throw native alert/confirm
+ * dialogs. allow-scripts + allow-same-origin are kept so the player itself
+ * (and its postMessage calls) still work.
  * ============================================================ */
 
-type ZxcstreamMessage =
+type PrionixMessage =
   | { type: "VIDEO_PLAY" }
   | { type: "VIDEO_PAUSE" }
   | {
@@ -431,10 +458,10 @@ function EmbedVideo({
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      // Zxcstream's player origin — only act on messages actually coming from
-      // the embedded iframe.
+      // Prionix's player origin (zxcstream.xyz) — only act on messages
+      // actually coming from the embedded iframe.
       if (event.origin !== "https://zxcstream.xyz") return;
-      const data = event.data as ZxcstreamMessage | undefined;
+      const data = event.data as PrionixMessage | undefined;
       if (!data || typeof data.type !== "string") return;
 
       switch (data.type) {
@@ -476,6 +503,10 @@ function EmbedVideo({
         className="h-full w-full border-0"
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
+        // No allow-popups / allow-popups-to-escape-sandbox / allow-top-navigation
+        // / allow-modals: blocks popup windows/tabs, top-level hijacking, and
+        // native alert/confirm/prompt dialogs from the embed.
+        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <button
@@ -486,7 +517,7 @@ function EmbedVideo({
           <ChevronLeft className="h-5 w-5" />
         </button>
         <div className="pointer-events-none rounded-full bg-black/50 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-white/70 ring-1 ring-white/15 backdrop-blur">
-          Zxcstream {playing ? "· Playing" : ""}
+          Prionix {playing ? "· Playing" : ""}
         </div>
       </div>
     </div>
