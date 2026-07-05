@@ -7,6 +7,14 @@ const streamInflight = new Map<string, Promise<ResolvedStreamResult>>();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const NEGATIVE_CACHE_TTL = 60 * 1000;
 const CINEPRO_TIMEOUT_MS = 6500;
+const XPASS_BASE = "https://play.xpass.top";
+const XPASS_HEADERS = {
+  "user-agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+  accept: "application/json, */*",
+  referer: `${XPASS_BASE}/`,
+  "accept-language": "en-US,en;q=0.9",
+};
 
 export interface ResolvedQuality {
   url: string;
@@ -349,4 +357,69 @@ export const resolveDownloadUrl = createServerFn({ method: "POST" })
       return { ok: false, error: err?.message || "Download lookup failed" };
     }
     return { ok: false, error: "No download available" };
+  });
+
+/* ===========================================================
+ * Xpass — Pobreflix/XPASS direct HLS resolver (no auth needed)
+ * =========================================================== */
+
+const XpassSchema = z.object({
+  tmdbId: z.union([z.string(), z.number()]).transform(String),
+  type: z.enum(["movie", "show"]),
+  season: z.number().optional(),
+  episode: z.number().optional(),
+});
+
+function buildXpassUrls(tmdbId: string, type: "movie" | "show", s?: number, e?: number): string[] {
+  if (type === "movie") {
+    return [
+      `${XPASS_BASE}/mov/${tmdbId}/0/0/0/playlist.json`,
+      `${XPASS_BASE}/vrk/movie/${tmdbId}/playlist.json`,
+      `${XPASS_BASE}/vsr/movie/${tmdbId}/playlist.json`,
+      `${XPASS_BASE}/meg/movie/${tmdbId}/0/0/playlist.json`,
+      `${XPASS_BASE}/vxr/movie/${tmdbId}/playlist.json`,
+    ];
+  }
+  const se = s ?? 1;
+  const ep = e ?? 1;
+  return [
+    `${XPASS_BASE}/mov/${tmdbId}/${se}/${ep}/0/playlist.json`,
+    `${XPASS_BASE}/vrk/tv/${tmdbId}/${se}/${ep}/playlist.json`,
+    `${XPASS_BASE}/vsr/tv/${tmdbId}/${se}/${ep}/playlist.json`,
+    `${XPASS_BASE}/meg/tv/${tmdbId}/${se}/${ep}/playlist.json`,
+    `${XPASS_BASE}/vxr/tv/${tmdbId}/${se}/${ep}/playlist.json`,
+  ];
+}
+
+export const resolveXpassStream = createServerFn({ method: "POST" })
+  .inputValidator((d) => XpassSchema.parse(d))
+  .handler(async ({ data }): Promise<ResolvedStreamResult> => {
+    const logs: { step: string; status: "ok" | "fail"; detail?: string }[] = [];
+    const urls = buildXpassUrls(data.tmdbId, data.type, data.season, data.episode);
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { headers: XPASS_HEADERS, signal: AbortSignal.timeout(9000) });
+        if (!res.ok) {
+          logs.push({ step: `xpass ${url}`, status: "fail", detail: `HTTP ${res.status}` });
+          continue;
+        }
+        const json: any = await res.json().catch(() => null);
+        const file: string | undefined = json?.playlist?.[0]?.sources?.[0]?.file;
+        if (!file || !/^https?:\/\//i.test(file)) continue;
+        const { registerFebboxProxyTarget } = await import("@/lib/showbox.server");
+        const proxied = registerFebboxProxyTarget(file, { referer: `${XPASS_BASE}/` });
+        logs.push({ step: "xpass", status: "ok", detail: url });
+        return {
+          ok: true,
+          qualities: [
+            { url: proxied, quality: "Auto", label: "Xpass · Auto", size: "", isHls: true },
+          ],
+          subtitles: [],
+          logs,
+        };
+      } catch (err: any) {
+        logs.push({ step: `xpass ${url}`, status: "fail", detail: err?.message });
+      }
+    }
+    return { ok: false, qualities: [], subtitles: [], logs, error: "No Xpass playlist available" };
   });

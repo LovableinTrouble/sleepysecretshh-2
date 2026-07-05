@@ -356,15 +356,15 @@ function SettingsPage() {
         {/* Sources */}
         <Section
           title="Sources"
-          desc="FebBox is the primary direct source. VoidX is the single embed backup used when direct playback isn't available."
+          desc="FebBox is the primary direct source. Xpass is a direct HLS backup, played in our native player."
         >
-          <Row label="Preferred source" hint="FebBox runs first when a cookie is configured, otherwise VoidX is used.">
+          <Row label="Preferred source" hint="FebBox runs first when a cookie is configured, otherwise Xpass is used.">
             <Select
               value={s.preferredSource}
               onChange={(v) => set({ preferredSource: v })}
               options={[
                 { value: "febbox", label: "FebBox — direct HLS, up to 4K" },
-                { value: "vidsrc", label: "VoidX — embed backup" },
+                { value: "vidsrc", label: "Xpass — direct HLS backup" },
               ]}
             />
           </Row>
@@ -375,7 +375,7 @@ function SettingsPage() {
               {s.integrations.febboxCookie?.trim() ? "Connected" : "Not configured"}
             </span>
           </Row>
-          <Row label="VoidX embed" hint="Automatic fallback when FebBox isn't available.">
+          <Row label="Xpass" hint="Direct HLS fallback, streamed through our own proxy.">
             <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
               Backup ready
             </span>
