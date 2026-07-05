@@ -10,7 +10,6 @@ import {
   Settings as SettingsIcon,
   Bubbles as SubtitlesIcon,
   PictureInPicture2,
-  Cast,
   ChevronLeft,
   RotateCcw,
   RotateCw,
@@ -215,10 +214,35 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     };
   }, [onClose]);
 
+  // Keep the player pinned to the real visible viewport. On mobile browsers
+  // the layout viewport (100dvh/vw) can be taller than what's actually on
+  // screen once the address bar / toolbar is showing, which pushes this
+  // fixed-position player down and off the bottom of the screen — it only
+  // looked "fixed" once you hit fullscreen because fullscreen bypasses the
+  // visual viewport entirely. Track window.visualViewport and size/position
+  // the wrapper to match it exactly so it's always fully visible.
+  const [viewportRect, setViewportRect] = useState<{ height: number; top: number } | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const update = () => setViewportRect({ height: vv.height, top: vv.offsetTop });
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, []);
+
   return (
     <div
       className="fixed inset-0 z-[60] flex flex-col bg-black animate-fade-in"
-      style={{ height: "100dvh", width: "100vw" }}
+      style={{
+        height: viewportRect ? `${viewportRect.height}px` : "100dvh",
+        width: "100vw",
+        transform: viewportRect && viewportRect.top ? `translateY(${viewportRect.top}px)` : undefined,
+      }}
     >
       <div className="relative flex-1 bg-black">
         {status.kind === "scanning" && (
@@ -696,7 +720,9 @@ function DirectVideo({
   const ignoreNextVideoClickRef = useRef(false);
   const [openMenu, setOpenMenu] = useState<null | "settings" | "party">(null);
   const [settingsTab, setSettingsTab] = useState<"quality" | "subs" | "speed" | "playback">("quality");
-  const [activeSub, setActiveSub] = useState<string | null>(null);
+  const [activeSub, setActiveSub] = useState<string | null>(
+    () => stream.subs.find((s) => s.language === "en")?.language ?? stream.subs[0]?.language ?? null,
+  );
   const [partyToast, setPartyToast] = useState<string | null>(null);
 
   // One-shot 4K nudge — marks itself seen on first render so it never auto-pops again.
@@ -711,18 +737,6 @@ function DirectVideo({
     const id = window.setTimeout(() => setShowQualityNudge(false), 7000);
     return () => window.clearTimeout(id);
   }, [showQualityNudge]);
-
-  // One-shot FebBox "tap twice for controls" alert.
-  const [showFebboxControlsHint, setShowFebboxControlsHint] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return !window.localStorage.getItem("peachify:nudge:febbox-controls");
-  });
-  const dismissFebboxControlsHint = useCallback(() => {
-    try {
-      window.localStorage.setItem("peachify:nudge:febbox-controls", "1");
-    } catch {}
-    setShowFebboxControlsHint(false);
-  }, []);
 
   const party = useWatchParty(videoRef);
 
@@ -1255,23 +1269,6 @@ function DirectVideo({
     } catch {}
   }, []);
 
-  const startCast = useCallback(async () => {
-    const v = videoRef.current as (HTMLVideoElement & { remote?: { prompt?: () => Promise<void> } }) | null;
-    try {
-      if (v?.remote?.prompt) {
-        await v.remote.prompt();
-        return;
-      }
-      // Fallback: Chromecast extension on stock <video>
-      const cast = (window as any).chrome?.cast;
-      if (cast?.requestSession)
-        cast.requestSession(
-          () => {},
-          () => {},
-        );
-    } catch {}
-  }, []);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -1485,35 +1482,6 @@ function DirectVideo({
         </div>
       )}
 
-      {/* FebBox: tap-twice control hint (one-time, dismissible) */}
-      {sourceKey === "gamma" && showFebboxControlsHint && (
-        <div className="absolute left-1/2 top-4 z-40 w-[min(92%,420px)] -translate-x-1/2 overflow-hidden rounded-2xl bg-black/85 text-white ring-1 ring-white/15 shadow-2xl backdrop-blur-md animate-fade-in">
-          <div className="flex items-start gap-3 p-3.5">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary ring-1 ring-primary/40">
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M9 11V7a3 3 0 1 1 6 0v4" />
-                <rect x="5" y="11" width="14" height="10" rx="2" />
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold leading-snug">Click or tap twice to view player controls</div>
-              <p className="mt-0.5 text-[11px] leading-snug text-white/65">
-                The FebBox player hides its own controls — a double tap or click reveals them.
-              </p>
-            </div>
-            <button
-              onClick={dismissFebboxControlsHint}
-              className="-mr-1 -mt-1 rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white"
-              aria-label="Dismiss"
-            >
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4">
-                <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Center play button — clean, minimal, only when not yet started */}
       {!playing && current === 0 && !error && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
@@ -1639,9 +1607,6 @@ function DirectVideo({
             <div className="ml-auto flex items-center gap-0.5">
               <IconBtn label="Picture in Picture (p)" onClick={togglePip}>
                 <PictureInPicture2 className="h-5 w-5" strokeWidth={2} />
-              </IconBtn>
-              <IconBtn label="Cast" onClick={startCast}>
-                <Cast className="h-5 w-5" strokeWidth={2} />
               </IconBtn>
               <IconBtn
                 label="Subtitles (c)"
