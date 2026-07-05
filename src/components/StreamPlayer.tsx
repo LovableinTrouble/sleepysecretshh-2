@@ -461,14 +461,34 @@ function EmbedVideo({
       // Prionix's player content may be served from a subdomain (e.g.
       // embed.zxcstream.xyz) rather than the bare zxcstream.xyz page we embed,
       // so match any zxcstream.xyz subdomain rather than one exact origin.
-      let originHost: string;
-      try {
-        originHost = new URL(event.origin).hostname.toLowerCase();
-      } catch {
+      //
+      // The actual VIDEO_* events are frequently posted from a further-nested
+      // sandboxed/blob iframe *inside* the zxcstream page (their player core is
+      // isolated from ad code that way). That inner frame has an opaque origin,
+      // so event.origin comes through as the literal string "null" rather than
+      // "https://zxcstream.xyz" — new URL("null") throws, and returning early
+      // on that throw was silently dropping every real event before we even
+      // looked at data.type. Treat "null"/unparseable origins as acceptable and
+      // fall back to validating the message shape instead, since an opaque
+      // origin can't be verified by hostname anyway.
+      let isZxcstreamOrigin: boolean;
+      if (event.origin === "null") {
+        isZxcstreamOrigin = true;
+      } else {
+        try {
+          const originHost = new URL(event.origin).hostname.toLowerCase();
+          isZxcstreamOrigin = originHost === "zxcstream.xyz" || originHost.endsWith(".zxcstream.xyz");
+        } catch {
+          isZxcstreamOrigin = true; // unparseable origin — fall back to shape check below
+        }
+      }
+      if (!isZxcstreamOrigin) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.debug("[Prionix] dropped message from unexpected origin", event.origin, event.data);
+        }
         return;
       }
-      const isZxcstreamOrigin = originHost === "zxcstream.xyz" || originHost.endsWith(".zxcstream.xyz");
-      if (!isZxcstreamOrigin) return;
 
       // Some embeds post JSON-stringified payloads instead of structured objects.
       let data: PrionixMessage | undefined;
