@@ -381,7 +381,7 @@ function FailedOverlay({
         </div>
       )}
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-        {sourceKey !== "toro" && (
+        {false && (
           <button
             onClick={() => onSwitchSource("toro")}
             className="rounded-lg bg-white/10 px-5 h-10 text-sm font-medium text-white ring-1 ring-white/15 hover:bg-white/20"
@@ -399,264 +399,6 @@ function FailedOverlay({
           Close
         </button>
       </div>
-    </div>
-  );
-}
-
-/* ============================================================
- * Right-edge unified source rail (Delta / Gamma / Toro)
- * ============================================================ */
-
-function SourceRail({
-  active,
-  activeEmbedId,
-  onPickEmbed,
-  onSwitchSource,
-}: {
-  active: SourceKey;
-  activeEmbedId?: string | null;
-  onPickEmbed: (embedId: string) => void;
-  onSwitchSource?: (k: SourceKey) => void;
-}) {
-  const [settings] = useSettings();
-  const [open, setOpen] = useState(false);
-  const hasFebboxCookie = Boolean(settings.integrations.febboxCookie?.trim());
-  const embedItems: { id: string; name: string; hint: string }[] = [
-    { id: "vidapi", name: "VidAPI", hint: "Embed · ad-blocked" },
-  ];
-  const primaryItems: { key: SourceKey; name: string; hint: string }[] = hasFebboxCookie
-    ? [{ key: "gamma", name: "FebBox", hint: "Direct · up to 4K" }]
-    : [];
-
-  const wrapRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const id = window.setTimeout(() => document.addEventListener("mousedown", onDoc), 0);
-    return () => {
-      window.clearTimeout(id);
-      document.removeEventListener("mousedown", onDoc);
-    };
-  }, [open]);
-
-  return (
-    <div ref={wrapRef} className="absolute right-0 top-1/2 z-30 -translate-y-1/2">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex min-h-24 w-9 items-center justify-center rounded-l-xl bg-black/70 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-black/90"
-        aria-expanded={open}
-        aria-label="Switch source"
-      >
-        <span className="rotate-90 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.22em]">
-          Sources
-        </span>
-      </button>
-      <div
-        className={`absolute right-10 top-1/2 w-60 -translate-y-1/2 rounded-xl bg-black/95 p-2 text-white ring-1 ring-white/12 shadow-2xl backdrop-blur-md transition duration-200 ${
-          open ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-4 opacity-0"
-        }`}
-      >
-        {onSwitchSource && primaryItems.length > 0 && (
-          <>
-            <div className="px-2 pb-2 pt-1 text-[10px] uppercase tracking-[0.22em] text-white/45">Direct</div>
-            {primaryItems.map((it) => {
-              const isActive = active === it.key;
-              return (
-                <button
-                  key={it.key}
-                  onClick={() => {
-                    onSwitchSource(it.key);
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
-                    isActive
-                      ? "bg-primary/20 text-white ring-1 ring-primary/40"
-                      : "text-white/80 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <span className="min-w-0">
-                    <span className="block">{it.name}</span>
-                    <span className="block text-[10px] font-normal text-white/50">{it.hint}</span>
-                  </span>
-                  {isActive && <span className="ml-2 shrink-0 text-[10px] text-primary">Active</span>}
-                </button>
-              );
-            })}
-          </>
-        )}
-        <div className="px-2 pb-2 pt-2 text-[10px] uppercase tracking-[0.22em] text-white/45">Backup Embeds</div>
-        {embedItems.map((it) => {
-          const isActive = active === "toro" && activeEmbedId === it.id;
-          return (
-            <button
-              key={it.id}
-              onClick={() => {
-                onPickEmbed(it.id);
-                setOpen(false);
-              }}
-              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
-                isActive
-                  ? "bg-primary/20 text-white ring-1 ring-primary/40"
-                  : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <span className="min-w-0">
-                <span className="block">{it.name}</span>
-                <span className="block text-[10px] font-normal text-white/50">{it.hint}</span>
-              </span>
-              {isActive && <span className="ml-2 shrink-0 text-[10px] text-primary">Active</span>}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
- * Embed surface
- * ============================================================ */
-
-function EmbedSurface({
-  media,
-  season,
-  episode,
-  initialSource,
-  initialUrl,
-  sourceKey,
-  onSwitchSource,
-  onPickEmbed,
-  onClose,
-}: {
-  media: Media;
-  season?: number;
-  episode?: number;
-  initialSource: Source;
-  initialUrl: string;
-  sourceKey: SourceKey;
-  onSwitchSource: (k: SourceKey) => void;
-  onPickEmbed: (embedId: string) => void;
-  onClose: () => void;
-}) {
-  const [settings] = useSettings();
-  const [source, setSource] = useState(initialSource);
-  const [embedUrl, setEmbedUrl] = useState(initialUrl);
-  // Popup-trap embeds fire their popup on literally the first click/tap
-  // anywhere in the iframe, before the player even registers it as a real
-  // interaction. Sandboxing would block that, but it also breaks the
-  // postMessage progress API for VoidX — so instead, an invisible overlay
-  // eats exactly one click (never forwarding it into the iframe) and then
-  // gets out of the way for real interaction.
-  const [swallowClick, setSwallowClick] = useState(true);
-  useEffect(() => {
-    setSwallowClick(true);
-  }, [source.id, embedUrl]);
-  const embeds = useMemo(() => {
-    const enabled = EMBED_SOURCES.filter((s) => (s.legacy ? Boolean(settings.useLegacyEmbeds) : true));
-    const ordered = [initialSource, ...enabled.filter((s) => s.id !== initialSource.id)];
-    return ordered.filter((s, i, all) => all.findIndex((x) => x.id === s.id) === i);
-  }, [initialSource, settings.useLegacyEmbeds]);
-
-  // Sync URL when source changes (e.g., user picks different embed)
-  useEffect(() => {
-    const newUrl = buildSourceUrl(source, media, season, episode);
-    if (newUrl) setEmbedUrl(newUrl);
-  }, [source, media, season, episode]);
-
-  useEffect(() => {
-    const seasonKey = season ?? null;
-    const epKey = episode ?? null;
-    // VoidX (id: "vidsrc") posts real progress via window.postMessage.
-    // Wire that into the local Continue Watching store — no more fake markers.
-    if (source.id !== "vidsrc") return;
-    const write = (positionSeconds: number, durationSeconds: number, completed = false) => {
-      const existing = getLocalProgressFor(media.id, seasonKey, epKey);
-      const entry = {
-        mediaId: media.id,
-        mediaType: media.type,
-        season: seasonKey,
-        episode: epKey,
-        positionSeconds: Math.max(0, Math.floor(positionSeconds)),
-        durationSeconds: Math.max(existing?.durationSeconds ?? 0, Math.floor(durationSeconds)),
-        title: media.title,
-        poster: media.poster,
-        backdrop: media.backdrop,
-        completed,
-        updatedAt: Date.now(),
-      };
-      saveProgressLocal(entry);
-      void syncProgressUp(entry);
-    };
-    const onMsg = (e: MessageEvent) => {
-      const d = e.data;
-      if (!d || typeof d !== "object") return;
-      const type = (d as { type?: unknown }).type;
-      if (typeof type !== "string") return;
-      const payload = (d as { payload?: { currentTime?: number; duration?: number } }).payload || {};
-      const ct = Number(payload.currentTime);
-      const du = Number(payload.duration);
-      if (type === "VIDEO_PROGRESS" && Number.isFinite(ct) && Number.isFinite(du) && du > 0) {
-        write(ct, du, false);
-      } else if (type === "VIDEO_NINETY_PERCENT") {
-        if (Number.isFinite(ct) && Number.isFinite(du) && du > 0) write(ct, du, true);
-      } else if (type === "VIDEO_ENDED") {
-        const existing = getLocalProgressFor(media.id, seasonKey, epKey);
-        write(existing?.durationSeconds ?? 0, existing?.durationSeconds ?? 0, true);
-      }
-    };
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
-  }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode, source.id]);
-
-  useEffect(() => {
-    // Block popup/ad messages from embed sources
-    const handler = (e: MessageEvent) => {
-      if (!e.data || typeof e.data !== "object") return;
-      const blocked = ["AD_SHOW", "POPUP_OPEN", "open_url", "ad_click", "redirect", "popup", "window.open"];
-      const data = e.data as { type?: string; event?: string };
-      if (
-        (data.type && blocked.some((b) => data.type?.toLowerCase().includes(b.toLowerCase()))) ||
-        (data.event && blocked.some((b) => data.event?.toLowerCase().includes(b.toLowerCase())))
-      ) {
-        e.stopImmediatePropagation();
-      }
-    };
-    window.addEventListener("message", handler, { capture: true });
-    return () => window.removeEventListener("message", handler, { capture: true });
-  }, [source.id]);
-
-  // Embed sources — direct iframe with adblock sandbox.
-  // Sandbox to block popups while allowing the player to function.
-  const iframeSrc = embedUrl || "";
-  const sandboxValue = "allow-scripts allow-same-origin allow-presentation allow-forms";
-  const iframeExtra: { sandbox?: string } = source.noSandbox ? {} : { sandbox: sandboxValue };
-
-  return (
-    <div className="relative h-full w-full bg-black">
-      <iframe
-        key={source.id}
-        src={iframeSrc}
-        title={`${media.title} via ${source.name}`}
-        className="h-full w-full border-0 bg-black"
-        allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-        allowFullScreen
-        referrerPolicy="origin"
-        {...iframeExtra}
-      />
-
-      <button
-        onClick={onClose}
-        className="absolute left-3 top-3 z-30 inline-flex items-center gap-2 rounded-full bg-black/65 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-black/85 md:left-5 md:top-5"
-      >
-        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2">
-          <path d="M15 18 9 12l6-6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <span className="hidden sm:inline">Back</span>
-      </button>
-
-      {/* SourceRail removed — use settings to switch sources */}
     </div>
   );
 }
@@ -758,7 +500,6 @@ function DirectVideo({
   episode,
   sourceKey,
   onSwitchSource,
-  onPickEmbed,
   onClose,
   onSwitchQuality,
 }: {
@@ -768,7 +509,6 @@ function DirectVideo({
   episode?: number;
   sourceKey: SourceKey;
   onSwitchSource: (k: SourceKey) => void;
-  onPickEmbed: (embedId: string) => void;
   onClose: () => void;
   onSwitchQuality: (q: ResolvedQuality) => void;
 }) {
@@ -851,7 +591,7 @@ function DirectVideo({
       setError(false);
       setBuffering(false);
       switchQuality(next);
-    } else if (sourceKey === "delta") {
+    } else if (false) {
       onSwitchSource("gamma");
     } else setError(true);
   }, [
