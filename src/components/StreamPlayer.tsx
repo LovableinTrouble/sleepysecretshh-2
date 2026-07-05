@@ -430,7 +430,6 @@ function EmbedVideo({
   onClose: () => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [playing, setPlaying] = useState(false);
   const seasonKey = season ?? null;
   const epKey = episode ?? null;
 
@@ -505,10 +504,7 @@ function EmbedVideo({
 
       switch (data.type) {
         case "VIDEO_PLAY":
-          setPlaying(true);
-          break;
         case "VIDEO_PAUSE":
-          setPlaying(false);
           break;
         case "VIDEO_PROGRESS": {
           const { currentTime, duration } = data.payload;
@@ -559,9 +555,6 @@ function EmbedVideo({
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <div className="pointer-events-none rounded-full bg-black/50 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-white/70 ring-1 ring-white/15 backdrop-blur">
-          Prionix {playing ? "· Playing" : ""}
-        </div>
       </div>
     </div>
   );
