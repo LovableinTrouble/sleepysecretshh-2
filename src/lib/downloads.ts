@@ -59,36 +59,97 @@ function inferType(url: string): DownloadItem["type"] {
   return "file";
 }
 
-async function getToken(pageUrl: string): Promise<string | null> {
-  const res = await fetch(`${BASE_URL}/api/verify-robot`, {
-    method: "POST",
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (X11; U; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6884.98 Safari/537.36",
-      accept: "*/*",
-      "accept-language": "en-US,en;q=0.7",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      dnt: "1",
-      origin: BASE_URL,
-      referer: pageUrl,
-      priority: "u=1, i",
-      "sec-ch-ua": '"(Not(A:Brand";v="99", "Google Chrome";v="134", "Chromium";v="134"',
-      "sec-ch-ua-full-version-list": '"(Not(A:Brand";v="99.0.0.0", "Google Chrome";v="134", "Chromium";v="134"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Linux"',
-      "sec-fetch-dest": "empty",
-      "sec-fetch-mode": "cors",
-      "sec-fetch-site": "same-origin",
-      "sec-gpc": "1",
-    },
-    signal: AbortSignal.timeout(15000),
-  });
-  const json = (await res.json().catch(() => ({}))) as { token?: string };
-  return json.token || null;
+function extractCookie(res: Response): string | null {
+  // Node/undici exposes multiple Set-Cookie headers via getSetCookie(); fall
+  // back to the single-header form for other runtimes.
+  const raw =
+    typeof (res.headers as any).getSetCookie === "function"
+      ? ((res.headers as any).getSetCookie() as string[])
+      : res.headers.get("set-cookie")
+        ? [res.headers.get("set-cookie") as string]
+        : [];
+  if (!raw.length) return null;
+  return raw.map((c) => c.split(";")[0]).join("; ");
 }
 
-async function fetchPayload(pageUrl: string, token: string): Promise<any> {
+async function getToken(pageUrl: string): Promise<{ token: string | null; cookie: string | null; detail: string }> {
+  const verifyHeaders: Record<string, string> = {
+    "User-Agent":
+      "Mozilla/5.0 (X11; U; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6884.98 Safari/537.36",
+    accept: "*/*",
+    "accept-language": "en-US,en;q=0.7",
+    "cache-control": "no-cache",
+    pragma: "no-cache",
+    dnt: "1",
+    origin: BASE_URL,
+    referer: pageUrl,
+    priority: "u=1, i",
+    "sec-ch-ua": '"(Not(A:Brand";v="99", "Google Chrome";v="134", "Chromium";v="134"',
+    "sec-ch-ua-full-version-list": '"(Not(A:Brand";v="99.0.0.0", "Google Chrome";v="134", "Chromium";v="134"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Linux"',
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "sec-gpc": "1",
+  };
+
+  // Load the page first, like a real browser would before its JS calls
+  // verify-robot — this picks up any session/anti-bot cookie the site sets
+  // on first hit, which a bare POST to verify-robot never gets a chance to.
+  let cookie: string | null = null;
+  try {
+    const pageRes = await fetch(pageUrl, {
+      headers: { "User-Agent": verifyHeaders["User-Agent"], accept: "*/*" },
+      signal: AbortSignal.timeout(10000),
+    });
+    cookie = extractCookie(pageRes);
+  } catch {
+    // Non-fatal — proceed without a cookie if the pre-flight fails.
+  }
+  if (cookie) verifyHeaders.cookie = cookie;
+
+  const attemptOnce = async (): Promise<{ token: string | null; cookie: string | null; detail: string }> => {
+    const res = await fetch(`${BASE_URL}/api/verify-robot`, {
+      method: "POST",
+      headers: verifyHeaders,
+      signal: AbortSignal.timeout(15000),
+    });
+    const verifyCookie = extractCookie(res) || cookie;
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { token: null, cookie: verifyCookie, detail: `verify-robot HTTP ${res.status}: ${text.slice(0, 200)}` };
+    }
+    const text = await res.text();
+    let json: { token?: string; success?: boolean } = {};
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return {
+        token: null,
+        cookie: verifyCookie,
+        detail: `verify-robot returned non-JSON (likely a bot-check page): ${text.slice(0, 200)}`,
+      };
+    }
+    if (!json.token) return { token: null, cookie: verifyCookie, detail: "verify-robot response had no token" };
+    return { token: json.token, cookie: verifyCookie, detail: "ok" };
+  };
+
+  const first = await attemptOnce();
+  if (first.token) return first;
+  if (first.cookie && first.cookie !== cookie) {
+    // Retry once with whatever cookie verify-robot itself just handed back —
+    // some anti-bot flows require the *second* request to carry a cookie
+    // that was only issued by the first.
+    verifyHeaders.cookie = first.cookie;
+    const second = await attemptOnce();
+    if (second.token) return second;
+    return { token: null, cookie: second.cookie, detail: `${first.detail} | retry: ${second.detail}` };
+  }
+  return first;
+}
+
+async function fetchPayload(pageUrl: string, token: string, cookie: string | null): Promise<any> {
   const res = await fetch(pageUrl, {
     headers: {
       ...HEADERS,
@@ -96,6 +157,7 @@ async function fetchPayload(pageUrl: string, token: string): Promise<any> {
       "x-session-token": token,
       origin: BASE_URL,
       referer: pageUrl,
+      ...(cookie ? { cookie } : {}),
     },
     signal: AbortSignal.timeout(15000),
   });
@@ -181,9 +243,11 @@ export const resolveDownloaderSources = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<DownloadsResult> => {
     const pageUrl = buildPageUrl(data);
     try {
-      const token = await getToken(pageUrl);
-      if (!token) return { ok: false, downloads: [], subtitles: [], error: "Downloader verification failed." };
-      const payload = await fetchPayload(pageUrl, token);
+      const { token, cookie, detail } = await getToken(pageUrl);
+      if (!token) {
+        return { ok: false, downloads: [], subtitles: [], error: `Downloader verification failed: ${detail}` };
+      }
+      const payload = await fetchPayload(pageUrl, token, cookie);
       const { downloads, subtitles } = mapPayload(payload);
       return {
         ok: downloads.length > 0,
