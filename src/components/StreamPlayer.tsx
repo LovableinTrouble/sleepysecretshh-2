@@ -458,10 +458,29 @@ function EmbedVideo({
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      // Prionix's player origin (zxcstream.xyz) — only act on messages
-      // actually coming from the embedded iframe.
-      if (event.origin !== "https://zxcstream.xyz") return;
-      const data = event.data as PrionixMessage | undefined;
+      // Prionix's player content may be served from a subdomain (e.g.
+      // embed.zxcstream.xyz) rather than the bare zxcstream.xyz page we embed,
+      // so match any zxcstream.xyz subdomain rather than one exact origin.
+      let originHost: string;
+      try {
+        originHost = new URL(event.origin).hostname.toLowerCase();
+      } catch {
+        return;
+      }
+      const isZxcstreamOrigin = originHost === "zxcstream.xyz" || originHost.endsWith(".zxcstream.xyz");
+      if (!isZxcstreamOrigin) return;
+
+      // Some embeds post JSON-stringified payloads instead of structured objects.
+      let data: PrionixMessage | undefined;
+      if (typeof event.data === "string") {
+        try {
+          data = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+      } else {
+        data = event.data as PrionixMessage | undefined;
+      }
       if (!data || typeof data.type !== "string") return;
 
       switch (data.type) {
@@ -487,6 +506,10 @@ function EmbedVideo({
           break;
         }
         default:
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.debug("[Prionix] unhandled message", data);
+          }
           break;
       }
     };
