@@ -10,6 +10,7 @@ import {
   Settings as SettingsIcon,
   Bubbles as SubtitlesIcon,
   PictureInPicture2,
+  Cast,
   ChevronLeft,
   RotateCcw,
   RotateCw,
@@ -201,49 +202,24 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       if (e.key === "Escape" && !document.fullscreenElement) onClose();
     };
     window.addEventListener("keydown", onKey);
-
-    // Lock background scroll while the player is mounted. Plain
-    // `overflow: hidden` on body isn't reliable on mobile Safari — the page
-    // can still rubber-band/scroll underneath, which visually drags a
-    // `position: fixed` element along with it for a moment before it
-    // "snaps" back, which is exactly what showed up as the player sliding
-    // down after a second. Locking the body itself with `position: fixed`
-    // (the standard iOS-safe scroll-lock technique) prevents that entirely.
-    const scrollY = window.scrollY;
-    const { body } = document;
-    const html = document.documentElement;
-    const prev = {
-      bodyPosition: body.style.position,
-      bodyTop: body.style.top,
-      bodyLeft: body.style.left,
-      bodyRight: body.style.right,
-      bodyWidth: body.style.width,
-      bodyOverflow: body.style.overflow,
-      htmlOverflow: html.style.overflow,
-    };
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.width = "100%";
-    body.style.overflow = "hidden";
-    html.style.overflow = "hidden";
-
+    // Lock body scroll while the player is mounted so the page behind it can't
+    // scroll, and so the player is always at the top of the viewport.
+    const prevOverflow = document.body.style.overflow;
+    const prevScrollY = window.scrollY;
+    document.body.style.overflow = "hidden";
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     return () => {
       window.removeEventListener("keydown", onKey);
-      body.style.position = prev.bodyPosition;
-      body.style.top = prev.bodyTop;
-      body.style.left = prev.bodyLeft;
-      body.style.right = prev.bodyRight;
-      body.style.width = prev.bodyWidth;
-      body.style.overflow = prev.bodyOverflow;
-      html.style.overflow = prev.htmlOverflow;
-      window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
+      document.body.style.overflow = prevOverflow;
+      window.scrollTo({ top: prevScrollY, left: 0, behavior: "auto" });
     };
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black animate-fade-in">
+    <div
+      className="fixed inset-0 z-[60] flex flex-col bg-black animate-fade-in"
+      style={{ height: "100dvh", width: "100vw" }}
+    >
       <div className="relative flex-1 bg-black">
         {status.kind === "scanning" && (
           <ScanningOverlay step={scanStep} tier={SOURCE_TIER_LABEL[sourceKey]} notice={fallbackNotice} />
@@ -720,9 +696,7 @@ function DirectVideo({
   const ignoreNextVideoClickRef = useRef(false);
   const [openMenu, setOpenMenu] = useState<null | "settings" | "party">(null);
   const [settingsTab, setSettingsTab] = useState<"quality" | "subs" | "speed" | "playback">("quality");
-  const [activeSub, setActiveSub] = useState<string | null>(
-    () => stream.subs.find((s) => s.language === "en")?.language ?? stream.subs[0]?.language ?? null,
-  );
+  const [activeSub, setActiveSub] = useState<string | null>(null);
   const [partyToast, setPartyToast] = useState<string | null>(null);
 
   // One-shot 4K nudge — marks itself seen on first render so it never auto-pops again.
@@ -737,6 +711,18 @@ function DirectVideo({
     const id = window.setTimeout(() => setShowQualityNudge(false), 7000);
     return () => window.clearTimeout(id);
   }, [showQualityNudge]);
+
+  // One-shot FebBox "tap twice for controls" alert.
+  const [showFebboxControlsHint, setShowFebboxControlsHint] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !window.localStorage.getItem("peachify:nudge:febbox-controls");
+  });
+  const dismissFebboxControlsHint = useCallback(() => {
+    try {
+      window.localStorage.setItem("peachify:nudge:febbox-controls", "1");
+    } catch {}
+    setShowFebboxControlsHint(false);
+  }, []);
 
   const party = useWatchParty(videoRef);
 
@@ -1269,6 +1255,23 @@ function DirectVideo({
     } catch {}
   }, []);
 
+  const startCast = useCallback(async () => {
+    const v = videoRef.current as (HTMLVideoElement & { remote?: { prompt?: () => Promise<void> } }) | null;
+    try {
+      if (v?.remote?.prompt) {
+        await v.remote.prompt();
+        return;
+      }
+      // Fallback: Chromecast extension on stock <video>
+      const cast = (window as any).chrome?.cast;
+      if (cast?.requestSession)
+        cast.requestSession(
+          () => {},
+          () => {},
+        );
+    } catch {}
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -1471,6 +1474,35 @@ function DirectVideo({
             </div>
             <button
               onClick={() => setShowQualityNudge(false)}
+              className="-mr-1 -mt-1 rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white"
+              aria-label="Dismiss"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FebBox: tap-twice control hint (one-time, dismissible) */}
+      {sourceKey === "gamma" && showFebboxControlsHint && (
+        <div className="absolute left-1/2 top-4 z-40 w-[min(92%,420px)] -translate-x-1/2 overflow-hidden rounded-2xl bg-black/85 text-white ring-1 ring-white/15 shadow-2xl backdrop-blur-md animate-fade-in">
+          <div className="flex items-start gap-3 p-3.5">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary ring-1 ring-primary/40">
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M9 11V7a3 3 0 1 1 6 0v4" />
+                <rect x="5" y="11" width="14" height="10" rx="2" />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold leading-snug">Click or tap twice to view player controls</div>
+              <p className="mt-0.5 text-[11px] leading-snug text-white/65">
+                The FebBox player hides its own controls — a double tap or click reveals them.
+              </p>
+            </div>
+            <button
+              onClick={dismissFebboxControlsHint}
               className="-mr-1 -mt-1 rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white"
               aria-label="Dismiss"
             >
