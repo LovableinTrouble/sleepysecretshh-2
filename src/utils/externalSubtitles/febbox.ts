@@ -1,30 +1,72 @@
 /* ============================================
-   p-stream febbox subtitle scraper
-   Source: github p-stream/p-stream (utils/externalSubtitles/febbox.ts)
-   Uses the public fed-subs.pstream.mov API.
-   Safe to call from the server (showbox.server.ts merges these in).
+   External subtitle fetcher (sub.1x2.space)
+   Replaces the old dead fed-subs.pstream.mov scraper — that upstream no
+   longer returns usable results, so no subtitles were ever loading.
+
+   API:
+     movie: GET https://sub.1x2.space/api/movie/{tmdbId}
+     tv:    GET https://sub.1x2.space/api/tv/{tmdbId}/{season}/{episode}
+
+   Response shape:
+     [
+       { "label": "English", "language": "english", "status": "cached",
+         "size": 91872, "url": "/subtitle/movie/123/English.vtt" },
+       ...
+     ]
+
+   `url` is host-relative — it's served from the same sub.1x2.space origin
+   and must be resolved against it before being handed to the player.
    ============================================ */
 
-export interface PstreamFebboxSubtitle {
+export interface ExternalSubtitle {
   url: string;
   language: string;
   label: string;
   type: "srt" | "vtt";
 }
 
-// Minimal label → ISO 639-1 mapping. Covers the languages fed-subs returns.
+const SUB_API_BASE = "https://sub.1x2.space";
+
+// Minimal label/language-name → ISO 639-1 mapping.
 const LABEL_TO_CODE: Record<string, string> = {
-  english: "en", "english (us)": "en", "english (uk)": "en",
-  spanish: "es", "spanish (latin america)": "es",
-  french: "fr", german: "de", italian: "it", portuguese: "pt",
-  "portuguese (brazil)": "pt-BR", russian: "ru", japanese: "ja",
-  korean: "ko", chinese: "zh", "chinese (simplified)": "zh",
-  "chinese (traditional)": "zh-TW", arabic: "ar", turkish: "tr",
-  polish: "pl", dutch: "nl", swedish: "sv", danish: "da",
-  norwegian: "no", finnish: "fi", greek: "el", hebrew: "he",
-  hungarian: "hu", romanian: "ro", czech: "cs", slovak: "sk",
-  ukrainian: "uk", vietnamese: "vi", thai: "th", indonesian: "id",
-  hindi: "hi", malay: "ms", tagalog: "tl", filipino: "tl",
+  arabic: "ar",
+  bengali: "bn",
+  chinese: "zh",
+  english: "en",
+  filipino: "tl",
+  french: "fr",
+  hausa: "ha",
+  indonesian: "id",
+  panjabi: "pa",
+  punjabi: "pa",
+  portuguese: "pt",
+  russian: "ru",
+  swahili: "sw",
+  urdu: "ur",
+  spanish: "es",
+  german: "de",
+  italian: "it",
+  japanese: "ja",
+  korean: "ko",
+  turkish: "tr",
+  polish: "pl",
+  dutch: "nl",
+  swedish: "sv",
+  danish: "da",
+  norwegian: "no",
+  finnish: "fi",
+  greek: "el",
+  hebrew: "he",
+  hungarian: "hu",
+  romanian: "ro",
+  czech: "cs",
+  slovak: "sk",
+  ukrainian: "uk",
+  vietnamese: "vi",
+  thai: "th",
+  hindi: "hi",
+  malay: "ms",
+  tagalog: "tl",
 };
 
 function languageCode(label: string): string {
@@ -32,39 +74,57 @@ function languageCode(label: string): string {
   return LABEL_TO_CODE[k] ?? k.slice(0, 2);
 }
 
+function resolveSubUrl(rawUrl: string): string {
+  if (!rawUrl) return rawUrl;
+  if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
+  return `${SUB_API_BASE}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`;
+}
+
+interface RawSubEntry {
+  label?: string;
+  language?: string;
+  status?: string;
+  size?: number;
+  url?: string;
+}
+
 /**
- * Fetch febbox subtitles from p-stream's public API.
- * `tmdbOrImdbId` accepts either — the upstream resolver handles both.
+ * Fetch subtitles from sub.1x2.space for a movie or TV episode.
+ * Returns an empty array (never throws) if the upstream is unavailable or
+ * returns nothing usable — callers should treat this as "no external subs".
  */
-export async function scrapeFebboxCaptions(
-  tmdbOrImdbId: string,
+export async function scrapeExternalCaptions(
+  tmdbId: string,
   season?: number,
   episode?: number,
-): Promise<PstreamFebboxSubtitle[]> {
+): Promise<ExternalSubtitle[]> {
   try {
     const url =
       season && episode
-        ? `https://fed-subs.pstream.mov/tv/${tmdbOrImdbId}/${season}/${episode}`
-        : `https://fed-subs.pstream.mov/movie/${tmdbOrImdbId}`;
+        ? `${SUB_API_BASE}/api/tv/${encodeURIComponent(tmdbId)}/${season}/${episode}`
+        : `${SUB_API_BASE}/api/movie/${encodeURIComponent(tmdbId)}`;
 
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: { accept: "application/json" },
+    });
     if (!res.ok) return [];
-    const data = (await res.json()) as {
-      error?: string;
-      subtitles?: Record<string, { subtitle_link?: string; subtitle_name?: string }>;
-    };
-    if (data?.error || !data?.subtitles) return [];
 
-    const out: PstreamFebboxSubtitle[] = [];
-    for (const [languageName, sub] of Object.entries(data.subtitles)) {
-      if (!sub || typeof sub !== "object" || !sub.subtitle_link) continue;
-      const ext = sub.subtitle_link.split(".").pop()?.toLowerCase();
-      const type: "srt" | "vtt" = ext === "vtt" ? "vtt" : "srt";
-      const language = languageCode(languageName);
+    const data = (await res.json()) as RawSubEntry[] | { subtitles?: RawSubEntry[] };
+    const list: RawSubEntry[] = Array.isArray(data) ? data : Array.isArray(data?.subtitles) ? data.subtitles : [];
+    if (!list.length) return [];
+
+    const out: ExternalSubtitle[] = [];
+    for (const item of list) {
+      if (!item?.url) continue;
+      const resolved = resolveSubUrl(item.url);
+      const ext = resolved.split(".").pop()?.toLowerCase();
+      const type: "srt" | "vtt" = ext === "srt" ? "srt" : "vtt";
+      const langSource = item.language || item.label || "";
       out.push({
-        url: sub.subtitle_link,
-        language,
-        label: sub.subtitle_name || languageName,
+        url: resolved,
+        language: languageCode(langSource),
+        label: item.label || langSource || "Unknown",
         type,
       });
     }
@@ -73,3 +133,6 @@ export async function scrapeFebboxCaptions(
     return [];
   }
 }
+
+// Backwards-compatible alias for existing imports.
+export const scrapeFebboxCaptions = scrapeExternalCaptions;
