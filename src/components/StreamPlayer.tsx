@@ -10,7 +10,6 @@ import {
   Settings as SettingsIcon,
   Bubbles as SubtitlesIcon,
   PictureInPicture2,
-  Cast,
   ChevronLeft,
   RotateCcw,
   RotateCw,
@@ -202,16 +201,39 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       if (e.key === "Escape" && !document.fullscreenElement) onClose();
     };
     window.addEventListener("keydown", onKey);
-    // Lock body scroll while the player is mounted so the page behind it can't
-    // scroll, and so the player is always at the top of the viewport.
-    const prevOverflow = document.body.style.overflow;
-    const prevScrollY = window.scrollY;
-    document.body.style.overflow = "hidden";
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    // Lock body scroll while the player is mounted. `overflow: hidden` on
+    // body alone doesn't stop touch-scrolling on iOS Safari — the page
+    // behind keeps scrolling, and because that also shifts the visual
+    // viewport / address bar, our `position: fixed` player gets dragged
+    // down with it (and only reliably snaps back to the top of the screen
+    // once native Fullscreen takes over the whole layer). Pinning body to
+    // `position: fixed` at the negative scroll offset — the standard iOS
+    // scroll-lock technique — stops the background from moving at all, so
+    // the player stays put whether or not fullscreen is active.
+    const html = document.documentElement;
+    const body = document.body;
+    const scrollY = window.scrollY;
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyWidth: body.style.width,
+    };
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
+
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-      window.scrollTo({ top: prevScrollY, left: 0, behavior: "auto" });
+      html.style.overflow = prev.htmlOverflow;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.position = prev.bodyPosition;
+      body.style.top = prev.bodyTop;
+      body.style.width = prev.bodyWidth;
+      window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
     };
   }, [onClose]);
 
@@ -711,18 +733,6 @@ function DirectVideo({
     const id = window.setTimeout(() => setShowQualityNudge(false), 7000);
     return () => window.clearTimeout(id);
   }, [showQualityNudge]);
-
-  // One-shot FebBox "tap twice for controls" alert.
-  const [showFebboxControlsHint, setShowFebboxControlsHint] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return !window.localStorage.getItem("peachify:nudge:febbox-controls");
-  });
-  const dismissFebboxControlsHint = useCallback(() => {
-    try {
-      window.localStorage.setItem("peachify:nudge:febbox-controls", "1");
-    } catch {}
-    setShowFebboxControlsHint(false);
-  }, []);
 
   const party = useWatchParty(videoRef);
 
@@ -1255,23 +1265,6 @@ function DirectVideo({
     } catch {}
   }, []);
 
-  const startCast = useCallback(async () => {
-    const v = videoRef.current as (HTMLVideoElement & { remote?: { prompt?: () => Promise<void> } }) | null;
-    try {
-      if (v?.remote?.prompt) {
-        await v.remote.prompt();
-        return;
-      }
-      // Fallback: Chromecast extension on stock <video>
-      const cast = (window as any).chrome?.cast;
-      if (cast?.requestSession)
-        cast.requestSession(
-          () => {},
-          () => {},
-        );
-    } catch {}
-  }, []);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -1485,35 +1478,6 @@ function DirectVideo({
         </div>
       )}
 
-      {/* FebBox: tap-twice control hint (one-time, dismissible) */}
-      {sourceKey === "gamma" && showFebboxControlsHint && (
-        <div className="absolute left-1/2 top-4 z-40 w-[min(92%,420px)] -translate-x-1/2 overflow-hidden rounded-2xl bg-black/85 text-white ring-1 ring-white/15 shadow-2xl backdrop-blur-md animate-fade-in">
-          <div className="flex items-start gap-3 p-3.5">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary ring-1 ring-primary/40">
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M9 11V7a3 3 0 1 1 6 0v4" />
-                <rect x="5" y="11" width="14" height="10" rx="2" />
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold leading-snug">Click or tap twice to view player controls</div>
-              <p className="mt-0.5 text-[11px] leading-snug text-white/65">
-                The FebBox player hides its own controls — a double tap or click reveals them.
-              </p>
-            </div>
-            <button
-              onClick={dismissFebboxControlsHint}
-              className="-mr-1 -mt-1 rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white"
-              aria-label="Dismiss"
-            >
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4">
-                <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Center play button — clean, minimal, only when not yet started */}
       {!playing && current === 0 && !error && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
@@ -1639,9 +1603,6 @@ function DirectVideo({
             <div className="ml-auto flex items-center gap-0.5">
               <IconBtn label="Picture in Picture (p)" onClick={togglePip}>
                 <PictureInPicture2 className="h-5 w-5" strokeWidth={2} />
-              </IconBtn>
-              <IconBtn label="Cast" onClick={startCast}>
-                <Cast className="h-5 w-5" strokeWidth={2} />
               </IconBtn>
               <IconBtn
                 label="Subtitles (c)"
