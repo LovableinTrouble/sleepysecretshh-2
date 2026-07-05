@@ -2,18 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getFebboxProxyTarget } from "@/lib/showbox.server";
 
 /**
- * FebBox / Xpass stream proxy. Stream URLs from these sources often require
+ * FebBox stream proxy. Stream URLs from FebBox often require
  * specific cookies (PHPSESSID / ui) and Referer headers, and frequently block
  * cross-origin playback. We register the upstream URL + headers server-side
  * under an opaque token and stream the response back to the player from our
  * own origin so <video>/HLS can play it.
  *
- * Some resolvers (Xpass in particular) hand back a "file" URL that is itself
- * a third-party relay/proxy (e.g. a foreign m3u8-proxy) wrapping the real CDN
- * URL in its own ?url=&headers= query string. Rather than depending on that
- * relay staying up and accepting our requests, we unwrap it — mirroring
- * NexVid's hls-proxy — and fetch the real final URL directly with whatever
- * headers were embedded in the wrapper.
+ * Some resolvers hand back a "file" URL that is itself a third-party
+ * relay/proxy (e.g. a foreign m3u8-proxy) wrapping the real CDN URL in its
+ * own ?url=&headers= query string. Rather than depending on that relay
+ * staying up and accepting our requests, we unwrap it and fetch the real
+ * final URL directly with whatever headers were embedded in the wrapper.
  */
 
 const CORS_HEADERS = {
@@ -65,9 +64,10 @@ function decodeProxyUrl(value: string): string | null {
 }
 
 // ---- SSRF protection: block private/internal targets, allow any public host ----
-// (Xpass's underlying CDN host is different and unpredictable per title, so a
-// domain allowlist would constantly need updating — a private-IP/localhost/
-// cloud-metadata blocklist is the right boundary here, same as NexVid.)
+// (The underlying CDN host for a given resolver can be different and
+// unpredictable per title, so a domain allowlist would constantly need
+// updating — a private-IP/localhost/cloud-metadata blocklist is the right
+// boundary here.)
 
 function parseIPv4(hostname: string): number[] | null {
   const parts = hostname.split(".");
