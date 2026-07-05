@@ -356,15 +356,18 @@ function SettingsPage() {
         {/* Sources */}
         <Section
           title="Sources"
-          desc="FebBox is the primary direct source. Xpass is a direct HLS backup, played in our native player."
+          desc="FebBox is the primary direct source. Zxcstream is a third-party embed used as a fallback."
         >
-          <Row label="Preferred source" hint="FebBox runs first when a cookie is configured, otherwise Xpass is used.">
+          <Row
+            label="Preferred source"
+            hint="FebBox runs first when a cookie is configured; Zxcstream is used as a fallback."
+          >
             <Select
               value={s.preferredSource}
               onChange={(v) => set({ preferredSource: v })}
               options={[
                 { value: "febbox", label: "FebBox — direct HLS, up to 4K" },
-                { value: "vidsrc", label: "Xpass — direct HLS backup" },
+                { value: "zxcstream", label: "Zxcstream — embed backup" },
               ]}
             />
           </Row>
@@ -375,7 +378,7 @@ function SettingsPage() {
               {s.integrations.febboxCookie?.trim() ? "Connected" : "Not configured"}
             </span>
           </Row>
-          <Row label="Xpass" hint="Direct HLS fallback, streamed through our own proxy.">
+          <Row label="Zxcstream" hint="Third-party iframe embed fallback, used when FebBox has no stream.">
             <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
               Backup ready
             </span>
