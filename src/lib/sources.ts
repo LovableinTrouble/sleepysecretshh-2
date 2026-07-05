@@ -3,8 +3,8 @@ import type { Settings } from "./store";
 
 /**
  * Source registry — FebBox is the primary direct source (up to 4K, requires
- * a ui= cookie). Zxcstream is a third-party iframe embed fallback used when
- * FebBox has no working stream for a title.
+ * a ui= cookie/token). Prionix is a third-party iframe embed fallback, used
+ * when FebBox isn't configured or has no working stream for a title.
  */
 export interface Source {
   id: string;
@@ -16,7 +16,7 @@ export interface Source {
   build: (m: Media, season?: number, episode?: number) => string;
 }
 
-export type SourceKey = "gamma" | "zxcstream";
+export type SourceKey = "gamma" | "prionix";
 
 const FEBBOX: Source = {
   id: "febbox",
@@ -27,12 +27,13 @@ const FEBBOX: Source = {
   build: () => "",
 };
 
-// Zxcstream — third-party iframe embed, used as a fallback when FebBox
-// doesn't work. Query params per api.zxcstream.xyz docs: domainAd (splash),
-// color (accent hex, no '#'), autoplay.
-const ZXCSTREAM: Source = {
-  id: "zxcstream",
-  name: "Zxcstream",
+// Prionix — third-party iframe embed (backed by zxcstream.xyz), used as a
+// fallback when FebBox isn't enabled or doesn't have a stream. Query params
+// per api.zxcstream.xyz docs: domainAd (splash), color (accent hex, no '#'),
+// autoplay.
+const PRIONIX: Source = {
+  id: "prionix",
+  name: "Prionix",
   badge: "Embed · Backup",
   kind: "embed",
   tier: "backup",
@@ -51,17 +52,24 @@ const ZXCSTREAM: Source = {
   },
 };
 
-export const SOURCES: Source[] = [FEBBOX, ZXCSTREAM];
+export const SOURCES: Source[] = [FEBBOX, PRIONIX];
 
+function hasFebboxToken(settings?: Pick<Settings, "integrations">): boolean {
+  return Boolean(settings?.integrations?.febboxCookie?.trim());
+}
+
+// FebBox is only attempted when a token (the FebBox ui= cookie) is configured
+// — anonymous FebBox calls almost always fail and just delay playback, so
+// without a token we go straight to Prionix.
 export function getOrderedSources(settings?: Pick<Settings, "integrations">): Source[] {
-  return [FEBBOX, ZXCSTREAM];
+  return hasFebboxToken(settings) ? [FEBBOX, PRIONIX] : [PRIONIX];
 }
 
 export function sourceForKey(key: SourceKey): Source {
-  return key === "gamma" ? FEBBOX : ZXCSTREAM;
+  return key === "gamma" ? FEBBOX : PRIONIX;
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
   gamma: "FebBox",
-  zxcstream: "Zxcstream",
+  prionix: "Prionix",
 };
