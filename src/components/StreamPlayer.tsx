@@ -201,49 +201,49 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       if (e.key === "Escape" && !document.fullscreenElement) onClose();
     };
     window.addEventListener("keydown", onKey);
-    // Lock body scroll while the player is mounted so the page behind it can't
-    // scroll, and so the player is always at the top of the viewport.
-    const prevOverflow = document.body.style.overflow;
-    const prevScrollY = window.scrollY;
-    document.body.style.overflow = "hidden";
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+
+    // Lock background scroll while the player is mounted. Plain
+    // `overflow: hidden` on body isn't reliable on mobile Safari — the page
+    // can still rubber-band/scroll underneath, which visually drags a
+    // `position: fixed` element along with it for a moment before it
+    // "snaps" back, which is exactly what showed up as the player sliding
+    // down after a second. Locking the body itself with `position: fixed`
+    // (the standard iOS-safe scroll-lock technique) prevents that entirely.
+    const scrollY = window.scrollY;
+    const { body } = document;
+    const html = document.documentElement;
+    const prev = {
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyLeft: body.style.left,
+      bodyRight: body.style.right,
+      bodyWidth: body.style.width,
+      bodyOverflow: body.style.overflow,
+      htmlOverflow: html.style.overflow,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
+
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-      window.scrollTo({ top: prevScrollY, left: 0, behavior: "auto" });
+      body.style.position = prev.bodyPosition;
+      body.style.top = prev.bodyTop;
+      body.style.left = prev.bodyLeft;
+      body.style.right = prev.bodyRight;
+      body.style.width = prev.bodyWidth;
+      body.style.overflow = prev.bodyOverflow;
+      html.style.overflow = prev.htmlOverflow;
+      window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
     };
   }, [onClose]);
 
-  // Keep the player pinned to the real visible viewport. On mobile browsers
-  // the layout viewport (100dvh/vw) can be taller than what's actually on
-  // screen once the address bar / toolbar is showing, which pushes this
-  // fixed-position player down and off the bottom of the screen — it only
-  // looked "fixed" once you hit fullscreen because fullscreen bypasses the
-  // visual viewport entirely. Track window.visualViewport and size/position
-  // the wrapper to match it exactly so it's always fully visible.
-  const [viewportRect, setViewportRect] = useState<{ height: number; top: number } | null>(null);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.visualViewport) return;
-    const vv = window.visualViewport;
-    const update = () => setViewportRect({ height: vv.height, top: vv.offsetTop });
-    update();
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
-    return () => {
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
-    };
-  }, []);
-
   return (
-    <div
-      className="fixed inset-0 z-[60] flex flex-col bg-black animate-fade-in"
-      style={{
-        height: viewportRect ? `${viewportRect.height}px` : "100dvh",
-        width: "100vw",
-        transform: viewportRect && viewportRect.top ? `translateY(${viewportRect.top}px)` : undefined,
-      }}
-    >
+    <div className="fixed inset-0 z-[60] flex flex-col bg-black animate-fade-in">
       <div className="relative flex-1 bg-black">
         {status.kind === "scanning" && (
           <ScanningOverlay step={scanStep} tier={SOURCE_TIER_LABEL[sourceKey]} notice={fallbackNotice} />
@@ -1607,6 +1607,9 @@ function DirectVideo({
             <div className="ml-auto flex items-center gap-0.5">
               <IconBtn label="Picture in Picture (p)" onClick={togglePip}>
                 <PictureInPicture2 className="h-5 w-5" strokeWidth={2} />
+              </IconBtn>
+              <IconBtn label="Cast" onClick={startCast}>
+                <Cast className="h-5 w-5" strokeWidth={2} />
               </IconBtn>
               <IconBtn
                 label="Subtitles (c)"
