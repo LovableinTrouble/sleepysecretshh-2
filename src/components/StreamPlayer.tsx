@@ -18,16 +18,11 @@ import {
 
 import type { Media } from "@/lib/catalog";
 import { useSettings } from "@/lib/store";
-import {
-  getOrderedSources,
-  sourceForKey,
-  SOURCE_TIER_LABEL,
-  type Source,
-  type SourceKey,
-} from "@/lib/sources";
+import { getOrderedSources, sourceForKey, SOURCE_TIER_LABEL, type Source, type SourceKey } from "@/lib/sources";
 import { resolveFebboxStream, resolveXpassStream, type ResolvedQuality } from "@/lib/api/streams.functions";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-// Note: all playback is direct HLS/MP4; no embed iframes are used anymore.
+// Direct HLS/MP4 playback (FebBox, Xpass) uses our native player UI. Zxcstream
+// is a third-party iframe embed used as a last-resort backup source.
 
 interface Props {
   media: Media;
@@ -53,6 +48,7 @@ interface DirectStream {
 type Status =
   | { kind: "scanning" }
   | { kind: "direct"; stream: DirectStream }
+  | { kind: "embed"; url: string }
   | { kind: "failed"; detail?: string; logs?: { step: string; status: "ok" | "fail"; detail?: string }[] };
 
 const QUALITY_RANK: Record<string, number> = {
@@ -180,46 +176,55 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       }
 
       // Xpass — direct HLS backup via play.xpass.top, proxied through our origin.
-      setScanStep("Connecting to Xpass…");
-      try {
-        const res = await resolveXpassStream({
-          data: {
-            tmdbId: media.id,
-            type: media.type === "movie" ? "movie" : "show",
-            season,
-            episode,
-          },
-        });
-        if (isStale()) return;
-        if (res.ok && res.qualities.length > 0) {
-          const xpass = sourceForKey("xpass");
-          setStatus({
-            kind: "direct",
-            stream: { source: xpass, qualities: res.qualities, active: res.qualities[0], subs: res.subtitles },
+      if (sourceKey === "xpass") {
+        setScanStep("Connecting to Xpass…");
+        try {
+          const res = await resolveXpassStream({
+            data: {
+              tmdbId: media.id,
+              type: media.type === "movie" ? "movie" : "show",
+              season,
+              episode,
+            },
           });
-          setTimeout(() => setFallbackNotice(null), 1500);
-        } else {
-          setStatus({ kind: "failed", detail: res.error || "No playable source found for this title." });
+          if (isStale()) return;
+          if (res.ok && res.qualities.length > 0) {
+            const xpass = sourceForKey("xpass");
+            setStatus({
+              kind: "direct",
+              stream: { source: xpass, qualities: res.qualities, active: res.qualities[0], subs: res.subtitles },
+            });
+            setTimeout(() => setFallbackNotice(null), 1500);
+          } else {
+            setFallbackNotice("Xpass unavailable. Switching to Zxcstream…");
+            setSourceKey("zxcstream");
+          }
+        } catch (err: any) {
+          if (!isStale()) {
+            setFallbackNotice("Xpass unavailable. Switching to Zxcstream…");
+            setSourceKey("zxcstream");
+          }
         }
-      } catch (err: any) {
-        if (!isStale()) setStatus({ kind: "failed", detail: err?.message || "Xpass request failed." });
+        return;
+      }
+
+      // Zxcstream — third-party iframe embed, last-resort fallback.
+      setScanStep("Connecting to Zxcstream…");
+      const zxcstream = sourceForKey("zxcstream");
+      const embedUrl = zxcstream.build(media, season, episode);
+      if (isStale()) return;
+      if (embedUrl) {
+        setStatus({ kind: "embed", url: embedUrl });
+        setTimeout(() => setFallbackNotice(null), 1500);
+      } else {
+        setStatus({ kind: "failed", detail: "No playable source found for this title." });
       }
     })();
 
     return () => {
       cancelRef.current = true;
     };
-  }, [
-    media.id,
-    media.title,
-    media.type,
-    season,
-    episode,
-    sourceKey,
-    febboxCookie,
-    qualityPref,
-    ordered,
-  ]);
+  }, [media.id, media.title, media.type, season, episode, sourceKey, febboxCookie, qualityPref, ordered]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -273,6 +278,10 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             onClose={onClose}
             onSwitchQuality={(q) => setStatus({ kind: "direct", stream: { ...status.stream, active: q } })}
           />
+        )}
+
+        {status.kind === "embed" && (
+          <EmbedVideo url={status.url} media={media} season={season} episode={episode} onClose={onClose} />
         )}
       </div>
     </div>
@@ -398,6 +407,137 @@ function FailedOverlay({
         <button onClick={onClose} className="rounded-lg px-4 h-10 text-sm font-medium text-white/60 hover:text-white">
           Close
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+ * Zxcstream iframe embed + postMessage API
+ *
+ * https://zxcstream.xyz player posts these message types via
+ * window.parent.postMessage() once embedded in an iframe:
+ *   VIDEO_PLAY             {"type":"VIDEO_PLAY"}
+ *   VIDEO_PAUSE            {"type":"VIDEO_PAUSE"}
+ *   VIDEO_PROGRESS         {"type":"VIDEO_PROGRESS","payload":{progressKey,currentTime,duration,percent}}
+ *   VIDEO_NINETY_PERCENT   {"type":"VIDEO_NINETY_PERCENT","payload":{progressKey,currentTime,duration}}
+ *   VIDEO_ENDED            {"type":"VIDEO_ENDED","payload":{progressKey}}
+ * VIDEO_PROGRESS fires every 60s after the first 60s of playback;
+ * VIDEO_NINETY_PERCENT fires once per session. Always check event.data.type.
+ * ============================================================ */
+
+type ZxcstreamMessage =
+  | { type: "VIDEO_PLAY" }
+  | { type: "VIDEO_PAUSE" }
+  | {
+      type: "VIDEO_PROGRESS";
+      payload: { progressKey: string; currentTime: number; duration: number; percent: number };
+    }
+  | {
+      type: "VIDEO_NINETY_PERCENT";
+      payload: { progressKey: string; currentTime: number; duration: number };
+    }
+  | { type: "VIDEO_ENDED"; payload: { progressKey: string } };
+
+function EmbedVideo({
+  url,
+  media,
+  season,
+  episode,
+  onClose,
+}: {
+  url: string;
+  media: Media;
+  season?: number;
+  episode?: number;
+  onClose: () => void;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const seasonKey = season ?? null;
+  const epKey = episode ?? null;
+
+  const recordProgress = useCallback(
+    (currentTime: number, duration: number, completed: boolean) => {
+      if (!Number.isFinite(currentTime) || !Number.isFinite(duration)) return;
+      const entry = {
+        mediaId: media.id,
+        mediaType: media.type,
+        season: seasonKey,
+        episode: epKey,
+        positionSeconds: Math.max(0, Math.floor(currentTime)),
+        durationSeconds: Math.max(0, Math.floor(duration)),
+        title: media.title,
+        poster: media.poster ?? null,
+        backdrop: media.backdrop ?? null,
+        completed,
+        updatedAt: Date.now(),
+      };
+      saveProgressLocal(entry);
+      void syncProgressUp(entry);
+    },
+    [media.id, media.type, media.title, media.poster, media.backdrop, seasonKey, epKey],
+  );
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      // Zxcstream's player origin — only act on messages actually coming from
+      // the embedded iframe.
+      if (event.origin !== "https://zxcstream.xyz") return;
+      const data = event.data as ZxcstreamMessage | undefined;
+      if (!data || typeof data.type !== "string") return;
+
+      switch (data.type) {
+        case "VIDEO_PLAY":
+          setPlaying(true);
+          break;
+        case "VIDEO_PAUSE":
+          setPlaying(false);
+          break;
+        case "VIDEO_PROGRESS": {
+          const { currentTime, duration } = data.payload;
+          recordProgress(currentTime, duration, false);
+          break;
+        }
+        case "VIDEO_NINETY_PERCENT": {
+          const { currentTime, duration } = data.payload;
+          recordProgress(currentTime, duration, false);
+          break;
+        }
+        case "VIDEO_ENDED": {
+          const saved = getLocalProgressFor(media.id, seasonKey, epKey);
+          recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
+          break;
+        }
+        default:
+          break;
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [media.id, seasonKey, epKey, recordProgress]);
+
+  return (
+    <div className="relative h-full w-full bg-black">
+      <iframe
+        ref={iframeRef}
+        src={url}
+        title={media.title}
+        className="h-full w-full border-0"
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+        allowFullScreen
+      />
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
+        <button
+          onClick={onClose}
+          className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white ring-1 ring-white/15 backdrop-blur hover:bg-black/70"
+          aria-label="Close player"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <div className="pointer-events-none rounded-full bg-black/50 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-white/70 ring-1 ring-white/15 backdrop-blur">
+          Zxcstream {playing ? "· Playing" : ""}
+        </div>
       </div>
     </div>
   );
