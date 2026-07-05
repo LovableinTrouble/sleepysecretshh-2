@@ -2,11 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getFebboxProxyTarget } from "@/lib/showbox.server";
 
 /**
- * FebBox stream proxy. Stream URLs from FebBox often require specific
- * cookies (PHPSESSID / ui) and Referer headers, and frequently block
+ * FebBox / Xpass stream proxy. Stream URLs from these sources often require
+ * specific cookies (PHPSESSID / ui) and Referer headers, and frequently block
  * cross-origin playback. We register the upstream URL + headers server-side
  * under an opaque token and stream the response back to the player from our
  * own origin so <video>/HLS can play it.
+ *
+ * Some resolvers (Xpass in particular) hand back a "file" URL that is itself
+ * a third-party relay/proxy (e.g. a foreign m3u8-proxy) wrapping the real CDN
+ * URL in its own ?url=&headers= query string. Rather than depending on that
+ * relay staying up and accepting our requests, we unwrap it — mirroring
+ * NexVid's hls-proxy — and fetch the real final URL directly with whatever
+ * headers were embedded in the wrapper.
  */
 
 const CORS_HEADERS = {
@@ -27,6 +34,18 @@ const PASS_RESPONSE_HEADERS = [
   "last-modified",
 ] as const;
 
+const ALLOWED_HEADER_KEYS = new Set([
+  "referer",
+  "origin",
+  "user-agent",
+  "authorization",
+  "cookie",
+  "accept",
+  "accept-language",
+  "range",
+  "connection",
+]);
+
 function encodeProxyUrl(value: string): string {
   const bytes = new TextEncoder().encode(value);
   let binary = "";
@@ -45,43 +64,188 @@ function decodeProxyUrl(value: string): string | null {
   }
 }
 
-// Host allowlist for child (segment / sub-playlist / key) requests. Unlike a
-// strict "must match the originally registered host" check, real multi-CDN
-// HLS setups (Xpass in particular) routinely serve the master manifest and
-// its segments from different edge subdomains — sometimes entirely different
-// domains. So, like NexVid's hls-proxy, we validate each child request against
-// a real allowlist instead of coupling it to whatever host the first request
-// in the chain happened to hit.
-const ALLOWED_HOST_PATTERNS = [
-  "*.xpass.top",
-  "xpass.top",
-  "*.febbox.com",
-  "febbox.com",
-  "*.febbox.org",
-  "febbox.org",
-  "*.shegu.net",
-  "shegu.net",
-];
+// ---- SSRF protection: block private/internal targets, allow any public host ----
+// (Xpass's underlying CDN host is different and unpredictable per title, so a
+// domain allowlist would constantly need updating — a private-IP/localhost/
+// cloud-metadata blocklist is the right boundary here, same as NexVid.)
 
-function matchHostname(hostname: string, pattern: string): boolean {
-  const host = hostname.toLowerCase();
-  const candidate = pattern.toLowerCase();
-  if (candidate === "*") return true;
-  if (candidate.startsWith("*.")) {
-    const base = candidate.slice(2);
-    return host === base || host.endsWith(`.${base}`);
+function parseIPv4(hostname: string): number[] | null {
+  const parts = hostname.split(".");
+  if (parts.length !== 4) return null;
+  const octets = parts.map((part) => Number.parseInt(part, 10));
+  if (octets.some((value, index) => !/^\d+$/.test(parts[index]) || Number.isNaN(value) || value < 0 || value > 255)) {
+    return null;
   }
-  return host === candidate;
+  return octets;
 }
 
-function isAllowedChildHost(hostname: string): boolean {
-  return ALLOWED_HOST_PATTERNS.some((pattern) => matchHostname(hostname, pattern));
+function isPrivateIPv4(octets: number[]): boolean {
+  const [a, b] = octets;
+  if (a === 10) return true;
+  if (a === 127) return true;
+  if (a === 0) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true; // Carrier-grade NAT
+  return false;
 }
 
+function expandIPv6(hostname: string): number[] | null {
+  const normalized = hostname.toLowerCase();
+  if (!normalized.includes(":")) return null;
+  if (normalized.includes(".") && normalized.includes(":")) {
+    const lastColon = normalized.lastIndexOf(":");
+    const head = normalized.slice(0, lastColon);
+    const tail = normalized.slice(lastColon + 1);
+    const ipv4 = parseIPv4(tail);
+    if (!ipv4) return null;
+    const mapped = `${head}:${((ipv4[0] << 8) | ipv4[1]).toString(16)}:${((ipv4[2] << 8) | ipv4[3]).toString(16)}`;
+    return expandIPv6(mapped);
+  }
+
+  const parts = normalized.split("::");
+  if (parts.length > 2) return null;
+
+  const left = parts[0] ? parts[0].split(":").filter(Boolean) : [];
+  const right = parts[1] ? parts[1].split(":").filter(Boolean) : [];
+  if (left.length + right.length > 8) return null;
+  if (parts.length === 1 && left.length !== 8) return null;
+
+  const fillCount = 8 - (left.length + right.length);
+  const full = [...left, ...Array(fillCount).fill("0"), ...right];
+  if (full.length !== 8) return null;
+
+  const hextets = full.map((part) => Number.parseInt(part, 16));
+  if (
+    hextets.some(
+      (value, index) => !/^[0-9a-f]{1,4}$/i.test(full[index]) || Number.isNaN(value) || value < 0 || value > 0xffff,
+    )
+  ) {
+    return null;
+  }
+  return hextets;
+}
+
+function isPrivateIPv6(hextets: number[]): boolean {
+  const [a, b, c, d, e, f, g, h] = hextets;
+  const isUnspecified = hextets.every((value) => value === 0);
+  const isLoopback = a === 0 && b === 0 && c === 0 && d === 0 && e === 0 && f === 0 && g === 0 && h === 1;
+  const isUniqueLocal = (a & 0xfe00) === 0xfc00; // fc00::/7
+  const isLinkLocal = (a & 0xffc0) === 0xfe80; // fe80::/10
+  if (isUnspecified || isLoopback || isUniqueLocal || isLinkLocal) return true;
+
+  // IPv4-mapped IPv6 address ::ffff:x.x.x.x
+  if (a === 0 && b === 0 && c === 0 && d === 0 && e === 0 && f === 0xffff) {
+    const ipv4 = [g >> 8, g & 0xff, h >> 8, h & 0xff];
+    return isPrivateIPv4(ipv4);
+  }
+
+  return false;
+}
+
+function isBlockedTargetHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (host === "localhost" || host.endsWith(".internal")) return true;
+
+  const ipv4 = parseIPv4(host);
+  if (ipv4) {
+    if (isPrivateIPv4(ipv4)) return true;
+    if (host === "169.254.169.254") return true; // cloud metadata endpoint
+    return false;
+  }
+
+  const ipv6 = expandIPv6(host);
+  if (ipv6) {
+    return isPrivateIPv6(ipv6);
+  }
+
+  return false;
+}
+
+// ---- Nested proxy/relay unwrapping ----
+
+function parseHeadersJson(raw: string | null): Record<string, string> {
+  if (!raw) return {};
+  const parsed = (() => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  })();
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    const normalized = key.toLowerCase();
+    if (!ALLOWED_HEADER_KEYS.has(normalized)) continue;
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    result[normalized] = trimmed;
+  }
+  return result;
+}
+
+/**
+ * Some resolvers hand back a URL that is itself a third-party relay wrapping
+ * the real target in its own ?url=&headers=(&host=) query string (e.g.
+ * hlsproxy3.asiaflix.net/m3u8-proxy?url=<real-cdn>&headers=<json>). Rather
+ * than depending on that relay, unwrap up to 3 levels deep and fetch the real
+ * final URL directly with whatever headers were embedded in the wrapper.
+ */
+function cleanTargetUrl(rawTarget: string): {
+  targetUrl: string;
+  nestedHeaders: Record<string, string>;
+} {
+  let target = String(rawTarget || "").trim();
+  let nestedHeaders: Record<string, string> = {};
+
+  for (let i = 0; i < 3; i += 1) {
+    if (!/^https?:\/\//i.test(target)) break;
+    try {
+      const parsed = new URL(target);
+
+      for (const raw of parsed.searchParams.getAll("headers")) {
+        nestedHeaders = { ...nestedHeaders, ...parseHeadersJson(raw) };
+      }
+
+      const hintedHost = String(parsed.searchParams.get("host") || "").trim();
+      if (hintedHost) {
+        try {
+          const hostUrl = new URL(hintedHost);
+          if (!nestedHeaders.origin) nestedHeaders.origin = hostUrl.origin;
+          if (!nestedHeaders.referer) nestedHeaders.referer = `${hostUrl.origin}/`;
+        } catch {
+          // ignore malformed hint
+        }
+      }
+
+      const nestedUrl = String(parsed.searchParams.get("url") || "").trim();
+      if (/^https?:\/\//i.test(nestedUrl)) {
+        target = nestedUrl;
+        continue;
+      }
+
+      parsed.searchParams.delete("headers");
+      parsed.searchParams.delete("host");
+      parsed.searchParams.delete("url");
+
+      target = parsed.toString();
+      break;
+    } catch {
+      break;
+    }
+  }
+
+  return { targetUrl: target, nestedHeaders };
+}
+
+// ---- Upstream fetch with bounded timeout + retry ----
 // Segments/keys should come back fast; if an edge is slow or half-open we'd
 // rather fail this attempt quickly and retry than hang until the client's own
-// hls.js fragLoadingTimeOut (20s) gives up on us. The manifest itself gets a
-// little more slack since it's a single request per playback start.
+// hls.js fragLoadingTimeOut (20s) gives up on us.
 const UPSTREAM_TIMEOUT_MS = 8000;
 const UPSTREAM_MAX_ATTEMPTS = 3;
 const UPSTREAM_RETRY_DELAY_MS = 300;
@@ -157,43 +321,53 @@ async function handle(request: Request, method: "GET" | "HEAD") {
     });
   }
 
-  let upstreamUrl = target.url;
+  // Resolve which URL was requested (the originally registered one, or a
+  // rewritten child segment/sub-playlist/key), then unwrap it if it's itself
+  // a wrapped relay URL.
+  let requestedUrl = target.url;
   const encodedChildUrl = url.searchParams.get("u");
   if (encodedChildUrl) {
     const decoded = decodeProxyUrl(encodedChildUrl);
     if (!decoded) return new Response("bad child url", { status: 400, headers: CORS_HEADERS });
-    const child = new URL(decoded);
-    if (!/^https?:$/.test(child.protocol) || !isAllowedChildHost(child.hostname)) {
-      return new Response("child url not allowed", { status: 403, headers: CORS_HEADERS });
-    }
-    upstreamUrl = child.toString();
+    requestedUrl = decoded;
   }
 
-  const upstreamHost = new URL(upstreamUrl).hostname;
+  const { targetUrl: upstreamUrl, nestedHeaders } = cleanTargetUrl(requestedUrl);
+
+  let finalHost: URL;
+  try {
+    finalHost = new URL(upstreamUrl);
+  } catch {
+    return new Response("bad target url", { status: 400, headers: CORS_HEADERS });
+  }
+  if (!/^https?:$/.test(finalHost.protocol) || isBlockedTargetHost(finalHost.hostname)) {
+    return new Response("target host not allowed", { status: 403, headers: CORS_HEADERS });
+  }
+
+  // Only forward the stored cookie/referer when they actually belong to the
+  // host we're about to hit — the "file" URL a resolver returns is frequently
+  // on a completely different domain (or, after unwrapping, the real CDN)
+  // than the site the referer was captured from, and forcing a mismatched
+  // Referer onto an unrelated host is a common way to get rejected outright.
   let refererHost: string | null = null;
   try {
     refererHost = target.referer ? new URL(target.referer).hostname : null;
   } catch {
     refererHost = null;
   }
-  const refererBelongsHere = !!refererHost && sameHost(upstreamHost, refererHost);
+  const refererBelongsHere = !!refererHost && sameHost(finalHost.hostname, refererHost);
 
   const upstreamHeaders: Record<string, string> = {
     "user-agent":
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
     accept: "*/*",
   };
-  // Only forward the stored cookie/referer when they actually belong to the
-  // host we're about to hit — e.g. the "file" URL a source's resolver returns
-  // is frequently on a completely different domain (a third-party relay/proxy)
-  // than the site the referer was captured from, and forcing a mismatched
-  // Referer onto an unrelated host is a common way to get rejected outright.
   if (target.cookie && refererBelongsHere) upstreamHeaders.cookie = target.cookie;
-  if (target.referer && refererBelongsHere) {
-    upstreamHeaders.referer = target.referer;
-  } else {
-    upstreamHeaders.referer = `${new URL(upstreamUrl).origin}/`;
-  }
+  upstreamHeaders.referer = refererBelongsHere ? target.referer! : `${finalHost.origin}/`;
+
+  // Headers embedded in a wrapper URL's own ?headers= param (e.g. the Origin
+  // a relay says the real CDN expects) take precedence over our defaults.
+  Object.assign(upstreamHeaders, nestedHeaders);
 
   for (const name of PASS_REQUEST_HEADERS) {
     const value = request.headers.get(name);
@@ -203,9 +377,9 @@ async function handle(request: Request, method: "GET" | "HEAD") {
   let upstream: Response;
   try {
     upstream = await fetchUpstreamWithRetry(upstreamUrl, { method, headers: upstreamHeaders });
-    // A relay/proxy host rejecting a mismatched referer typically fails fast
-    // with a 4xx/5xx rather than hanging — if that happens and we did send a
-    // referer, retry once with no referer/cookie at all before giving up.
+    // A host rejecting a mismatched referer/cookie typically fails fast with a
+    // 4xx/5xx rather than hanging — if that happens, retry once with no
+    // referer/cookie at all before giving up.
     if (!upstream.ok && upstream.status >= 400 && (upstreamHeaders.referer || upstreamHeaders.cookie)) {
       const bareHeaders: Record<string, string> = { ...upstreamHeaders };
       delete bareHeaders.referer;
