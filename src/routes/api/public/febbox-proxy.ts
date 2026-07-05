@@ -45,11 +45,37 @@ function decodeProxyUrl(value: string): string | null {
   }
 }
 
-// Registrable domain (eTLD+1-ish) so CDN edge subdomains (e.g. cdn3.example.com
-// vs edge7.example.com) are treated as the same origin for our allow-list check.
-function registrableDomain(hostname: string): string {
-  const parts = hostname.split(".");
-  return parts.length <= 2 ? hostname : parts.slice(-2).join(".");
+// Host allowlist for child (segment / sub-playlist / key) requests. Unlike a
+// strict "must match the originally registered host" check, real multi-CDN
+// HLS setups (Xpass in particular) routinely serve the master manifest and
+// its segments from different edge subdomains — sometimes entirely different
+// domains. So, like NexVid's hls-proxy, we validate each child request against
+// a real allowlist instead of coupling it to whatever host the first request
+// in the chain happened to hit.
+const ALLOWED_HOST_PATTERNS = [
+  "*.xpass.top",
+  "xpass.top",
+  "*.febbox.com",
+  "febbox.com",
+  "*.febbox.org",
+  "febbox.org",
+  "*.shegu.net",
+  "shegu.net",
+];
+
+function matchHostname(hostname: string, pattern: string): boolean {
+  const host = hostname.toLowerCase();
+  const candidate = pattern.toLowerCase();
+  if (candidate === "*") return true;
+  if (candidate.startsWith("*.")) {
+    const base = candidate.slice(2);
+    return host === base || host.endsWith(`.${base}`);
+  }
+  return host === candidate;
+}
+
+function isAllowedChildHost(hostname: string): boolean {
+  return ALLOWED_HOST_PATTERNS.some((pattern) => matchHostname(hostname, pattern));
 }
 
 function rewriteHlsPlaylist(body: string, base: URL, token: string): string {
@@ -99,11 +125,7 @@ async function handle(request: Request, method: "GET" | "HEAD") {
     const decoded = decodeProxyUrl(encodedChildUrl);
     if (!decoded) return new Response("bad child url", { status: 400, headers: CORS_HEADERS });
     const child = new URL(decoded);
-    const parent = new URL(target.url);
-    // Allow same registrable domain rather than exact hostname match — multi-CDN
-    // HLS setups commonly serve the master manifest and its segments/sub-playlists
-    // from different edge subdomains of the same domain.
-    if (!/^https?:$/.test(child.protocol) || registrableDomain(child.hostname) !== registrableDomain(parent.hostname)) {
+    if (!/^https?:$/.test(child.protocol) || !isAllowedChildHost(child.hostname)) {
       return new Response("child url not allowed", { status: 403, headers: CORS_HEADERS });
     }
     upstreamUrl = child.toString();
