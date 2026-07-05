@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Hls from "hls.js";
 import {
   Play,
@@ -237,10 +238,19 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     };
   }, [onClose]);
 
-  return (
+  const player = (
     <div
-      className="fixed inset-0 z-[60] flex flex-col bg-black animate-fade-in"
-      style={{ height: "100dvh", width: "100vw" }}
+      className="fixed inset-0 z-[2147483000] flex flex-col bg-black animate-fade-in"
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: "100dvh",
+        width: "100vw",
+        zIndex: 2147483000,
+      }}
     >
       <div className="relative flex-1 bg-black">
         {status.kind === "scanning" && (
@@ -279,6 +289,21 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       </div>
     </div>
   );
+
+  // Render straight into <body> via a portal instead of in-place. If any
+  // ancestor in the normal page tree (a page-transition wrapper, a blurred
+  // panel, anything using `transform`, `filter`, or `contain`) establishes
+  // its own containing block, this `position: fixed` element stops being
+  // positioned relative to the viewport and instead sits relative to that
+  // ancestor — which is exactly what makes a "fullscreen" player appear to
+  // slide down and vanish outside of real Fullscreen (real Fullscreen
+  // escapes into the browser's top layer, bypassing the bug entirely, which
+  // is why toggling it "fixes" things). Portaling to `document.body`
+  // guarantees this player is never nested inside anything that could do
+  // that, regardless of what the rest of the app's layout does — no
+  // fullscreen toggle required.
+  if (typeof document === "undefined") return player;
+  return createPortal(player, document.body);
 }
 
 /* ============================================================
