@@ -7,14 +7,6 @@ const streamInflight = new Map<string, Promise<ResolvedStreamResult>>();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const NEGATIVE_CACHE_TTL = 60 * 1000;
 const CINEPRO_TIMEOUT_MS = 6500;
-const XPASS_BASE = "https://play.xpass.top";
-const XPASS_HEADERS = {
-  "user-agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
-  accept: "application/json, */*",
-  referer: `${XPASS_BASE}/`,
-  "accept-language": "en-US,en;q=0.9",
-};
 
 export interface ResolvedQuality {
   url: string;
@@ -103,10 +95,12 @@ const CineproRequestSchema = z.object({
   type: z.enum(["movie", "show"]),
   season: z.number().optional(),
   episode: z.number().optional(),
-  cineproUrl: z.string().min(1).refine(
-    (v) => v.startsWith("http://") || v.startsWith("https://"),
-    { message: "cineproUrl must start with http:// or https://" },
-  ),
+  cineproUrl: z
+    .string()
+    .min(1)
+    .refine((v) => v.startsWith("http://") || v.startsWith("https://"), {
+      message: "cineproUrl must start with http:// or https://",
+    }),
 });
 
 export const resolveCineproStream = createServerFn({ method: "POST" })
@@ -128,124 +122,131 @@ export const resolveCineproStream = createServerFn({ method: "POST" })
       if (pending) return pending;
 
       const work = (async (): Promise<ResolvedStreamResult> => {
-      const endpoint =
-        data.type === "movie"
-          ? `${base}/v1/movies/${data.tmdbId}`
-          : `${base}/v1/tv/${data.tmdbId}/seasons/${data.season ?? 1}/episodes/${data.episode ?? 1}`;
-      const res = await fetch(endpoint, {
-        redirect: "follow",
-        signal: AbortSignal.timeout(CINEPRO_TIMEOUT_MS),
-        headers: {
-          Accept: "application/json",
-        },
-      });
-      if (res.status === 404) {
-        logs.push({ step: "cinepro", status: "fail", detail: "No sources found" });
-        return { ok: false, qualities: [], subtitles: [], logs };
-      }
-      if (!res.ok) {
-        logs.push({ step: "cinepro", status: "fail", detail: `HTTP ${res.status}` });
-        return { ok: false, qualities: [], subtitles: [], logs };
-      }
-      const body = await res.text();
-      const json: any = JSON.parse(body);
-      const sourceList = json.sources ?? json.data?.sources ?? json.stream?.sources ?? json.result?.sources ?? [];
-      const subtitleList = json.subtitles ?? json.data?.subtitles ?? json.stream?.subtitles ?? json.result?.subtitles ?? [];
-      logs.push({
-        step: "cinepro",
-        status: "ok",
-        detail: `${sourceList.length ?? 0} sources, ${subtitleList.length ?? 0} subtitles`,
-      });
-      if (!sourceList?.length) {
-        logs.push({ step: "cinepro", status: "fail", detail: "Empty sources array" });
-        return { ok: false, qualities: [], subtitles: [], logs };
-      }
-      // CinePro returns proxy URLs anchored to its OWN internal host
-      // (e.g. http://localhost:10000/v1/proxy?...). Rewrite any /v1/proxy URL
-      // so its origin matches the public instance base.
-      const rewrite = (raw: string): string => {
-        const s = String(raw || "");
-        if (!s) return s;
-        if (!s.startsWith("http")) return `${base}${s.startsWith("/") ? "" : "/"}${s}`;
-        const proxyIdx = s.indexOf("/v1/proxy");
-        if (proxyIdx > 0) return `${base}${s.slice(proxyIdx)}`;
-        return s;
-      };
-
-      const prettyQuality = (q: string): string => {
-        const s = String(q || "").toLowerCase();
-        if (s.includes("2160") || s.includes("4k")) return "4K";
-        if (s.includes("1440")) return "1440p";
-        if (s.includes("1080")) return "1080p";
-        if (s.includes("720")) return "720p";
-        if (s.includes("480")) return "480p";
-        if (s.includes("360")) return "360p";
-        return q || "Auto";
-      };
-      // Nickname each CinePro quality tier with a clean, branded name.
-      // Delta = top tier · Gamma = mid · Toro = low.
-      const nickFor = (q: string): string => {
-        const r = rankDirectQuality(q);
-        if (r >= 90) return "Delta";   // 4K / 1440p
-        if (r >= 60) return "Gamma";   // 1080p / 720p
-        return "Toro";                 // 480p and below
-      };
-      const sourceCounts = new Map<string, number>();
-      const qualitiesRaw: ResolvedQuality[] = (sourceList || []).map((s: any) => {
-        const url = rewrite(s.url || s.file || s.link);
-        const pretty = prettyQuality(s.quality || s.label || s.name || s.resolution);
-        const count = (sourceCounts.get(pretty) ?? 0) + 1;
-        sourceCounts.set(pretty, count);
-        return {
-          url,
-          quality: pretty,
-          label: `${nickFor(pretty)} · ${pretty}${count > 1 ? ` · Source ${count}` : ""}`,
-          size: "",
-          isHls: s.type === "hls" || s.format === "hls" || url.includes(".m3u8"),
-        };
-      }).filter((q: ResolvedQuality) => q.url && q.url.startsWith("http"))
-        .sort((a: ResolvedQuality, b: ResolvedQuality) => rankDirectQuality(b.quality) - rankDirectQuality(a.quality));
-      const seen = new Set<string>();
-      const qualities = qualitiesRaw.filter((q) => {
-        if (seen.has(q.url)) return false;
-        seen.add(q.url);
-        return true;
-      });
-      const playableQualities = ENABLE_HLS_PROBE
-        ? await Promise.all(
-            qualities.map(async (q) => ({ q, playable: q.isHls ? await isPlayableHls(q.url) : true })),
-          ).then((checked) => checked.filter((item) => item.playable).map((item) => item.q))
-        : qualities;
-      if (playableQualities.length !== qualities.length) {
+        const endpoint =
+          data.type === "movie"
+            ? `${base}/v1/movies/${data.tmdbId}`
+            : `${base}/v1/tv/${data.tmdbId}/seasons/${data.season ?? 1}/episodes/${data.episode ?? 1}`;
+        const res = await fetch(endpoint, {
+          redirect: "follow",
+          signal: AbortSignal.timeout(CINEPRO_TIMEOUT_MS),
+          headers: {
+            Accept: "application/json",
+          },
+        });
+        if (res.status === 404) {
+          logs.push({ step: "cinepro", status: "fail", detail: "No sources found" });
+          return { ok: false, qualities: [], subtitles: [], logs };
+        }
+        if (!res.ok) {
+          logs.push({ step: "cinepro", status: "fail", detail: `HTTP ${res.status}` });
+          return { ok: false, qualities: [], subtitles: [], logs };
+        }
+        const body = await res.text();
+        const json: any = JSON.parse(body);
+        const sourceList = json.sources ?? json.data?.sources ?? json.stream?.sources ?? json.result?.sources ?? [];
+        const subtitleList =
+          json.subtitles ?? json.data?.subtitles ?? json.stream?.subtitles ?? json.result?.subtitles ?? [];
         logs.push({
           step: "cinepro",
-          status: playableQualities.length ? "ok" : "fail",
-          detail: `Filtered ${qualities.length - playableQualities.length} broken stream URL${qualities.length - playableQualities.length === 1 ? "" : "s"}`,
+          status: "ok",
+          detail: `${sourceList.length ?? 0} sources, ${subtitleList.length ?? 0} subtitles`,
         });
-      }
-      if (!playableQualities.length) {
-        logs.push({ step: "cinepro", status: "fail", detail: "No playable URLs returned" });
-        return { ok: false, qualities: [], subtitles: [], logs };
-      }
-
-      const subtitles = (subtitleList || []).map((s: any) => {
-        const url = rewrite(s.url || s.file || s.link);
-        return {
-          url,
-          language: s.label?.toLowerCase().slice(0, 2) || "en",
-          label: s.label || "English",
-          type: (s.format === "vtt" ? "vtt" : "srt") as "vtt" | "srt",
+        if (!sourceList?.length) {
+          logs.push({ step: "cinepro", status: "fail", detail: "Empty sources array" });
+          return { ok: false, qualities: [], subtitles: [], logs };
+        }
+        // CinePro returns proxy URLs anchored to its OWN internal host
+        // (e.g. http://localhost:10000/v1/proxy?...). Rewrite any /v1/proxy URL
+        // so its origin matches the public instance base.
+        const rewrite = (raw: string): string => {
+          const s = String(raw || "");
+          if (!s) return s;
+          if (!s.startsWith("http")) return `${base}${s.startsWith("/") ? "" : "/"}${s}`;
+          const proxyIdx = s.indexOf("/v1/proxy");
+          if (proxyIdx > 0) return `${base}${s.slice(proxyIdx)}`;
+          return s;
         };
-      });
-      const successResult: ResolvedStreamResult = { ok: true, qualities: playableQualities, subtitles, logs };
-      streamCache.set(cacheKey, { result: successResult, ts: Date.now() });
-      return successResult;
-      })().then((result) => {
-        if (!result.ok) streamCache.set(cacheKey, { result, ts: Date.now() });
-        return result;
-      }).finally(() => {
-        streamInflight.delete(cacheKey);
-      });
+
+        const prettyQuality = (q: string): string => {
+          const s = String(q || "").toLowerCase();
+          if (s.includes("2160") || s.includes("4k")) return "4K";
+          if (s.includes("1440")) return "1440p";
+          if (s.includes("1080")) return "1080p";
+          if (s.includes("720")) return "720p";
+          if (s.includes("480")) return "480p";
+          if (s.includes("360")) return "360p";
+          return q || "Auto";
+        };
+        // Nickname each CinePro quality tier with a clean, branded name.
+        // Delta = top tier · Gamma = mid · Toro = low.
+        const nickFor = (q: string): string => {
+          const r = rankDirectQuality(q);
+          if (r >= 90) return "Delta"; // 4K / 1440p
+          if (r >= 60) return "Gamma"; // 1080p / 720p
+          return "Toro"; // 480p and below
+        };
+        const sourceCounts = new Map<string, number>();
+        const qualitiesRaw: ResolvedQuality[] = (sourceList || [])
+          .map((s: any) => {
+            const url = rewrite(s.url || s.file || s.link);
+            const pretty = prettyQuality(s.quality || s.label || s.name || s.resolution);
+            const count = (sourceCounts.get(pretty) ?? 0) + 1;
+            sourceCounts.set(pretty, count);
+            return {
+              url,
+              quality: pretty,
+              label: `${nickFor(pretty)} · ${pretty}${count > 1 ? ` · Source ${count}` : ""}`,
+              size: "",
+              isHls: s.type === "hls" || s.format === "hls" || url.includes(".m3u8"),
+            };
+          })
+          .filter((q: ResolvedQuality) => q.url && q.url.startsWith("http"))
+          .sort(
+            (a: ResolvedQuality, b: ResolvedQuality) => rankDirectQuality(b.quality) - rankDirectQuality(a.quality),
+          );
+        const seen = new Set<string>();
+        const qualities = qualitiesRaw.filter((q) => {
+          if (seen.has(q.url)) return false;
+          seen.add(q.url);
+          return true;
+        });
+        const playableQualities = ENABLE_HLS_PROBE
+          ? await Promise.all(
+              qualities.map(async (q) => ({ q, playable: q.isHls ? await isPlayableHls(q.url) : true })),
+            ).then((checked) => checked.filter((item) => item.playable).map((item) => item.q))
+          : qualities;
+        if (playableQualities.length !== qualities.length) {
+          logs.push({
+            step: "cinepro",
+            status: playableQualities.length ? "ok" : "fail",
+            detail: `Filtered ${qualities.length - playableQualities.length} broken stream URL${qualities.length - playableQualities.length === 1 ? "" : "s"}`,
+          });
+        }
+        if (!playableQualities.length) {
+          logs.push({ step: "cinepro", status: "fail", detail: "No playable URLs returned" });
+          return { ok: false, qualities: [], subtitles: [], logs };
+        }
+
+        const subtitles = (subtitleList || []).map((s: any) => {
+          const url = rewrite(s.url || s.file || s.link);
+          return {
+            url,
+            language: s.label?.toLowerCase().slice(0, 2) || "en",
+            label: s.label || "English",
+            type: (s.format === "vtt" ? "vtt" : "srt") as "vtt" | "srt",
+          };
+        });
+        const successResult: ResolvedStreamResult = { ok: true, qualities: playableQualities, subtitles, logs };
+        streamCache.set(cacheKey, { result: successResult, ts: Date.now() });
+        return successResult;
+      })()
+        .then((result) => {
+          if (!result.ok) streamCache.set(cacheKey, { result, ts: Date.now() });
+          return result;
+        })
+        .finally(() => {
+          streamInflight.delete(cacheKey);
+        });
 
       streamInflight.set(cacheKey, work);
       return work;
@@ -284,7 +285,10 @@ function rankDirectQuality(q: string) {
 }
 
 function firstPlayableLine(text: string) {
-  return text.split(/\r?\n/).map((l) => l.trim()).find((l) => l && !l.startsWith("#"));
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l && !l.startsWith("#"));
 }
 
 async function isPlayableHls(url: string): Promise<boolean> {
@@ -336,90 +340,27 @@ async function isPlayableHls(url: string): Promise<boolean> {
 
 export const resolveDownloadUrl = createServerFn({ method: "POST" })
   .inputValidator((d) => DownloadSchema.parse(d))
-  .handler(async ({ data }): Promise<{ ok: boolean; url?: string; fileName?: string; quality?: string; error?: string }> => {
-    try {
-      const { resolveStream } = await import("@/lib/showbox.server");
-      const { stream } = await resolveStream({
-        title: data.title,
-        tmdbId: data.tmdbId,
-        type: data.type,
-        season: data.season,
-        episode: data.episode,
-        uiCookie: data.uiCookie,
-      });
-      if (stream?.qualities?.length) {
-        const progressive = stream.qualities.filter((q) => !q.isHls);
-        const pool = progressive.length ? progressive : stream.qualities;
-        const best = [...pool].sort((a, b) => rank(b.quality) - rank(a.quality))[0];
-        return { ok: true, url: best.url, quality: best.quality, fileName: stream.fileName };
-      }
-    } catch (err: any) {
-      return { ok: false, error: err?.message || "Download lookup failed" };
-    }
-    return { ok: false, error: "No download available" };
-  });
-
-/* ===========================================================
- * Xpass — Pobreflix/XPASS direct HLS resolver (no auth needed)
- * =========================================================== */
-
-const XpassSchema = z.object({
-  tmdbId: z.union([z.string(), z.number()]).transform(String),
-  type: z.enum(["movie", "show"]),
-  season: z.number().optional(),
-  episode: z.number().optional(),
-});
-
-function buildXpassUrls(tmdbId: string, type: "movie" | "show", s?: number, e?: number): string[] {
-  if (type === "movie") {
-    return [
-      `${XPASS_BASE}/mov/${tmdbId}/0/0/0/playlist.json`,
-      `${XPASS_BASE}/vrk/movie/${tmdbId}/playlist.json`,
-      `${XPASS_BASE}/vsr/movie/${tmdbId}/playlist.json`,
-      `${XPASS_BASE}/meg/movie/${tmdbId}/0/0/playlist.json`,
-      `${XPASS_BASE}/vxr/movie/${tmdbId}/playlist.json`,
-    ];
-  }
-  const se = s ?? 1;
-  const ep = e ?? 1;
-  return [
-    `${XPASS_BASE}/mov/${tmdbId}/${se}/${ep}/0/playlist.json`,
-    `${XPASS_BASE}/vrk/tv/${tmdbId}/${se}/${ep}/playlist.json`,
-    `${XPASS_BASE}/vsr/tv/${tmdbId}/${se}/${ep}/playlist.json`,
-    `${XPASS_BASE}/meg/tv/${tmdbId}/${se}/${ep}/playlist.json`,
-    `${XPASS_BASE}/vxr/tv/${tmdbId}/${se}/${ep}/playlist.json`,
-  ];
-}
-
-export const resolveXpassStream = createServerFn({ method: "POST" })
-  .inputValidator((d) => XpassSchema.parse(d))
-  .handler(async ({ data }): Promise<ResolvedStreamResult> => {
-    const logs: { step: string; status: "ok" | "fail"; detail?: string }[] = [];
-    const urls = buildXpassUrls(data.tmdbId, data.type, data.season, data.episode);
-    for (const url of urls) {
+  .handler(
+    async ({ data }): Promise<{ ok: boolean; url?: string; fileName?: string; quality?: string; error?: string }> => {
       try {
-        const res = await fetch(url, { headers: XPASS_HEADERS, signal: AbortSignal.timeout(9000) });
-        if (!res.ok) {
-          logs.push({ step: `xpass ${url}`, status: "fail", detail: `HTTP ${res.status}` });
-          continue;
+        const { resolveStream } = await import("@/lib/showbox.server");
+        const { stream } = await resolveStream({
+          title: data.title,
+          tmdbId: data.tmdbId,
+          type: data.type,
+          season: data.season,
+          episode: data.episode,
+          uiCookie: data.uiCookie,
+        });
+        if (stream?.qualities?.length) {
+          const progressive = stream.qualities.filter((q) => !q.isHls);
+          const pool = progressive.length ? progressive : stream.qualities;
+          const best = [...pool].sort((a, b) => rank(b.quality) - rank(a.quality))[0];
+          return { ok: true, url: best.url, quality: best.quality, fileName: stream.fileName };
         }
-        const json: any = await res.json().catch(() => null);
-        const file: string | undefined = json?.playlist?.[0]?.sources?.[0]?.file;
-        if (!file || !/^https?:\/\//i.test(file)) continue;
-        const { registerFebboxProxyTarget } = await import("@/lib/showbox.server");
-        const proxied = registerFebboxProxyTarget(file, { referer: `${XPASS_BASE}/` });
-        logs.push({ step: "xpass", status: "ok", detail: url });
-        return {
-          ok: true,
-          qualities: [
-            { url: proxied, quality: "Auto", label: "Xpass · Auto", size: "", isHls: true },
-          ],
-          subtitles: [],
-          logs,
-        };
       } catch (err: any) {
-        logs.push({ step: `xpass ${url}`, status: "fail", detail: err?.message });
+        return { ok: false, error: err?.message || "Download lookup failed" };
       }
-    }
-    return { ok: false, qualities: [], subtitles: [], logs, error: "No Xpass playlist available" };
-  });
+      return { ok: false, error: "No download available" };
+    },
+  );
