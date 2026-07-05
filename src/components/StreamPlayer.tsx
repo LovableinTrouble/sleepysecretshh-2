@@ -270,23 +270,8 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             episode={episode}
             sourceKey={sourceKey}
             onSwitchSource={switchSource}
-            onPickEmbed={pickEmbed}
             onClose={onClose}
             onSwitchQuality={(q) => setStatus({ kind: "direct", stream: { ...status.stream, active: q } })}
-          />
-        )}
-
-        {status.kind === "embed" && (
-          <EmbedSurface
-            media={media}
-            season={season}
-            episode={episode}
-            initialSource={status.source}
-            initialUrl={status.url}
-            sourceKey={sourceKey}
-            onSwitchSource={switchSource}
-            onPickEmbed={pickEmbed}
-            onClose={onClose}
           />
         )}
       </div>
