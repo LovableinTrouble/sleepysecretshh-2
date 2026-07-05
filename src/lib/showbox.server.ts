@@ -4,42 +4,42 @@
    Server-side only (used in API routes)
    ============================================ */
 
-import CryptoJS from 'crypto-js';
+import CryptoJS from "crypto-js";
 
 // ---- Configuration ----
 
 const SB_CONFIG = {
-  BASE_URL: 'https://mbpapi.shegu.net/api/api_client/index/',
-  APP_KEY: 'moviebox',
-  APP_ID: 'com.tdo.showbox',
-  IV: 'wEiphTn!',
-  KEY: '123d6cedf626dy54233aa1w6',
+  BASE_URL: "https://mbpapi.shegu.net/api/api_client/index/",
+  APP_KEY: "moviebox",
+  APP_ID: "com.tdo.showbox",
+  IV: "wEiphTn!",
+  KEY: "123d6cedf626dy54233aa1w6",
   DEFAULTS: {
-    CHILD_MODE: '0',
-    APP_VERSION: '11.5',
-    LANG: 'en',
-    PLATFORM: 'android',
-    CHANNEL: 'Website',
-    APPID: '27',
-    VERSION: '129',
-    MEDIUM: 'Website',
+    CHILD_MODE: "0",
+    APP_VERSION: "11.5",
+    LANG: "en",
+    PLATFORM: "android",
+    CHANNEL: "Website",
+    APPID: "27",
+    VERSION: "129",
+    MEDIUM: "Website",
   },
 };
 
-const FEBBOX_BASE = 'https://www.febbox.com';
+const FEBBOX_BASE = "https://www.febbox.com";
 const FEBBOX_HEADERS = {
-  'x-requested-with': 'XMLHttpRequest',
-  'user-agent':
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
-  'accept-language': 'en-US,en;q=0.9',
-  'cache-control': 'no-cache',
-  pragma: 'no-cache',
-  'sec-ch-ua': '"Chromium";v="135", "Not_A Brand";v="24", "Google Chrome";v="135"',
-  'sec-ch-ua-mobile': '?0',
-  'sec-ch-ua-platform': '"macOS"',
-  'sec-fetch-dest': 'empty',
-  'sec-fetch-mode': 'cors',
-  'sec-fetch-site': 'same-origin',
+  "x-requested-with": "XMLHttpRequest",
+  "user-agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+  "accept-language": "en-US,en;q=0.9",
+  "cache-control": "no-cache",
+  pragma: "no-cache",
+  "sec-ch-ua": '"Chromium";v="135", "Not_A Brand";v="24", "Google Chrome";v="135"',
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"macOS"',
+  "sec-fetch-dest": "empty",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-site": "same-origin",
 };
 
 const PROXY_TARGET_TTL_MS = 6 * 60 * 60 * 1000; // 6h
@@ -53,14 +53,14 @@ type FebboxProxyTarget = {
 
 function base64UrlEncode(value: string): string {
   const bytes = new TextEncoder().encode(value);
-  let binary = '';
+  let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function base64UrlDecode(value: string): string | null {
   try {
-    const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((value.length + 3) % 4);
+    const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4);
     const binary = atob(padded);
     const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
     return new TextDecoder().decode(bytes);
@@ -76,13 +76,10 @@ function base64UrlDecode(value: string): string | null {
  * and would otherwise yield "expired or unknown token" 404s on every range
  * request — and also survives dev-server HMR restarts.
  */
-export function registerFebboxProxyTarget(
-  rawUrl: string,
-  options: { cookie?: string; referer?: string } = {},
-) {
+export function registerFebboxProxyTarget(rawUrl: string, options: { cookie?: string; referer?: string } = {}) {
   const parsed = new URL(rawUrl);
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw new Error('Unsupported stream URL');
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new Error("Unsupported stream URL");
   }
   const payload = {
     u: parsed.toString(),
@@ -99,7 +96,7 @@ export function getFebboxProxyTarget(token: string): FebboxProxyTarget | null {
   if (!decoded) return null;
   try {
     const payload = JSON.parse(decoded) as { u?: string; c?: string; r?: string; e?: number };
-    if (!payload?.u || typeof payload.e !== 'number') return null;
+    if (!payload?.u || typeof payload.e !== "number") return null;
     if (payload.e <= Date.now()) return null;
     return { url: payload.u, cookie: payload.c, referer: payload.r, expires: payload.e };
   } catch {
@@ -109,27 +106,27 @@ export function getFebboxProxyTarget(token: string): FebboxProxyTarget | null {
 
 // Share-link base domains to try (some go down intermittently)
 const SHARE_LINK_HOSTS = [
-  'https://www.showbox.media',
-  'https://showbox.media',
-  'https://www.boxmovie.media',
-  'https://boxmovie.media',
-  'https://showbox.run',
-  'https://www.showbox.run',
+  "https://www.showbox.media",
+  "https://showbox.media",
+  "https://www.boxmovie.media",
+  "https://boxmovie.media",
+  "https://showbox.run",
+  "https://www.showbox.run",
 ];
 
 function randomHex(len: number): string {
-  const chars = '0123456789abcdef';
-  let r = '';
+  const chars = "0123456789abcdef";
+  let r = "";
   for (let i = 0; i < len; i++) r += chars[Math.floor(Math.random() * chars.length)];
   return r;
 }
 
 function toBase64Utf8(value: string): string {
-  if (typeof btoa === 'function') {
+  if (typeof btoa === "function") {
     return btoa(unescape(encodeURIComponent(value)));
   }
 
-  let binary = '';
+  let binary = "";
   const bytes = new TextEncoder().encode(value);
   for (let i = 0; i < bytes.length; i += 1) {
     binary += String.fromCharCode(bytes[i]);
@@ -146,9 +143,7 @@ function encrypt(data: string): string {
 }
 
 function generateVerify(encryptedData: string): string {
-  return CryptoJS.MD5(
-    CryptoJS.MD5(SB_CONFIG.APP_KEY).toString() + SB_CONFIG.KEY + encryptedData,
-  ).toString();
+  return CryptoJS.MD5(CryptoJS.MD5(SB_CONFIG.APP_KEY).toString() + SB_CONFIG.KEY + encryptedData).toString();
 }
 
 function getExpiryTimestamp(): number {
@@ -183,11 +178,11 @@ async function showboxRequest(module: string, params: Record<string, any> = {}):
   const nonce = randomHex(32);
 
   const response = await fetch(SB_CONFIG.BASE_URL, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Platform: SB_CONFIG.DEFAULTS.PLATFORM,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'okhttp/3.2.0',
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "okhttp/3.2.0",
     },
     body: `${formData.toString()}&token${nonce}`,
     signal: AbortSignal.timeout(12000),
@@ -197,14 +192,10 @@ async function showboxRequest(module: string, params: Record<string, any> = {}):
   return response.json();
 }
 
-export async function searchShowbox(
-  title: string,
-  type: 'movie' | 'tv' = 'movie',
-  page = 1,
-): Promise<any[]> {
-  const data = await showboxRequest('Search5', {
+export async function searchShowbox(title: string, type: "movie" | "tv" = "movie", page = 1): Promise<any[]> {
+  const data = await showboxRequest("Search5", {
     page,
-    type: type === 'movie' ? 'movie' : 'tv',
+    type: type === "movie" ? "movie" : "tv",
     keyword: title,
     pagelimit: 20,
   });
@@ -212,12 +203,12 @@ export async function searchShowbox(
 }
 
 export async function getShowboxMovieDetails(movieId: number): Promise<any> {
-  const data = await showboxRequest('Movie_detail', { mid: movieId });
+  const data = await showboxRequest("Movie_detail", { mid: movieId });
   return data?.data;
 }
 
 export async function getShowboxShowDetails(showId: number): Promise<any> {
-  const data = await showboxRequest('TV_detail_v2', { tid: showId });
+  const data = await showboxRequest("TV_detail_v2", { tid: showId });
   return data?.data;
 }
 
@@ -227,7 +218,7 @@ export async function getFebBoxShareKey(showboxId: number, type: 1 | 2): Promise
     try {
       const url = `${host}/index/share_link?id=${showboxId}&type=${type}`;
       const response = await fetch(url, {
-        headers: { 'User-Agent': 'okhttp/3.2.0' },
+        headers: { "User-Agent": "okhttp/3.2.0" },
         signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) {
@@ -236,13 +227,13 @@ export async function getFebBoxShareKey(showboxId: number, type: 1 | 2): Promise
       }
       const data = await response.json();
       const link = data?.data?.link;
-      if (link) return link.split('/').pop() || null;
+      if (link) return link.split("/").pop() || null;
       errors.push(`${host}: no link in response`);
     } catch (err: any) {
       errors.push(`${host}: ${err?.message || String(err)}`);
     }
   }
-  console.error('[showbox] getFebBoxShareKey failed:', errors.join('; '));
+  console.error("[showbox] getFebBoxShareKey failed:", errors.join("; "));
   return null;
 }
 
@@ -259,26 +250,23 @@ export interface FebBoxTokenResponse {
   };
 }
 
-export async function getFebBoxToken(
-  clientId: string,
-  clientSecret: string,
-): Promise<FebBoxTokenResponse> {
+export async function getFebBoxToken(clientId: string, clientSecret: string): Promise<FebBoxTokenResponse> {
   try {
     const res = await fetch(`${FEBBOX_BASE}/oauth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
-        grant_type: 'client_credentials',
+        grant_type: "client_credentials",
       }),
       signal: AbortSignal.timeout(10000),
     });
-    const ct = res.headers.get('content-type') || '';
-    if (!res.ok || !ct.includes('json')) {
+    const ct = res.headers.get("content-type") || "";
+    if (!res.ok || !ct.includes("json")) {
       return {
         code: 0,
-        msg: `FebBox OAuth: HTTP ${res.status} (${ct.split(';')[0] || 'non-json'})`,
+        msg: `FebBox OAuth: HTTP ${res.status} (${ct.split(";")[0] || "non-json"})`,
       };
     }
     return await res.json();
@@ -312,7 +300,7 @@ export interface FebBoxSubtitle {
   url: string;
   language: string;
   label: string;
-  type: 'srt' | 'vtt';
+  type: "srt" | "vtt";
 }
 
 export interface FebBoxAudioTrack {
@@ -324,51 +312,51 @@ export interface FebBoxAudioTrack {
 }
 
 function buildFebboxCookieHeader(rawCookie?: string): string | undefined {
-  let value = (rawCookie || '').trim();
+  let value = (rawCookie || "").trim();
   if (!value) return undefined;
 
-  if (value.toLowerCase().startsWith('cookie:')) value = value.slice(7).trim();
+  if (value.toLowerCase().startsWith("cookie:")) value = value.slice(7).trim();
 
   const cookieName = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
   const cookieValue = /^[^\x00-\x20\x7f;,]+$/;
   const cookieAttributes = new Set([
-    'domain',
-    'expires',
-    'httponly',
-    'max-age',
-    'path',
-    'priority',
-    'samesite',
-    'secure',
+    "domain",
+    "expires",
+    "httponly",
+    "max-age",
+    "path",
+    "priority",
+    "samesite",
+    "secure",
   ]);
   const pairs: string[] = [];
 
-  if (!value.includes('=')) {
+  if (!value.includes("=")) {
     return cookieValue.test(value) ? `ui=${value}` : undefined;
   }
 
   for (const part of value.split(/[;\n\r]+/)) {
     const trimmed = part.trim();
-    if (!trimmed || !trimmed.includes('=')) continue;
-    const [rawName, ...rest] = trimmed.split('=');
+    if (!trimmed || !trimmed.includes("=")) continue;
+    const [rawName, ...rest] = trimmed.split("=");
     const name = rawName.trim();
     if (cookieAttributes.has(name.toLowerCase())) continue;
-    const val = rest.join('=').trim().replace(/^"|"$/g, '');
+    const val = rest.join("=").trim().replace(/^"|"$/g, "");
     if (!cookieName.test(name) || !cookieValue.test(val)) continue;
     pairs.push(`${name}=${val}`);
   }
 
-  return pairs.length ? pairs.join('; ') : undefined;
+  return pairs.length ? pairs.join("; ") : undefined;
 }
 
 function readSetCookieHeaders(response: Response): string[] {
   const anyHeaders = response.headers as any;
-  if (typeof anyHeaders?.getSetCookie === 'function') {
+  if (typeof anyHeaders?.getSetCookie === "function") {
     const values = anyHeaders.getSetCookie();
     if (Array.isArray(values) && values.length > 0) return values;
   }
 
-  const single = response.headers.get('set-cookie');
+  const single = response.headers.get("set-cookie");
   if (!single) return [];
   return [single];
 }
@@ -376,32 +364,29 @@ function readSetCookieHeaders(response: Response): string[] {
 function mergeCookieParts(...cookieValues: Array<string | undefined>): string | undefined {
   const parts = cookieValues
     .filter((value): value is string => Boolean(value && value.trim()))
-    .map((value) => value.trim().replace(/;+$/, ''));
+    .map((value) => value.trim().replace(/;+$/, ""));
 
   if (parts.length === 0) return undefined;
 
   const unique = new Map<string, string>();
-  for (const part of parts.join('; ').split(';')) {
+  for (const part of parts.join("; ").split(";")) {
     const trimmed = part.trim();
-    if (!trimmed || !trimmed.includes('=')) continue;
-    const [name, ...rest] = trimmed.split('=');
+    if (!trimmed || !trimmed.includes("=")) continue;
+    const [name, ...rest] = trimmed.split("=");
     if (!name) continue;
-    unique.set(name.trim(), `${name.trim()}=${rest.join('=').trim()}`);
+    unique.set(name.trim(), `${name.trim()}=${rest.join("=").trim()}`);
   }
 
   if (unique.size === 0) return undefined;
-  return Array.from(unique.values()).join('; ');
+  return Array.from(unique.values()).join("; ");
 }
 
-async function getFebboxShareSessionCookie(
-  shareKey: string,
-  uiCookie?: string,
-): Promise<string | undefined> {
+async function getFebboxShareSessionCookie(shareKey: string, uiCookie?: string): Promise<string | undefined> {
   const baseCookie = buildFebboxCookieHeader(uiCookie);
   const shareUrl = `${FEBBOX_BASE}/share/${shareKey}`;
   const requestHeaders = {
-    'user-agent': FEBBOX_HEADERS['user-agent'],
-    accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    "user-agent": FEBBOX_HEADERS["user-agent"],
+    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   };
 
   try {
@@ -411,9 +396,7 @@ async function getFebboxShareSessionCookie(
     });
 
     const setCookies = readSetCookieHeaders(response);
-    const phpSess = setCookies
-      .map((value) => value.match(/(?:^|\s|,)PHPSESSID=([^;\s,]+)/i)?.[1])
-      .find(Boolean);
+    const phpSess = setCookies.map((value) => value.match(/(?:^|\s|,)PHPSESSID=([^;\s,]+)/i)?.[1]).find(Boolean);
 
     if (!phpSess) return baseCookie;
     return mergeCookieParts(baseCookie, `PHPSESSID=${phpSess}`);
@@ -422,15 +405,11 @@ async function getFebboxShareSessionCookie(
   }
 }
 
-export async function febboxGetFileList(
-  shareKey: string,
-  parentId = 0,
-  uiCookie?: string,
-): Promise<FebBoxFile[]> {
+export async function febboxGetFileList(shareKey: string, parentId = 0, uiCookie?: string): Promise<FebBoxFile[]> {
   const url = `${FEBBOX_BASE}/file/file_share_list?share_key=${shareKey}&pwd=&parent_id=${parentId}&is_html=0`;
   const baseHeaders: Record<string, string> = {
     ...FEBBOX_HEADERS,
-    accept: 'application/json, text/javascript, */*; q=0.01',
+    accept: "application/json, text/javascript, */*; q=0.01",
     referer: `${FEBBOX_BASE}/share/${shareKey}`,
   };
   const cookieHeader = buildFebboxCookieHeader(uiCookie);
@@ -443,7 +422,7 @@ export async function febboxGetFileList(
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const response = await fetch(url, {
         headers,
-        cache: 'no-store',
+        cache: "no-store",
         signal: AbortSignal.timeout(10000),
       });
       const text = await response.text();
@@ -452,21 +431,27 @@ export async function febboxGetFileList(
         continue;
       }
       if (!response.ok) {
-        const compact = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        const compact = text
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
         throw new Error(`HTTP ${response.status}: ${compact.slice(0, 160)}`);
       }
       try {
         return JSON.parse(text);
       } catch {
-        const compact = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        const compact = text
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
         throw new Error(`Non-JSON response: ${compact.slice(0, 160)}`);
       }
     }
-    throw new Error('FebBox: rate-limited (HTTP 429)');
+    throw new Error("FebBox: rate-limited (HTTP 429)");
   };
 
   const attempts = cookieHeader ? [cookieHeader, undefined] : [undefined];
-  let lastError = 'unknown error';
+  let lastError = "unknown error";
   for (const cookie of attempts) {
     try {
       const data = await fetchList(cookie);
@@ -502,12 +487,12 @@ export async function febboxGetLinks(
   // Helpers
 
   const inferFormatFromUrl = (rawUrl: string): string => {
-    const url = String(rawUrl || '').toLowerCase();
-    if (!url) return '';
-    if (url.includes('.m3u8')) return 'hls';
-    if (url.includes('.mp4')) return 'mp4';
-    if (url.includes('.mkv')) return 'mkv';
-    return '';
+    const url = String(rawUrl || "").toLowerCase();
+    if (!url) return "";
+    if (url.includes(".m3u8")) return "hls";
+    if (url.includes(".mp4")) return "mp4";
+    if (url.includes(".mkv")) return "mkv";
+    return "";
   };
 
   const pickQualityUrl = (item: any, fallback: string): string => {
@@ -522,18 +507,18 @@ export async function febboxGetLinks(
     ];
 
     for (const candidate of candidates) {
-      const value = String(candidate || '').trim();
+      const value = String(candidate || "").trim();
       if (!value) continue;
-      if (/^https?:\/\//i.test(value) && value.toLowerCase().includes('.m3u8')) return value;
+      if (/^https?:\/\//i.test(value) && value.toLowerCase().includes(".m3u8")) return value;
     }
 
     for (const candidate of candidates) {
-      const value = String(candidate || '').trim();
+      const value = String(candidate || "").trim();
       if (!value) continue;
       if (/^https?:\/\//i.test(value)) return value;
     }
 
-    return String(fallback || '').trim();
+    return String(fallback || "").trim();
   };
 
   const fetchJson = async (url: string) => {
@@ -559,20 +544,20 @@ export async function febboxGetLinks(
     ];
     const guessLang = (v: string) => {
       const l = v.toLowerCase();
-      if (l.includes('pol') || l.includes('pl')) return 'pl';
-      if (l.includes('spa') || l.includes('es')) return 'es';
+      if (l.includes("pol") || l.includes("pl")) return "pl";
+      if (l.includes("spa") || l.includes("es")) return "es";
 
-      return 'en';
+      return "en";
     };
     return items
       .map((item) => {
-        const u = typeof item === 'string' ? item : item?.url || item?.src || '';
+        const u = typeof item === "string" ? item : item?.url || item?.src || "";
         if (!u) return null;
         return {
           url: u,
           language: guessLang(u),
           label: guessLang(u).toUpperCase(),
-          type: u.toLowerCase().includes('.vtt') ? 'vtt' : 'srt',
+          type: u.toLowerCase().includes(".vtt") ? "vtt" : "srt",
         } as FebBoxSubtitle;
       })
       .filter((s): s is FebBoxSubtitle => !!s);
@@ -585,8 +570,8 @@ export async function febboxGetLinks(
       ...(Array.isArray(directData?.audio_list) ? directData.audio_list : []),
     ];
     return items.map((item, index) => {
-      const u = typeof item === 'string' ? item : item?.url || item?.src || '';
-      const lang = String(item?.lang || 'en');
+      const u = typeof item === "string" ? item : item?.url || item?.src || "";
+      const lang = String(item?.lang || "en");
       return {
         id: index,
         name: lang.toUpperCase(),
@@ -599,21 +584,20 @@ export async function febboxGetLinks(
 
   const parseLinks = (data: any) => {
     const fileEntry = Array.isArray(data?.data) ? data.data[0] : data?.data || data || {};
-    const rawList =
-      fileEntry.quality_list || fileEntry.transcode_list || data.list || data.data?.list || {};
+    const rawList = fileEntry.quality_list || fileEntry.transcode_list || data.list || data.data?.list || {};
     const items = Array.isArray(rawList) ? rawList : Object.values(rawList);
 
     const qualities = items
       .map((q: any) => {
-        const u = pickQualityUrl(q, String(fileEntry?.download_url || ''));
+        const u = pickQualityUrl(q, String(fileEntry?.download_url || ""));
         if (!u) return null;
 
         return {
           url: u,
-          quality: String(q?.quality || q?.label || 'ORG'),
-          name: String(q?.label || q?.name || 'Original'),
-          label: String(q?.label || q?.name || 'Original'),
-          size: q?.file_size ? `${q.file_size}` : '',
+          quality: String(q?.quality || q?.label || "ORG"),
+          name: String(q?.label || q?.name || "Original"),
+          label: String(q?.label || q?.name || "Original"),
+          size: q?.file_size ? `${q.file_size}` : "",
           format: inferFormatFromUrl(u),
         };
       })
@@ -635,14 +619,12 @@ export async function febboxGetLinks(
     fetchJson(
       `${FEBBOX_BASE}/file/file_download?fid=${fid}&share_key=${encodeURIComponent(shareKey)}&is_hls=1&is_html=0`,
     ),
-    fetchJson(
-      `${FEBBOX_BASE}/console/video_quality_list?fid=${fid}&share_id=${shareKey}&is_hls=1&is_html=0`,
-    ),
+    fetchJson(`${FEBBOX_BASE}/console/video_quality_list?fid=${fid}&share_id=${shareKey}&is_hls=1&is_html=0`),
     fetchJson(`${FEBBOX_BASE}/file/hls_playlist?fid=${fid}&share_key=${shareKey}`),
   ]);
-  const d1 = r1.status === 'fulfilled' ? r1.value : null;
-  const d2 = r2.status === 'fulfilled' ? r2.value : null;
-  const d3 = r3.status === 'fulfilled' ? r3.value : null;
+  const d1 = r1.status === "fulfilled" ? r1.value : null;
+  const d2 = r2.status === "fulfilled" ? r2.value : null;
+  const d3 = r3.status === "fulfilled" ? r3.value : null;
 
   if (d1) {
     const p = parseLinks(d1);
@@ -654,10 +636,10 @@ export async function febboxGetLinks(
       if (!allQualities.find((q) => q.url === u)) {
         allQualities.push({
           url: u,
-          quality: 'ORG',
-          name: 'Original',
-          label: 'Original',
-          size: d1.data[0].file_size || '',
+          quality: "ORG",
+          name: "Original",
+          label: "Original",
+          size: d1.data[0].file_size || "",
           format: inferFormatFromUrl(u),
         });
       }
@@ -675,7 +657,7 @@ export async function febboxGetLinks(
             quality: m[2],
             name: m[2],
             label: m[2],
-            size: '',
+            size: "",
             format: inferFormatFromUrl(m[1]),
           });
         }
@@ -697,8 +679,8 @@ export async function febboxGetLinks(
 
   // Final Merge & Priority
   allQualities.sort((a, b) => {
-    const aH = a.url.toLowerCase().includes('.m3u8');
-    const bH = b.url.toLowerCase().includes('.m3u8');
+    const aH = a.url.toLowerCase().includes(".m3u8");
+    const bH = b.url.toLowerCase().includes(".m3u8");
     if (aH && !bH) return -1;
     if (!aH && bH) return 1;
     return 0;
@@ -713,7 +695,7 @@ export interface ResolvedStream {
     url: string;
     language: string;
     label: string;
-    type: 'srt' | 'vtt';
+    type: "srt" | "vtt";
   }[];
   audioTracks: {
     id: number;
@@ -728,22 +710,42 @@ export interface ResolvedStream {
 
 export interface ResolveLog {
   step: string;
-  status: 'ok' | 'fail';
+  status: "ok" | "fail";
   detail?: string;
 }
 
 const RESOLVE_CACHE_TTL_MS = 10 * 60 * 1000;
-const resolveCache = new Map<string, { expires: number; promise: Promise<{ stream: ResolvedStream | null; logs: ResolveLog[] }> }>();
+const resolveCache = new Map<
+  string,
+  { expires: number; promise: Promise<{ stream: ResolvedStream | null; logs: ResolveLog[] }> }
+>();
 
-function resolveCacheKey(options: { title: string; tmdbId: string; type: 'movie' | 'show'; season?: number; episode?: number; uiCookie?: string }) {
-  return [options.type, options.tmdbId, options.title.toLowerCase(), options.season ?? 0, options.episode ?? 0, Boolean(options.uiCookie?.trim())].join('|');
+function resolveCacheKey(options: {
+  title: string;
+  tmdbId: string;
+  type: "movie" | "show";
+  season?: number;
+  episode?: number;
+  uiCookie?: string;
+}) {
+  return [
+    options.type,
+    options.tmdbId,
+    options.title.toLowerCase(),
+    options.season ?? 0,
+    options.episode ?? 0,
+    Boolean(options.uiCookie?.trim()),
+  ].join("|");
 }
 
 function normalizeTitle(title: string): string {
   let t = title.trim().toLowerCase();
-  if (t !== 'the movie' && t.endsWith('the movie')) t = t.replace(/the movie$/, '');
-  if (t !== 'the series' && t.endsWith('the series')) t = t.replace(/the series$/, '');
-  return t.replace(/['":]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  if (t !== "the movie" && t.endsWith("the movie")) t = t.replace(/the movie$/, "");
+  if (t !== "the series" && t.endsWith("the series")) t = t.replace(/the series$/, "");
+  return t
+    .replace(/['":]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function compareTitle(a: string, b: string): boolean {
@@ -753,7 +755,7 @@ function compareTitle(a: string, b: string): boolean {
 export async function resolveStream(options: {
   title: string;
   tmdbId: string;
-  type: 'movie' | 'show';
+  type: "movie" | "show";
   season?: number;
   episode?: number;
   uiCookie?: string;
@@ -772,7 +774,7 @@ export async function resolveStream(options: {
     }
     return result;
   } catch (err: any) {
-    const isAbort = err?.name === 'AbortError' || /abort|timeout/i.test(err?.message || '');
+    const isAbort = err?.name === "AbortError" || /abort|timeout/i.test(err?.message || "");
     if (!isAbort) resolveCache.delete(cacheKey);
     throw err;
   }
@@ -781,7 +783,7 @@ export async function resolveStream(options: {
 async function resolveStreamUncached(options: {
   title: string;
   tmdbId: string;
-  type: 'movie' | 'show';
+  type: "movie" | "show";
   season?: number;
   episode?: number;
   uiCookie?: string;
@@ -793,25 +795,25 @@ async function resolveStreamUncached(options: {
   // Step 1: Search Showbox
   let results: any[];
   try {
-    const searchType = type === 'movie' ? 'movie' : 'tv';
+    const searchType = type === "movie" ? "movie" : "tv";
     results = await searchShowbox(title, searchType);
     if (!results || results.length === 0) {
-      logs.push({ step: 'search', status: 'fail', detail: `No results for "${title}"` });
+      logs.push({ step: "search", status: "fail", detail: `No results for "${title}"` });
       return { stream: null, logs };
     }
-    logs.push({ step: 'search', status: 'ok', detail: `${results.length} results` });
+    logs.push({ step: "search", status: "ok", detail: `${results.length} results` });
   } catch (err: any) {
-    logs.push({ step: 'search', status: 'fail', detail: err.message });
+    logs.push({ step: "search", status: "fail", detail: err.message });
     return { stream: null, logs };
   }
 
-  const boxType = type === 'movie' ? 1 : 2;
+  const boxType = type === "movie" ? 1 : 2;
   // Match using normalised title (p-stream compareTitle) + year when known.
   // Year match: exact > ±1 (release-vs-air drift) > unknown.
   const scoredMatches = [...results]
     .map((r: any, index: number) => {
-      const rTitle = r.title || r.name || '';
-      const rYear = Number(r.year) || Number(String(r.release_date || '').slice(0, 4)) || 0;
+      const rTitle = r.title || r.name || "";
+      const rYear = Number(r.year) || Number(String(r.release_date || "").slice(0, 4)) || 0;
       const titleHit = compareTitle(rTitle, title);
       const yearHit = releaseYear ? rYear === releaseYear : true;
       const yearNear = releaseYear ? Math.abs(rYear - releaseYear) <= 1 : true;
@@ -844,8 +846,6 @@ async function resolveStreamUncached(options: {
   // Silence unused-var warning while keeping tmdbId in the public type signature.
   void tmdbId;
 
-
-
   for (const candidate of orderedMatches) {
     const match = candidate.item;
     const showboxId = match.id;
@@ -874,25 +874,25 @@ async function resolveStreamUncached(options: {
 
   if (!selectedMatch || !shareKey || !files.length) {
     logs.push({
-      step: 'match',
-      status: 'fail',
-      detail: matchFailures.slice(0, 3).join(' | ') || 'No usable FebBox share found',
+      step: "match",
+      status: "fail",
+      detail: matchFailures.slice(0, 3).join(" | ") || "No usable FebBox share found",
     });
     return { stream: null, logs };
   }
 
   logs.push({
-    step: 'match',
-    status: 'ok',
+    step: "match",
+    status: "ok",
     detail: `id=${selectedMatch.id} "${selectedMatch.title || selectedMatch.name}"`,
   });
-  logs.push({ step: 'shareKey', status: 'ok', detail: shareKey });
-  logs.push({ step: 'fileList', status: 'ok', detail: `${files.length} files` });
+  logs.push({ step: "shareKey", status: "ok", detail: shareKey });
+  logs.push({ step: "fileList", status: "ok", detail: `${files.length} files` });
 
   // Step 5: Navigate to target file
   let targetFile: FebBoxFile | undefined;
   try {
-    if (type === 'movie') {
+    if (type === "movie") {
       targetFile = files.filter((f) => !f.is_dir).sort((a, b) => b.file_size - a.file_size)[0];
     } else {
       const seasonNum = season || 1;
@@ -903,7 +903,7 @@ async function resolveStreamUncached(options: {
         const name = f.file_name.toLowerCase();
         return (
           name.includes(`season ${seasonNum}`) ||
-          name.includes(`s${String(seasonNum).padStart(2, '0')}`) ||
+          name.includes(`s${String(seasonNum).padStart(2, "0")}`) ||
           name.includes(`season${seasonNum}`) ||
           name === `s${seasonNum}`
         );
@@ -912,13 +912,13 @@ async function resolveStreamUncached(options: {
       if (seasonDir) {
         files = await febboxGetFileList(shareKey, seasonDir.fid, shareSessionCookie);
         logs.push({
-          step: 'seasonNav',
-          status: 'ok',
+          step: "seasonNav",
+          status: "ok",
           detail: seasonDir.file_name,
         });
       }
 
-      const epPad = String(episodeNum).padStart(2, '0');
+      const epPad = String(episodeNum).padStart(2, "0");
       targetFile = files.find((f) => {
         if (f.is_dir) return false;
         const name = f.file_name.toLowerCase();
@@ -932,57 +932,57 @@ async function resolveStreamUncached(options: {
       });
 
       if (!targetFile) {
-        const videoFiles = files
-          .filter((f) => !f.is_dir)
-          .sort((a, b) => a.file_name.localeCompare(b.file_name));
+        const videoFiles = files.filter((f) => !f.is_dir).sort((a, b) => a.file_name.localeCompare(b.file_name));
         targetFile = videoFiles[episodeNum - 1] || videoFiles[0];
       }
     }
 
     if (!targetFile) {
       logs.push({
-        step: 'findFile',
-        status: 'fail',
-        detail: 'No target file found',
+        step: "findFile",
+        status: "fail",
+        detail: "No target file found",
       });
       return { stream: null, logs };
     }
     logs.push({
-      step: 'findFile',
-      status: 'ok',
+      step: "findFile",
+      status: "ok",
       detail: `${targetFile.file_name} (fid=${targetFile.fid})`,
     });
   } catch (err: any) {
-    logs.push({ step: 'findFile', status: 'fail', detail: err.message });
+    logs.push({ step: "findFile", status: "fail", detail: err.message });
     return { stream: null, logs };
   }
 
-  // Step 6: Get video links + merge p-stream febbox subtitles in parallel
+  // Step 6: Get video links + external subtitles (sub.1x2.space) in parallel.
+  // FebBox's own subtitle_list entries never actually play (dead/expired
+  // links), so we no longer trust them — external subs are the only source.
   try {
-    const { scrapeFebboxCaptions } = await import('@/utils/externalSubtitles/febbox');
-    const [linkData, pstreamSubs] = await Promise.all([
+    const { scrapeExternalCaptions } = await import("@/utils/externalSubtitles/febbox");
+    const [linkData, externalSubs] = await Promise.all([
       febboxGetLinks(shareKey, targetFile.fid, shareSessionCookie),
-      scrapeFebboxCaptions(tmdbId, season, episode).catch(() => []),
+      scrapeExternalCaptions(tmdbId, season, episode).catch(() => []),
     ]);
     const links = linkData.qualities;
     if (!links || links.length === 0) {
-      logs.push({ step: 'getLinks', status: 'fail', detail: 'No qualities extracted' });
+      logs.push({ step: "getLinks", status: "fail", detail: "No qualities extracted" });
       return { stream: null, logs };
     }
 
-    // Merge subtitle lists — dedupe by URL, prefer febbox-native, then p-stream.
+    // Dedupe by URL — external subtitle source only (native FebBox subs are unreliable).
     const seenSubs = new Set<string>();
     const mergedSubs: FebBoxSubtitle[] = [];
-    for (const s of [...linkData.subtitles, ...pstreamSubs]) {
+    for (const s of externalSubs) {
       if (!s?.url || seenSubs.has(s.url)) continue;
       seenSubs.add(s.url);
       mergedSubs.push({ url: s.url, language: s.language, label: s.label, type: s.type });
     }
 
     logs.push({
-      step: 'getLinks',
-      status: 'ok',
-      detail: `${links.length} qualities, ${mergedSubs.length} subs (${pstreamSubs.length} via p-stream), ${linkData.audioTracks.length} audio`,
+      step: "getLinks",
+      status: "ok",
+      detail: `${links.length} qualities, ${mergedSubs.length} subs (sub.1x2.space), ${linkData.audioTracks.length} audio`,
     });
 
     return {
@@ -993,7 +993,7 @@ async function resolveStreamUncached(options: {
           quality: l.quality,
           label: l.name || l.quality,
           size: l.size,
-          isHls: l.url.toLowerCase().includes('.m3u8') || l.format === 'hls',
+          isHls: l.url.toLowerCase().includes(".m3u8") || l.format === "hls",
         })),
         subtitles: mergedSubs,
         audioTracks: linkData.audioTracks,
@@ -1003,7 +1003,7 @@ async function resolveStreamUncached(options: {
       logs,
     };
   } catch (err: any) {
-    logs.push({ step: 'getLinks', status: 'fail', detail: err.message });
+    logs.push({ step: "getLinks", status: "fail", detail: err.message });
     return { stream: null, logs };
   }
 }
