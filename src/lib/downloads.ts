@@ -11,6 +11,7 @@ export interface DownloadItem {
   type: "mp4" | "hls" | "mkv" | "file";
   size?: string;
   fileName?: string;
+  headers?: Record<string, string>;
 }
 
 export interface DownloadsResult {
@@ -62,9 +63,24 @@ async function getToken(pageUrl: string): Promise<string | null> {
   const res = await fetch(`${BASE_URL}/api/verify-robot`, {
     method: "POST",
     headers: {
-      ...HEADERS,
+      "User-Agent":
+        "Mozilla/5.0 (X11; U; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6884.98 Safari/537.36",
+      accept: "*/*",
+      "accept-language": "en-US,en;q=0.7",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      dnt: "1",
       origin: BASE_URL,
       referer: pageUrl,
+      priority: "u=1, i",
+      "sec-ch-ua": '"(Not(A:Brand";v="99", "Google Chrome";v="134", "Chromium";v="134"',
+      "sec-ch-ua-full-version-list": '"(Not(A:Brand";v="99.0.0.0", "Google Chrome";v="134", "Chromium";v="134"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Linux"',
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "sec-gpc": "1",
     },
     signal: AbortSignal.timeout(15000),
   });
@@ -100,6 +116,11 @@ function mapPayload(payload: any) {
       quality: Number(item?.resolution) > 0 ? `${item.resolution}p` : "Original",
       type: inferType(url),
       size: item?.size ? String(item.size) : undefined,
+      headers: url.includes("hakunaymatata")
+        ? { ...HEADERS, Referer: "https://lok-lok.cc/", Origin: "https://lok-lok.cc/" }
+        : url.includes("pixeldra")
+          ? undefined
+          : { ...HEADERS },
     });
   }
 
@@ -107,6 +128,15 @@ function mapPayload(payload: any) {
   for (const stream of externalStreams) {
     const url = String(stream?.url || "").trim();
     if (!/^https?:\/\//i.test(url) || url.includes("111477.xyz")) continue;
+    // Match NexVid's per-source header handling: hakunaymatata needs its own
+    // Referer/Origin, pixeldrain needs none, everything else gets the
+    // standard downloader headers.
+    let headers: Record<string, string> | undefined;
+    if (url.includes("hakunaymatata")) {
+      headers = { ...HEADERS, Referer: "https://lok-lok.cc/", Origin: "https://lok-lok.cc/" };
+    } else if (!url.includes("pixeldra")) {
+      headers = { ...HEADERS };
+    }
     downloads.push({
       id: `${stream?.name || "external"}-${url}`,
       url,
@@ -115,6 +145,7 @@ function mapPayload(payload: any) {
       type: inferType(url),
       size: stream?.size ? String(stream.size) : undefined,
       fileName: stream?.filename ? String(stream.filename) : undefined,
+      headers,
     });
   }
 
