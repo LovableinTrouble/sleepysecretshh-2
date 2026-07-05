@@ -78,6 +78,38 @@ function isAllowedChildHost(hostname: string): boolean {
   return ALLOWED_HOST_PATTERNS.some((pattern) => matchHostname(hostname, pattern));
 }
 
+// Segments/keys should come back fast; if an edge is slow or half-open we'd
+// rather fail this attempt quickly and retry than hang until the client's own
+// hls.js fragLoadingTimeOut (20s) gives up on us. The manifest itself gets a
+// little more slack since it's a single request per playback start.
+const UPSTREAM_TIMEOUT_MS = 8000;
+const UPSTREAM_MAX_ATTEMPTS = 3;
+const UPSTREAM_RETRY_DELAY_MS = 300;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchUpstreamWithRetry(
+  url: string,
+  init: { method: "GET" | "HEAD"; headers: Record<string, string> },
+): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= UPSTREAM_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await fetch(url, {
+        ...init,
+        redirect: "follow",
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+    } catch (err) {
+      lastErr = err;
+      if (attempt < UPSTREAM_MAX_ATTEMPTS) await sleep(UPSTREAM_RETRY_DELAY_MS * attempt);
+    }
+  }
+  throw lastErr;
+}
+
 function rewriteHlsPlaylist(body: string, base: URL, token: string): string {
   const rewrite = (raw: string) => {
     const trimmed = raw.trim();
@@ -146,11 +178,7 @@ async function handle(request: Request, method: "GET" | "HEAD") {
 
   let upstream: Response;
   try {
-    upstream = await fetch(upstreamUrl, {
-      method,
-      headers: upstreamHeaders,
-      redirect: "follow",
-    });
+    upstream = await fetchUpstreamWithRetry(upstreamUrl, { method, headers: upstreamHeaders });
   } catch (err) {
     return new Response(`upstream fetch failed: ${(err as Error).message}`, {
       status: 502,
