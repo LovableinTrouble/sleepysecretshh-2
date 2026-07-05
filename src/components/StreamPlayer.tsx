@@ -19,10 +19,10 @@ import {
 import type { Media } from "@/lib/catalog";
 import { useSettings } from "@/lib/store";
 import { getOrderedSources, sourceForKey, SOURCE_TIER_LABEL, type Source, type SourceKey } from "@/lib/sources";
-import { resolveFebboxStream, resolveXpassStream, type ResolvedQuality } from "@/lib/api/streams.functions";
+import { resolveFebboxStream, type ResolvedQuality } from "@/lib/api/streams.functions";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-// Direct HLS/MP4 playback (FebBox, Xpass) uses our native player UI. Zxcstream
-// is a third-party iframe embed used as a last-resort backup source.
+// Direct HLS/MP4 playback (FebBox) uses our native player UI. Zxcstream is a
+// third-party iframe embed used as a fallback source.
 
 interface Props {
   media: Media;
@@ -102,27 +102,10 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const loadSeqRef = useRef(0);
 
   const febboxCookie = settings.integrations.febboxCookie || "";
-  const hasFebboxCookie = Boolean(febboxCookie.trim());
   const qualityPref = settings.player.quality;
 
-  // Only try FebBox up-front if the user has configured a UI cookie. Without
-  // one, jump straight to Xpass (direct HLS backup) — anonymous FebBox calls
-  // almost always fail and just delay playback.
-  const computeInitialKey = useCallback((): SourceKey => (hasFebboxCookie ? "gamma" : "xpass"), [hasFebboxCookie]);
-  const [sourceKey, setSourceKey] = useState<SourceKey>(() => computeInitialKey());
+  const [sourceKey, setSourceKey] = useState<SourceKey>("gamma");
   const userPickedRef = useRef(false);
-
-  // If the FebBox cookie becomes available after first render (settings hydrate
-  // from localStorage after SSR), promote FebBox automatically — unless the
-  // user already manually picked a source.
-  useEffect(() => {
-    if (userPickedRef.current) return;
-    if (hasFebboxCookie && sourceKey !== "gamma") {
-      loadSeqRef.current += 1;
-      setSourceKey("gamma");
-      setStatus({ kind: "scanning" });
-    }
-  }, [hasFebboxCookie, sourceKey]);
 
   const switchSource = useCallback((key: SourceKey) => {
     userPickedRef.current = true;
@@ -164,51 +147,18 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             setFallbackNotice(null);
             return;
           }
-          setFallbackNotice("FebBox unavailable. Switching to Xpass…");
-          setSourceKey("xpass");
+          setFallbackNotice("FebBox unavailable. Switching to Zxcstream…");
+          setSourceKey("zxcstream");
         } catch {
           if (!isStale()) {
-            setFallbackNotice("FebBox unavailable. Switching to Xpass…");
-            setSourceKey("xpass");
-          }
-        }
-        return;
-      }
-
-      // Xpass — direct HLS backup via play.xpass.top, proxied through our origin.
-      if (sourceKey === "xpass") {
-        setScanStep("Connecting to Xpass…");
-        try {
-          const res = await resolveXpassStream({
-            data: {
-              tmdbId: media.id,
-              type: media.type === "movie" ? "movie" : "show",
-              season,
-              episode,
-            },
-          });
-          if (isStale()) return;
-          if (res.ok && res.qualities.length > 0) {
-            const xpass = sourceForKey("xpass");
-            setStatus({
-              kind: "direct",
-              stream: { source: xpass, qualities: res.qualities, active: res.qualities[0], subs: res.subtitles },
-            });
-            setTimeout(() => setFallbackNotice(null), 1500);
-          } else {
-            setFallbackNotice("Xpass unavailable. Switching to Zxcstream…");
-            setSourceKey("zxcstream");
-          }
-        } catch (err: any) {
-          if (!isStale()) {
-            setFallbackNotice("Xpass unavailable. Switching to Zxcstream…");
+            setFallbackNotice("FebBox unavailable. Switching to Zxcstream…");
             setSourceKey("zxcstream");
           }
         }
         return;
       }
 
-      // Zxcstream — third-party iframe embed, last-resort fallback.
+      // Zxcstream — third-party iframe embed, fallback when FebBox has no stream.
       setScanStep("Connecting to Zxcstream…");
       const zxcstream = sourceForKey("zxcstream");
       const embedUrl = zxcstream.build(media, season, episode);
@@ -392,7 +342,7 @@ function FailedOverlay({
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         {false && (
           <button
-            onClick={() => onSwitchSource("xpass")}
+            onClick={() => onSwitchSource("zxcstream")}
             className="rounded-lg bg-white/10 px-5 h-10 text-sm font-medium text-white ring-1 ring-white/15 hover:bg-white/20"
           >
             Switch to Backup Sources
