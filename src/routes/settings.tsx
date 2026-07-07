@@ -302,37 +302,7 @@ function SettingsPage() {
           </span>
         </a>
 
-        {/* FebBox — surfaced first because it gates the primary direct source. */}
-        <Section
-          title="FebBox Cookie"
-          desc="Primary direct source. Paste your FebBox ui= cookie to unlock direct HLS streams up to 4K. Without it, the player falls back to embed backups."
-        >
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-muted-foreground">Status</span>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
-                  ints.febboxCookie?.trim()
-                    ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30"
-                    : "bg-amber-500/15 text-amber-300 ring-amber-400/30"
-                }`}
-              >
-                {ints.febboxCookie?.trim() ? "Connected" : "Not configured"}
-              </span>
-            </div>
-            <TextField
-              value={ints.febboxCookie}
-              onChange={(v) => setInt({ febboxCookie: v })}
-              placeholder="ui=… cookie"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Tip: in your browser DevTools → Application → Cookies for febbox.com, copy the value of the{" "}
-              <code className="rounded bg-white/5 px-1">ui</code> cookie and paste it here.
-            </p>
-          </div>
-        </Section>
-
-        {/* p-stream region — picks the closest CDN/proxy edge for FebBox + subtitles. */}
+        {/* p-stream region — picks the closest CDN/proxy edge for subtitles. */}
         <Section
           title="Streaming region"
           desc="Pick the closest p-stream edge for lower latency. Auto detects the closest one by IP."
@@ -354,36 +324,10 @@ function SettingsPage() {
         </Section>
 
         {/* Sources */}
-        <Section
-          title="Sources"
-          desc="FebBox is the primary direct source. Prionix is a third-party embed used as a fallback."
-        >
-          <Row
-            label="Preferred source"
-            hint="FebBox runs first when a token is configured; Prionix is used as a fallback."
-          >
-            <Select
-              value={s.preferredSource}
-              onChange={(v) => set({ preferredSource: v })}
-              options={[
-                { value: "febbox", label: "FebBox — direct HLS, up to 4K" },
-                { value: "prionix", label: "Prionix — embed backup" },
-              ]}
-            />
-          </Row>
-          <Row label="FebBox" hint="Direct HLS streams up to 4K. Requires a FebBox ui= cookie/token pasted below.">
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${s.integrations.febboxCookie?.trim() ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" : "bg-amber-500/15 text-amber-300 ring-amber-400/30"}`}
-            >
-              {s.integrations.febboxCookie?.trim() ? "Connected" : "Not configured"}
-            </span>
-          </Row>
-          <Row
-            label="Prionix"
-            hint="Third-party iframe embed fallback, used when FebBox isn't enabled or has no stream."
-          >
+        <Section title="Sources" desc="Prionix is the streaming provider.">
+          <Row label="Prionix" hint="Third-party iframe embed used for playback.">
             <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
-              Backup ready
+              Ready
             </span>
           </Row>
         </Section>
@@ -499,14 +443,6 @@ function SettingsPage() {
 
         <Section title="Integrations" desc="Paste an API key to connect — a green check confirms it's saved.">
           <div className="grid gap-3 md:grid-cols-2">
-            <IntegrationCard
-              name="FebBox Cookie"
-              desc="Primary direct source. Paste your FebBox ui= cookie to unlock direct HLS streams up to 4K. Without it, the player uses embed backups."
-              placeholder="ui=… cookie"
-              value={ints.febboxCookie}
-              onChange={(v) => setInt({ febboxCookie: v })}
-            />
-
             <IntegrationCard
               name="Real-Debrid"
               desc="Premium high-speed links from hosters."
