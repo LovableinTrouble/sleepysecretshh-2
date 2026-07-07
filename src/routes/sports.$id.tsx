@@ -141,6 +141,9 @@ function SportsMatchPage() {
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             allowFullScreen
             loading="eager"
+            // Blocks popup windows/tabs, top-level navigation hijacks, and
+            // native alert/confirm/prompt dialogs from the third-party embed.
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
             className="absolute inset-0 h-full w-full border-0 bg-black"
           />
         )}
