@@ -33,7 +33,6 @@ export interface Settings {
   };
   integrations: {
     cineproUrl: string;
-    febboxCookie: string;
     realDebrid: string;
     allDebrid: string;
     premiumize: string;
@@ -90,7 +89,6 @@ export const DEFAULT_SETTINGS: Settings = {
   player: { autoplay: true, autoNext: true, skipIntro: false, pip: true, quality: "auto" },
   integrations: {
     cineproUrl: DEFAULT_CINEPRO_URL,
-    febboxCookie: "",
     realDebrid: "",
     allDebrid: "",
     premiumize: "",
@@ -105,8 +103,8 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   useLegacyEmbeds: false,
   tmdbApiKey: "",
-  preferredSource: "febbox",
-  preferredDownloadSource: "febbox",
+  preferredSource: "prionix",
+  preferredDownloadSource: "prionix",
   embedProvider: "vidsrc",
   customTheme: null,
   language: "en",
