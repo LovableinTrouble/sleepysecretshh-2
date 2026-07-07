@@ -302,37 +302,7 @@ function SettingsPage() {
           </span>
         </a>
 
-        {/* FebBox — surfaced first because it gates the primary direct source. */}
-        <Section
-          title="FebBox Cookie"
-          desc="Primary direct source. Paste your FebBox ui= cookie to unlock direct HLS streams up to 4K. Without it, the player falls back to embed backups."
-        >
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-muted-foreground">Status</span>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
-                  ints.febboxCookie?.trim()
-                    ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30"
-                    : "bg-amber-500/15 text-amber-300 ring-amber-400/30"
-                }`}
-              >
-                {ints.febboxCookie?.trim() ? "Connected" : "Not configured"}
-              </span>
-            </div>
-            <TextField
-              value={ints.febboxCookie}
-              onChange={(v) => setInt({ febboxCookie: v })}
-              placeholder="ui=… cookie"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Tip: in your browser DevTools → Application → Cookies for febbox.com, copy the value of the{" "}
-              <code className="rounded bg-white/5 px-1">ui</code> cookie and paste it here.
-            </p>
-          </div>
-        </Section>
-
-        {/* p-stream region — picks the closest CDN/proxy edge for FebBox + subtitles. */}
+        {/* p-stream region — picks the closest CDN/proxy edge for subtitles. */}
         <Section
           title="Streaming region"
           desc="Pick the closest p-stream edge for lower latency. Auto detects the closest one by IP."
