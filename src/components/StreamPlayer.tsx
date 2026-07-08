@@ -187,10 +187,14 @@ function EmbedVideo({
         allowFullScreen
         referrerPolicy="no-referrer"
         sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
-        // Restrict what the embed can load: only zxcstream + its known CDN/player
-        // origins. This strips ad iframes, pop-under scripts, and overlay banners
-        // injected from third-party ad networks.
-        csp="default-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://zxcstream.xyz https://*.zxcstream.xyz; style-src 'self' 'unsafe-inline' https://zxcstream.xyz https://*.zxcstream.xyz; img-src 'self' data: blob: https://zxcstream.xyz https://*.zxcstream.xyz; media-src 'self' blob: data: https://zxcstream.xyz https://*.zxcstream.xyz; connect-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz wss://zxcstream.xyz wss://*.zxcstream.xyz; frame-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz; child-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz; worker-src 'self' blob:; font-src 'self' data: https://zxcstream.xyz https://*.zxcstream.xyz"
+        {...({
+          // Restrict what the embed can load: only zxcstream + its known origins.
+          // Strips ad iframes, pop-under scripts, and overlay banners injected
+          // from third-party ad networks. `csp` is a valid HTML attribute but
+          // not yet in React's typings, so spread it in.
+          csp:
+            "default-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://zxcstream.xyz https://*.zxcstream.xyz; style-src 'self' 'unsafe-inline' https://zxcstream.xyz https://*.zxcstream.xyz; img-src 'self' data: blob: https://zxcstream.xyz https://*.zxcstream.xyz; media-src 'self' blob: data: https://zxcstream.xyz https://*.zxcstream.xyz; connect-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz wss://zxcstream.xyz wss://*.zxcstream.xyz; frame-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz; child-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz; worker-src 'self' blob:; font-src 'self' data: https://zxcstream.xyz https://*.zxcstream.xyz",
+        } as Record<string, string>)}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <button
