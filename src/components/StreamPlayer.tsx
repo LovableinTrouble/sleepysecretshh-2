@@ -17,26 +17,20 @@ interface Props {
  * Prionix iframe embed + postMessage API (backed by zxcstream.xyz)
  * ============================================================ */
 
-type PrionixMessage =
-  | { type: "VIDEO_PLAY" }
-  | { type: "VIDEO_PAUSE" }
-  | {
-      type: "VIDEO_PROGRESS";
-      payload: { progressKey: string; currentTime: number; duration: number; percent: number };
-    }
-  | {
-      type: "VIDEO_NINETY_PERCENT";
-      payload: { progressKey: string; currentTime: number; duration: number };
-    }
-  | { type: "VIDEO_ENDED"; payload: { progressKey: string } };
-
-type VidsuperMessage = {
-  id: number | string;
-  type: "play" | "pause" | "timeupdate" | "ended";
-  progress?: number;
+type CineSrcMessage = {
+  type: string;
+  currentTime?: number;
   duration?: number;
   season?: number;
   episode?: number;
+  volume?: number;
+  muted?: boolean;
+  playbackRate?: number;
+  time?: number;
+  sourceId?: string;
+  error?: unknown;
+  internalNavigation?: boolean;
+  source?: string;
 };
 
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
