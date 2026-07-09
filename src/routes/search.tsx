@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MediaCard } from "@/components/MediaCard";
@@ -24,6 +24,7 @@ function Search() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<SortKey>("relevance");
   const recents = useRecentSearches();
+  const router = useRouter();
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim()), 350);

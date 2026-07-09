@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Download } from "lucide-react";
 import { DEFAULT_SETTINGS, useSettings, type Settings } from "@/lib/store";
 import { THEMES } from "@/lib/themes";
@@ -108,23 +109,84 @@ function Select({
   options: { value: string; label: string }[];
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const active = options.find((o) => o.value === value) ?? options[0];
+  // Position of the menu in viewport coords, computed from the trigger rect.
+  // Using position: fixed + createPortal so the menu escapes every ancestor
+  // stacking context (each Settings section has `backdrop-blur-xl`, which
+  // creates one — without a portal the dropdown is trapped underneath
+  // subsequent sibling sections).
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
+  // Recompute position whenever the menu is open (handles scroll / resize).
+  // The initial position is already set synchronously in the click handler,
+  // so this effect only needs to react to viewport changes.
+  useEffect(() => {
+    if (!open) return;
+    const update = () => {
+      const pos = computeMenuPos();
+      if (pos) setMenuPos(pos);
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open]);
+
+  // Click-outside + Escape close.
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (triggerRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
+  const computeMenuPos = () => {
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (!r) return null;
+    const MENU_WIDTH = 208; // matches w-52
+    const left = Math.max(
+      8,
+      Math.min(window.innerWidth - MENU_WIDTH - 8, r.right - MENU_WIDTH),
+    );
+    const top = r.bottom + 8;
+    return { top, left, width: MENU_WIDTH };
+  };
+
   return (
-    <div ref={ref} className="relative min-w-[10rem]" style={{ zIndex: open ? 100 : "auto" }}>
+    <>
       <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-10 w-full items-center justify-between gap-3 rounded-2xl bg-white/[0.04] px-3 text-sm font-semibold text-foreground ring-1 ring-white/10 transition hover:bg-white/[0.07]"
+        ref={triggerRef}
+        type="button"
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+            return;
+          }
+          // Compute position synchronously so the portal mounts with coords
+          // already set — avoids a single-frame render gap on open.
+          const pos = computeMenuPos();
+          if (pos) setMenuPos(pos);
+          setOpen(true);
+        }}
+        className="flex h-10 min-w-[10rem] items-center justify-between gap-3 rounded-2xl bg-white/[0.04] px-3 text-sm font-semibold text-foreground ring-1 ring-white/10 transition hover:bg-white/[0.07]"
         aria-expanded={open}
       >
         <span className="truncate">{active?.label}</span>
@@ -140,36 +202,51 @@ function Select({
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
-      <div
-        className={`absolute right-0 top-12 z-[200] w-52 overflow-hidden rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl transition duration-150 ${open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"}`}
-      >
-        {options.map((o) => (
-          <button
-            key={o.value}
-            onClick={() => {
-              onChange(o.value);
-              setOpen(false);
+      {open &&
+        menuPos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              position: "fixed",
+              top: menuPos.top,
+              left: menuPos.left,
+              width: menuPos.width,
+              zIndex: 9999,
             }}
-            className={`flex h-9 w-full items-center justify-between rounded-xl px-3 text-left text-xs font-semibold transition ${value === o.value ? "bg-primary/20 text-white ring-1 ring-primary/35" : "text-white/65 hover:bg-white/8 hover:text-white"}`}
+            className="overflow-hidden rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl"
           >
-            {o.label}
-            {value === o.value && (
-              <svg
-                viewBox="0 0 24 24"
-                className="h-3.5 w-3.5 text-primary"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            {options.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+                className={`flex h-9 w-full items-center justify-between rounded-xl px-3 text-left text-xs font-semibold transition ${value === o.value ? "bg-primary/20 text-white ring-1 ring-primary/35" : "text-white/65 hover:bg-white/8 hover:text-white"}`}
               >
-                <path d="M5 12l5 5L20 7" />
-              </svg>
-            )}
-          </button>
-        ))}
-      </div>
-    </div>
+                {o.label}
+                {value === o.value && (
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-3.5 w-3.5 text-primary"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 12l5 5L20 7" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 

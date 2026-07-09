@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
-import { X, Sparkles, User, Palette, Zap, Settings, Eye } from "lucide-react";
+import { X, Sparkles, Wrench } from "lucide-react";
 
-const KEY = "sleepy.update-notice.v4";
-const CURRENT_VERSION = "2.7.0";
+const KEY = "sleepy.update-notice.v5";
+const CURRENT_VERSION = "2.8.0";
 
 const UPDATE_HIGHLIGHTS = [
-  { icon: User, text: "Games page removed cuz it was useless to yall" },
-  { icon: Settings, text: "Customizable shorts page with fast scrolling" },
-  { icon: Palette, text: "APK page to download for andrioid moved to settings" },
-  { icon: Eye, text: "Better experience for YOU!" },
+  {
+    icon: Sparkles,
+    text: "Added AI Search — describe what you want to watch and Sleepy finds it.",
+  },
+  {
+    icon: Wrench,
+    text: "Fixed settings bug — changes now apply instantly with no stuck Save bar.",
+  },
 ];
 
 export function SharePopup() {

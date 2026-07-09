@@ -19,11 +19,13 @@ import { Route as IptvRouteImport } from './routes/iptv'
 import { Route as InstallRouteImport } from './routes/install'
 import { Route as GamesRouteImport } from './routes/games'
 import { Route as ExploreRouteImport } from './routes/explore'
+import { Route as AiSearchRouteImport } from './routes/ai-search'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as SportsIdRouteImport } from './routes/sports.$id'
 import { Route as PersonIdRouteImport } from './routes/person.$id'
 import { Route as LiveIdRouteImport } from './routes/live.$id'
+import { Route as ApiAiSearchRouteImport } from './routes/api/ai-search'
 import { Route as MediaTypeIdRouteImport } from './routes/media.$type.$id'
 import { Route as ApiPublicYtPlaylistRouteImport } from './routes/api/public/yt-playlist'
 import { Route as ApiPublicSubtitleRouteImport } from './routes/api/public/subtitle'
@@ -82,6 +84,11 @@ const ExploreRoute = ExploreRouteImport.update({
   path: '/explore',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiSearchRoute = AiSearchRouteImport.update({
+  id: '/ai-search',
+  path: '/ai-search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -105,6 +112,11 @@ const PersonIdRoute = PersonIdRouteImport.update({
 const LiveIdRoute = LiveIdRouteImport.update({
   id: '/live/$id',
   path: '/live/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiSearchRoute = ApiAiSearchRouteImport.update({
+  id: '/api/ai-search',
+  path: '/api/ai-search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MediaTypeIdRoute = MediaTypeIdRouteImport.update({
@@ -145,6 +157,7 @@ const ApiPpvStreamsRoute = ApiPpvStreamsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai-search': typeof AiSearchRoute
   '/explore': typeof ExploreRoute
   '/games': typeof GamesRoute
   '/install': typeof InstallRoute
@@ -155,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/ai-search': typeof ApiAiSearchRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
@@ -169,6 +183,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai-search': typeof AiSearchRoute
   '/explore': typeof ExploreRoute
   '/games': typeof GamesRoute
   '/install': typeof InstallRoute
@@ -179,6 +194,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/ai-search': typeof ApiAiSearchRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
@@ -194,6 +210,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai-search': typeof AiSearchRoute
   '/explore': typeof ExploreRoute
   '/games': typeof GamesRoute
   '/install': typeof InstallRoute
@@ -204,6 +221,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/ai-search': typeof ApiAiSearchRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
@@ -220,6 +238,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ai-search'
     | '/explore'
     | '/games'
     | '/install'
@@ -230,6 +249,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
+    | '/api/ai-search'
     | '/live/$id'
     | '/person/$id'
     | '/sports/$id'
@@ -244,6 +264,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ai-search'
     | '/explore'
     | '/games'
     | '/install'
@@ -254,6 +275,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
+    | '/api/ai-search'
     | '/live/$id'
     | '/person/$id'
     | '/sports/$id'
@@ -268,6 +290,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/ai-search'
     | '/explore'
     | '/games'
     | '/install'
@@ -278,6 +301,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
+    | '/api/ai-search'
     | '/live/$id'
     | '/person/$id'
     | '/sports/$id'
@@ -293,6 +317,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiSearchRoute: typeof AiSearchRoute
   ExploreRoute: typeof ExploreRoute
   GamesRoute: typeof GamesRoute
   InstallRoute: typeof InstallRoute
@@ -303,6 +328,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SportsRoute: typeof SportsRouteWithChildren
   WatchlistRoute: typeof WatchlistRoute
+  ApiAiSearchRoute: typeof ApiAiSearchRoute
   LiveIdRoute: typeof LiveIdRoute
   PersonIdRoute: typeof PersonIdRoute
   WatchIdRoute: typeof WatchIdRoute
@@ -387,6 +413,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExploreRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai-search': {
+      id: '/ai-search'
+      path: '/ai-search'
+      fullPath: '/ai-search'
+      preLoaderRoute: typeof AiSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -420,6 +453,13 @@ declare module '@tanstack/react-router' {
       path: '/live/$id'
       fullPath: '/live/$id'
       preLoaderRoute: typeof LiveIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai-search': {
+      id: '/api/ai-search'
+      path: '/api/ai-search'
+      fullPath: '/api/ai-search'
+      preLoaderRoute: typeof ApiAiSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/media/$type/$id': {
@@ -487,6 +527,7 @@ const SportsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiSearchRoute: AiSearchRoute,
   ExploreRoute: ExploreRoute,
   GamesRoute: GamesRoute,
   InstallRoute: InstallRoute,
@@ -497,6 +538,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SportsRoute: SportsRouteWithChildren,
   WatchlistRoute: WatchlistRoute,
+  ApiAiSearchRoute: ApiAiSearchRoute,
   LiveIdRoute: LiveIdRoute,
   PersonIdRoute: PersonIdRoute,
   WatchIdRoute: WatchIdRoute,
@@ -511,3 +553,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -8,6 +8,7 @@ import {
   Settings as SettingsIcon,
   Gamepad2,
   Smartphone,
+  Sparkles, // Import Sparkles icon
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/shorts", label: "Shorts", icon: Smartphone },
   { to: "/watchlist", label: "Watchlist", icon: Bookmark },
   { to: "/search", label: "Search", icon: Search },
+  { to: "/ai-search", label: "AI Search", icon: Sparkles }, // AI Search item
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -45,7 +47,7 @@ export function BottomNav() {
           const active = to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(to);
           return (
             <Link
-              key={to}
+              key={to + label}
               to={to}
               aria-label={label}
               className={`group relative flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-sm font-semibold transition-colors duration-150 md:flex-none md:rounded-full md:px-4 md:py-2.5 ${
