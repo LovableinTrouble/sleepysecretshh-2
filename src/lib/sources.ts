@@ -1,4 +1,5 @@
 import type { Media } from "./catalog";
+import { getSettings } from "./store";
 
 /**
  * Source registry — Prionix is the only source (third-party iframe embed
@@ -17,22 +18,30 @@ export type SourceKey = "prionix";
 
 const PRIONIX: Source = {
   id: "prionix",
-  name: "Prionix",
+  name: "CineSrc",
   badge: "Embed",
   kind: "embed",
   tier: "primary",
   build: (m, season, episode) => {
-    const accent = "6366f1";
     const isShow = m.type !== "movie" && season != null && episode != null;
     const base = isShow
-      ? `https://zxcstream.xyz/player/tv/${m.id}/${season}/${episode}`
-      : `https://zxcstream.xyz/player/movie/${m.id}`;
+      ? `https://cinesrc.st/embed/tv/${m.id}?s=${season}&e=${episode}`
+      : `https://cinesrc.st/embed/movie/${m.id}`;
+    // Sleepy accent (indigo) — pass as hex with %23 replaced by URLSearchParams.
     const params = new URLSearchParams({
-      domainAd: typeof window !== "undefined" ? window.location.hostname : "",
-      color: accent,
+      color: "#6366f1",
       autoplay: "true",
+      autonext: "true",
+      autoskip: "true",
+      controls: "true",
+      prioritize: "true",
     });
-    return `${base}?${params.toString()}`;
+    try {
+      const tok = getSettings().integrations.febboxToken?.trim();
+      if (tok) params.set("febbox", tok);
+    } catch {}
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}${params.toString()}`;
   },
 };
 

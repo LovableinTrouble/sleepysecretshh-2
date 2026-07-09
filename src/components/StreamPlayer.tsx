@@ -17,18 +17,21 @@ interface Props {
  * Prionix iframe embed + postMessage API (backed by zxcstream.xyz)
  * ============================================================ */
 
-type PrionixMessage =
-  | { type: "VIDEO_PLAY" }
-  | { type: "VIDEO_PAUSE" }
-  | {
-      type: "VIDEO_PROGRESS";
-      payload: { progressKey: string; currentTime: number; duration: number; percent: number };
-    }
-  | {
-      type: "VIDEO_NINETY_PERCENT";
-      payload: { progressKey: string; currentTime: number; duration: number };
-    }
-  | { type: "VIDEO_ENDED"; payload: { progressKey: string } };
+type CineSrcMessage = {
+  type: string;
+  currentTime?: number;
+  duration?: number;
+  season?: number;
+  episode?: number;
+  volume?: number;
+  muted?: boolean;
+  playbackRate?: number;
+  time?: number;
+  sourceId?: string;
+  error?: unknown;
+  internalNavigation?: boolean;
+  source?: string;
+};
 
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
   useEffect(() => {
@@ -130,20 +133,21 @@ function EmbedVideo({
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      let isZxcstreamOrigin: boolean;
+      let isAllowedOrigin: boolean;
       if (event.origin === "null") {
-        isZxcstreamOrigin = true;
+        isAllowedOrigin = true;
       } else {
         try {
           const originHost = new URL(event.origin).hostname.toLowerCase();
-          isZxcstreamOrigin = originHost === "zxcstream.xyz" || originHost.endsWith(".zxcstream.xyz");
+          isAllowedOrigin =
+            originHost === "cinesrc.st" || originHost.endsWith(".cinesrc.st");
         } catch {
-          isZxcstreamOrigin = true;
+          isAllowedOrigin = true;
         }
       }
-      if (!isZxcstreamOrigin) return;
+      if (!isAllowedOrigin) return;
 
-      let data: PrionixMessage | undefined;
+      let data: CineSrcMessage | undefined;
       if (typeof event.data === "string") {
         try {
           data = JSON.parse(event.data);
@@ -151,25 +155,32 @@ function EmbedVideo({
           return;
         }
       } else {
-        data = event.data as PrionixMessage | undefined;
+        data = event.data as CineSrcMessage | undefined;
       }
-      if (!data || typeof data.type !== "string") return;
+      if (!data || typeof (data as { type?: unknown }).type !== "string") return;
 
-      switch (data.type) {
-        case "VIDEO_PLAY":
-        case "VIDEO_PAUSE":
+      const t = data.type;
+      switch (t) {
+        case "cinesrc:ready":
+        case "cinesrc:play":
+        case "cinesrc:pause":
+        case "cinesrc:seeking":
+        case "cinesrc:seeked":
           break;
-        case "VIDEO_PROGRESS":
-        case "VIDEO_NINETY_PERCENT": {
-          const { currentTime, duration } = data.payload;
-          recordProgress(currentTime, duration, false);
+        case "cinesrc:timeupdate": {
+          if (typeof data.currentTime === "number" && typeof data.duration === "number") {
+            recordProgress(data.currentTime, data.duration, false);
+          }
           break;
         }
-        case "VIDEO_ENDED": {
+        case "cinesrc:ended": {
           const saved = getLocalProgressFor(media.id, seasonKey, epKey);
           recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
           break;
         }
+        case "cinesrc:close":
+          onClose();
+          break;
       }
     };
     window.addEventListener("message", onMessage);
@@ -185,6 +196,7 @@ function EmbedVideo({
         className="h-full w-full border-0"
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
+        referrerPolicy="no-referrer"
         sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
