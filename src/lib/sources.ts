@@ -25,12 +25,16 @@ const PRIONIX: Source = {
     const accent = "6366f1";
     const isShow = m.type !== "movie" && season != null && episode != null;
     const base = isShow
-      ? `https://zxcstream.xyz/player/tv/${m.id}/${season}/${episode}`
-      : `https://zxcstream.xyz/player/movie/${m.id}`;
+      ? `https://vidsuper.net/tv/${m.id}/${season}/${episode}`
+      : `https://vidsuper.net/movie/${m.id}`;
     const params = new URLSearchParams({
-      domainAd: typeof window !== "undefined" ? window.location.hostname : "",
       color: accent,
       autoplay: "true",
+      nextEpisode: "true",
+      autoplayNextEpisode: "true",
+      episodeSelector: "true",
+      overlay: "true",
+      skip_intro: "true",
     });
     return `${base}?${params.toString()}`;
   },
