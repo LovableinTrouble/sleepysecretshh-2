@@ -17,26 +17,20 @@ interface Props {
  * Prionix iframe embed + postMessage API (backed by zxcstream.xyz)
  * ============================================================ */
 
-type PrionixMessage =
-  | { type: "VIDEO_PLAY" }
-  | { type: "VIDEO_PAUSE" }
-  | {
-      type: "VIDEO_PROGRESS";
-      payload: { progressKey: string; currentTime: number; duration: number; percent: number };
-    }
-  | {
-      type: "VIDEO_NINETY_PERCENT";
-      payload: { progressKey: string; currentTime: number; duration: number };
-    }
-  | { type: "VIDEO_ENDED"; payload: { progressKey: string } };
-
-type VidsuperMessage = {
-  id: number | string;
-  type: "play" | "pause" | "timeupdate" | "ended";
-  progress?: number;
+type CineSrcMessage = {
+  type: string;
+  currentTime?: number;
   duration?: number;
   season?: number;
   episode?: number;
+  volume?: number;
+  muted?: boolean;
+  playbackRate?: number;
+  time?: number;
+  sourceId?: string;
+  error?: unknown;
+  internalNavigation?: boolean;
+  source?: string;
 };
 
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
@@ -146,14 +140,14 @@ function EmbedVideo({
         try {
           const originHost = new URL(event.origin).hostname.toLowerCase();
           isAllowedOrigin =
-            originHost === "vidsuper.net" || originHost.endsWith(".vidsuper.net");
+            originHost === "cinesrc.st" || originHost.endsWith(".cinesrc.st");
         } catch {
           isAllowedOrigin = true;
         }
       }
       if (!isAllowedOrigin) return;
 
-      let data: VidsuperMessage | PrionixMessage | undefined;
+      let data: CineSrcMessage | undefined;
       if (typeof event.data === "string") {
         try {
           data = JSON.parse(event.data);
@@ -161,27 +155,32 @@ function EmbedVideo({
           return;
         }
       } else {
-        data = event.data as VidsuperMessage | PrionixMessage | undefined;
+        data = event.data as CineSrcMessage | undefined;
       }
       if (!data || typeof (data as { type?: unknown }).type !== "string") return;
 
-      const t = (data as { type: string }).type;
+      const t = data.type;
       switch (t) {
-        case "play":
-        case "pause":
+        case "cinesrc:ready":
+        case "cinesrc:play":
+        case "cinesrc:pause":
+        case "cinesrc:seeking":
+        case "cinesrc:seeked":
           break;
-        case "timeupdate": {
-          const d = data as VidsuperMessage;
-          if (typeof d.progress === "number" && typeof d.duration === "number") {
-            recordProgress(d.progress, d.duration, false);
+        case "cinesrc:timeupdate": {
+          if (typeof data.currentTime === "number" && typeof data.duration === "number") {
+            recordProgress(data.currentTime, data.duration, false);
           }
           break;
         }
-        case "ended": {
+        case "cinesrc:ended": {
           const saved = getLocalProgressFor(media.id, seasonKey, epKey);
           recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
           break;
         }
+        case "cinesrc:close":
+          onClose();
+          break;
       }
     };
     window.addEventListener("message", onMessage);
