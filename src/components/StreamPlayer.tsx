@@ -30,6 +30,15 @@ type PrionixMessage =
     }
   | { type: "VIDEO_ENDED"; payload: { progressKey: string } };
 
+type VidsuperMessage = {
+  id: number | string;
+  type: "play" | "pause" | "timeupdate" | "ended";
+  progress?: number;
+  duration?: number;
+  season?: number;
+  episode?: number;
+};
+
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -130,20 +139,21 @@ function EmbedVideo({
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      let isZxcstreamOrigin: boolean;
+      let isAllowedOrigin: boolean;
       if (event.origin === "null") {
-        isZxcstreamOrigin = true;
+        isAllowedOrigin = true;
       } else {
         try {
           const originHost = new URL(event.origin).hostname.toLowerCase();
-          isZxcstreamOrigin = originHost === "zxcstream.xyz" || originHost.endsWith(".zxcstream.xyz");
+          isAllowedOrigin =
+            originHost === "vidsuper.net" || originHost.endsWith(".vidsuper.net");
         } catch {
-          isZxcstreamOrigin = true;
+          isAllowedOrigin = true;
         }
       }
-      if (!isZxcstreamOrigin) return;
+      if (!isAllowedOrigin) return;
 
-      let data: PrionixMessage | undefined;
+      let data: VidsuperMessage | PrionixMessage | undefined;
       if (typeof event.data === "string") {
         try {
           data = JSON.parse(event.data);
@@ -151,21 +161,23 @@ function EmbedVideo({
           return;
         }
       } else {
-        data = event.data as PrionixMessage | undefined;
+        data = event.data as VidsuperMessage | PrionixMessage | undefined;
       }
-      if (!data || typeof data.type !== "string") return;
+      if (!data || typeof (data as { type?: unknown }).type !== "string") return;
 
-      switch (data.type) {
-        case "VIDEO_PLAY":
-        case "VIDEO_PAUSE":
+      const t = (data as { type: string }).type;
+      switch (t) {
+        case "play":
+        case "pause":
           break;
-        case "VIDEO_PROGRESS":
-        case "VIDEO_NINETY_PERCENT": {
-          const { currentTime, duration } = data.payload;
-          recordProgress(currentTime, duration, false);
+        case "timeupdate": {
+          const d = data as VidsuperMessage;
+          if (typeof d.progress === "number" && typeof d.duration === "number") {
+            recordProgress(d.progress, d.duration, false);
+          }
           break;
         }
-        case "VIDEO_ENDED": {
+        case "ended": {
           const saved = getLocalProgressFor(media.id, seasonKey, epKey);
           recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
           break;
@@ -187,14 +199,6 @@ function EmbedVideo({
         allowFullScreen
         referrerPolicy="no-referrer"
         sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
-        {...({
-          // Restrict what the embed can load: only zxcstream + its known origins.
-          // Strips ad iframes, pop-under scripts, and overlay banners injected
-          // from third-party ad networks. `csp` is a valid HTML attribute but
-          // not yet in React's typings, so spread it in.
-          csp:
-            "default-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://zxcstream.xyz https://*.zxcstream.xyz; style-src 'self' 'unsafe-inline' https://zxcstream.xyz https://*.zxcstream.xyz; img-src 'self' data: blob: https://zxcstream.xyz https://*.zxcstream.xyz; media-src 'self' blob: data: https://zxcstream.xyz https://*.zxcstream.xyz; connect-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz wss://zxcstream.xyz wss://*.zxcstream.xyz; frame-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz; child-src 'self' https://zxcstream.xyz https://*.zxcstream.xyz; worker-src 'self' blob:; font-src 'self' data: https://zxcstream.xyz https://*.zxcstream.xyz",
-        } as Record<string, string>)}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <button
