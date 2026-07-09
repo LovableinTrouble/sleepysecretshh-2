@@ -17,26 +17,33 @@ export type SourceKey = "prionix";
 
 const PRIONIX: Source = {
   id: "prionix",
-  name: "Prionix",
+  name: "CineSrc",
   badge: "Embed",
   kind: "embed",
   tier: "primary",
   build: (m, season, episode) => {
-    const accent = "6366f1";
     const isShow = m.type !== "movie" && season != null && episode != null;
     const base = isShow
-      ? `https://vidsuper.net/tv/${m.id}/${season}/${episode}`
-      : `https://vidsuper.net/movie/${m.id}`;
+      ? `https://cinesrc.st/embed/tv/${m.id}?s=${season}&e=${episode}`
+      : `https://cinesrc.st/embed/movie/${m.id}`;
+    // Sleepy accent (indigo) — pass as hex with %23 replaced by URLSearchParams.
     const params = new URLSearchParams({
-      color: accent,
+      color: "#6366f1",
       autoplay: "true",
-      nextEpisode: "true",
-      autoplayNextEpisode: "true",
-      episodeSelector: "true",
-      overlay: "true",
-      skip_intro: "true",
+      autonext: "true",
+      autoskip: "true",
+      controls: "true",
+      prioritize: "true",
     });
-    return `${base}?${params.toString()}`;
+    try {
+      // Lazy-read febbox token so we don't pull settings at module load.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { getSettings } = require("./store") as typeof import("./store");
+      const tok = getSettings().integrations.febboxToken?.trim();
+      if (tok) params.set("febbox", tok);
+    } catch {}
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}${params.toString()}`;
   },
 };
 
