@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Captures the original Error out-of-band so server.ts can recover the stack
 // when h3 has already swallowed the throw into a generic 500 Response.
 
-let lastCapturedError: { error: unknown; at: number } | undefined;
+let lastCapturedError: { error: any; at: number } | undefined;
 const TTL_MS = 5_000;
 
-function record(error: unknown) {
+function record(error: any) {
   lastCapturedError = { error, at: Date.now() };
 }
 
@@ -15,7 +16,7 @@ if (typeof globalThis.addEventListener === "function") {
   );
 }
 
-export function consumeLastCapturedError(): unknown {
+export function consumeLastCapturedError(): any {
   if (!lastCapturedError) return undefined;
   if (Date.now() - lastCapturedError.at > TTL_MS) {
     lastCapturedError = undefined;

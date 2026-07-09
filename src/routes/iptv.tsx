@@ -1,7 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Tv as Tv2, RadioTower, Star, Trophy, ArrowRight, Upload, Trash2, Link2, ClipboardPaste, Loader as Loader2 } from "lucide-react";
+import {
+  Search,
+  Tv as Tv2,
+  RadioTower,
+  Star,
+  Trophy,
+  ArrowRight,
+  Upload,
+  Trash2,
+  Link2,
+  ClipboardPaste,
+  Loader as Loader2,
+} from "lucide-react";
 import { fetchPpvAll, flattenEvents } from "@/lib/sports";
 import {
   loadCustomPlaylists,
@@ -12,16 +24,26 @@ import {
 } from "@/lib/iptv-custom";
 import { CURATED_CHANNELS, type CuratedChannel } from "@/lib/iptv-curated";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/iptv")({
   head: () => ({
     meta: [
       { title: "Live TV & Sports — Sleepy" },
-      { name: "description", content: "Watch live TV channels and real-time sports matches — free." },
+      {
+        name: "description",
+        content: "Watch live TV channels and real-time sports matches — free.",
+      },
       { property: "og:title", content: "Live TV & Sports — Sleepy" },
-      { property: "og:description", content: "Live news, sports games and entertainment — all free." },
+      {
+        property: "og:description",
+        content: "Live news, sports games and entertainment — all free.",
+      },
     ],
   }),
   component: IptvPage,
@@ -44,14 +66,20 @@ function IptvPage() {
     try {
       const raw = localStorage.getItem("iptv:favs");
       if (raw) setFavs(new Set(JSON.parse(raw)));
-    } catch {}
+    } catch {
+      /* no-op */
+    }
     setCustom(loadCustomPlaylists());
   }, []);
 
   // TouStream channels — fetched live. Slugs become channel ids and the
   // player URL is https://toustream.xyz/tou/live/{slug}. We render these
   // via <iframe> in the live route because they're first-party embeds.
-  const { data: touChannels = [], isLoading: touLoading, isError: touError } = useQuery({
+  const {
+    data: touChannels = [],
+    isLoading: touLoading,
+    isError: touError,
+  } = useQuery({
     queryKey: ["toustream", "channels"],
     queryFn: async () => {
       const ctrl = new AbortController();
@@ -60,7 +88,12 @@ function IptvPage() {
         const res = await fetch("https://toustream.xyz/tou/api/channels", { signal: ctrl.signal });
         clearTimeout(timeout);
         if (!res.ok) throw new Error("Failed to load channels");
-        const raw = (await res.json()) as Array<{ slug: string; name?: string; image?: string; category?: string }>;
+        const raw = (await res.json()) as Array<{
+          slug: string;
+          name?: string;
+          image?: string;
+          category?: string;
+        }>;
         // Limit channels to prevent UI lag
         const limited = raw.slice(0, 100);
         return limited.map((c) => ({
@@ -86,8 +119,13 @@ function IptvPage() {
   const toggleFav = (id: string) => {
     setFavs((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      try { localStorage.setItem("iptv:favs", JSON.stringify([...next])); } catch {}
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem("iptv:favs", JSON.stringify([...next]));
+      } catch {
+        /* no-op */
+      }
       return next;
     });
   };
@@ -106,17 +144,17 @@ function IptvPage() {
     const entries = Array.from(seen.entries()).sort((a, b) => a[0].localeCompare(b[0]));
     const base = ["All", ...entries.map(([g]) => g)];
     const withFavs = favs.size > 0 ? ["Favorites", ...base] : base;
-    return custom.length > 0
-      ? [withFavs[0], "My Playlists", ...withFavs.slice(1)]
-      : withFavs;
+    return custom.length > 0 ? [withFavs[0], "My Playlists", ...withFavs.slice(1)] : withFavs;
   }, [channels, favs, custom]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = channels.filter((c) => {
-      if (group === "Favorites") { if (!favs.has(c.id)) return false; }
-      else if (group === "My Playlists") { if (!c.id.startsWith("pl-") && !c.id.startsWith("custom-")) return false; }
-      else if (group !== "All" && c.group !== group) return false;
+      if (group === "Favorites") {
+        if (!favs.has(c.id)) return false;
+      } else if (group === "My Playlists") {
+        if (!c.id.startsWith("pl-") && !c.id.startsWith("custom-")) return false;
+      } else if (group !== "All" && c.group !== group) return false;
       if (q && !c.name.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -160,15 +198,22 @@ function IptvPage() {
             <span className="hidden sm:inline">Import playlist</span>
             <span className="sm:hidden">Import</span>
             {custom.length > 0 && (
-              <span className="rounded-full bg-primary/25 px-1.5 text-[10px] font-bold">{custom.length}</span>
+              <span className="rounded-full bg-primary/25 px-1.5 text-[10px] font-bold">
+                {custom.length}
+              </span>
             )}
           </button>
         </div>
         <p className="mt-3 max-w-xl text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
           <span className="live-dot" aria-hidden="true" />
-          <span><span className="font-semibold text-foreground">{channels.length}</span> channels + live sports right now.</span>
+          <span>
+            <span className="font-semibold text-foreground">{channels.length}</span> channels + live
+            sports right now.
+          </span>
           {favs.size > 0 && <span className="text-foreground/70">· {favs.size} favorited</span>}
-          {customChannels.length > 0 && <span className="text-foreground/70">· {customChannels.length} yours</span>}
+          {customChannels.length > 0 && (
+            <span className="text-foreground/70">· {customChannels.length} yours</span>
+          )}
         </p>
       </header>
 
@@ -229,7 +274,8 @@ function IptvPage() {
                   className="group relative flex w-full aspect-[4/3] flex-col items-center justify-between gap-2 overflow-hidden rounded-2xl border border-glass-border bg-card/40 p-3 text-center transition active:scale-[0.98] hover:-translate-y-0.5 hover:border-primary/50 hover:bg-card/70"
                 >
                   <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white/90 ring-1 ring-white/10 backdrop-blur">
-                    <span className="live-dot" style={{ width: 5, height: 5 }} aria-hidden="true" /> Live
+                    <span className="live-dot" style={{ width: 5, height: 5 }} aria-hidden="true" />{" "}
+                    Live
                   </span>
                   <div className="relative grid h-16 w-16 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-white/10 to-black/30 ring-1 ring-white/10">
                     <span className="absolute text-sm font-black tracking-wide text-white/55">
@@ -266,7 +312,11 @@ function IptvPage() {
                   </span>
                 </Link>
                 <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(c.id); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleFav(c.id);
+                  }}
                   aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
                   className={`absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full backdrop-blur transition ${
                     isFav
@@ -345,7 +395,11 @@ function LiveSportsRail() {
 }
 
 function ImportPlaylistDialog({
-  open, onOpenChange, playlists, onSave, onRemove,
+  open,
+  onOpenChange,
+  playlists,
+  onSave,
+  onRemove,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -360,7 +414,13 @@ function ImportPlaylistDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const reset = () => { setName(""); setUrl(""); setText(""); setError(null); setBusy(false); };
+  const reset = () => {
+    setName("");
+    setUrl("");
+    setText("");
+    setError(null);
+    setBusy(false);
+  };
 
   const submit = async () => {
     setError(null);
@@ -372,7 +432,8 @@ function ImportPlaylistDialog({
         if (!/^https?:\/\//i.test(url.trim())) throw new Error("Enter a valid http(s) URL.");
         channels = await fetchAndParsePlaylist(url.trim(), finalName);
       } else {
-        if (!text.includes("#EXTINF")) throw new Error("This doesn't look like an M3U file (no #EXTINF lines).");
+        if (!text.includes("#EXTINF"))
+          throw new Error("This doesn't look like an M3U file (no #EXTINF lines).");
         channels = parseM3U(text, finalName);
       }
       if (channels.length === 0) throw new Error("No channels found in this playlist.");
@@ -392,14 +453,21 @@ function ImportPlaylistDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) reset();
+        onOpenChange(v);
+      }}
+    >
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <Upload className="h-4 w-4 text-primary" /> Import IPTV playlist
           </DialogTitle>
           <DialogDescription>
-            Add an M3U / M3U8 playlist by URL or paste its contents. Saved locally on your device — never sent to our servers.
+            Add an M3U / M3U8 playlist by URL or paste its contents. Saved locally on your device —
+            never sent to our servers.
           </DialogDescription>
         </DialogHeader>
 
@@ -420,7 +488,9 @@ function ImportPlaylistDialog({
 
         <div className="mt-4 space-y-3">
           <label className="block">
-            <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground">Playlist name</span>
+            <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground">
+              Playlist name
+            </span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -430,7 +500,9 @@ function ImportPlaylistDialog({
           </label>
           {mode === "url" ? (
             <label className="block">
-              <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground">Playlist URL</span>
+              <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground">
+                Playlist URL
+              </span>
               <input
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
@@ -440,12 +512,14 @@ function ImportPlaylistDialog({
             </label>
           ) : (
             <label className="block">
-              <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground">M3U contents</span>
+              <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground">
+                M3U contents
+              </span>
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={6}
-                placeholder="#EXTM3U&#10;#EXTINF:-1 tvg-logo=&quot;...&quot; group-title=&quot;News&quot;,My Channel&#10;https://example.com/stream.m3u8"
+                placeholder='#EXTM3U&#10;#EXTINF:-1 tvg-logo="..." group-title="News",My Channel&#10;https://example.com/stream.m3u8'
                 className="w-full rounded-xl bg-background/60 px-3 py-2 font-mono text-xs outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-primary/40"
               />
             </label>
@@ -474,11 +548,15 @@ function ImportPlaylistDialog({
             </div>
             <ul className="space-y-2">
               {playlists.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10"
+                >
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{p.name}</div>
                     <div className="truncate text-[11px] text-muted-foreground">
-                      {p.channels.length} channels · {p.source.length > 40 ? p.source.slice(0, 40) + "…" : p.source}
+                      {p.channels.length} channels ·{" "}
+                      {p.source.length > 40 ? p.source.slice(0, 40) + "…" : p.source}
                     </div>
                   </div>
                   <button

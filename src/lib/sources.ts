@@ -39,7 +39,9 @@ const PRIONIX: Source = {
     try {
       const tok = getSettings().integrations.febboxToken?.trim();
       if (tok) params.set("febbox", tok);
-    } catch {}
+    } catch {
+      /* no-op */
+    }
     const sep = base.includes("?") ? "&" : "?";
     return `${base}${sep}${params.toString()}`;
   },

@@ -54,8 +54,12 @@ export const Route = createFileRoute("/api/ppv/streams")({
           });
         } catch (e) {
           return new Response(
-            JSON.stringify({ success: false, error: String((e as Error).message || e), streams: [] }),
-            { status: 502, headers: { "Content-Type": "application/json", ...CORS } }
+            JSON.stringify({
+              success: false,
+              error: String((e as Error).message || e),
+              streams: [],
+            }),
+            { status: 502, headers: { "Content-Type": "application/json", ...CORS } },
           );
         }
       },

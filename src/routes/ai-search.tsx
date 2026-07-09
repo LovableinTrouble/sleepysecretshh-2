@@ -1,9 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { MediaCard } from "@/components/MediaCard";
 import type { Media } from "@/lib/catalog";
+import { searchMulti } from "@/lib/tmdb";
+
+// AI Search talks directly to a tiny Node backend on Render. The Groq key
+// lives in that service (hardcoded in backend/backend.js), not here.
+const BACKEND_URL = "https://sleepy-backend.onrender.com";
+const BACKEND_TIMEOUT_MS = 15_000;
 
 export const Route = createFileRoute("/ai-search")({
   head: () => ({
@@ -23,6 +30,55 @@ type AiSearchResponse = {
   aiError: string | null;
 };
 
+type BackendResponse = {
+  titles: string[];
+  source: "ai" | "error";
+  aiError: string | null;
+};
+
+async function fetchTitlesFromBackend(
+  q: string,
+  querySignal?: AbortSignal,
+): Promise<BackendResponse> {
+  // Compose React-Query-supplied cancellation with our own timeout so a
+  // fast-typing user doesn't pile up zombie Groq calls behind the scenes.
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), BACKEND_TIMEOUT_MS);
+  let onQueryAbort: (() => void) | undefined;
+  if (querySignal) {
+    if (querySignal.aborted) ctl.abort();
+    else {
+      onQueryAbort = () => ctl.abort();
+      querySignal.addEventListener("abort", onQueryAbort);
+    }
+  }
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/ai-search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ q }),
+      signal: ctl.signal,
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Backend ${res.status}: ${errText.slice(0, 200)}`);
+    }
+    const data = (await res.json()) ?? {};
+    return {
+      titles: Array.isArray(data.titles)
+        ? data.titles.filter((t: any): t is string => typeof t === "string")
+        : [],
+      source: data.source === "ai" ? "ai" : "error",
+      aiError: typeof data.aiError === "string" ? data.aiError : null,
+    };
+  } finally {
+    clearTimeout(timer);
+    if (onQueryAbort && querySignal) {
+      querySignal.removeEventListener("abort", onQueryAbort);
+    }
+  }
+}
+
 function AiSearch() {
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -34,21 +90,53 @@ function AiSearch() {
 
   const aiSearchResults = useQuery({
     queryKey: ["ai-search", debounced],
-    queryFn: async (): Promise<AiSearchResponse> => {
-      const response = await fetch(`/api/ai-search`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ q: debounced }),
-      });
-      if (!response.ok) {
-        throw new Error("AI search failed");
+    queryFn: async ({ signal }): Promise<AiSearchResponse> => {
+      // ── Step 1. Ask the external backend for recommended titles. ──
+      let backend: BackendResponse;
+      try {
+        backend = await fetchTitlesFromBackend(debounced, signal);
+      } catch (e: any) {
+        // Backend unreachable / timed out — fall back to a direct TMDB
+        // search so the page isn't empty.
+        const direct = await searchMulti(debounced).catch(() => []);
+        return {
+          results: direct,
+          source: direct.length > 0 ? "fallback-no-ai" : "fallback-error",
+          aiError: e?.message ?? "Backend unreachable",
+        };
       }
-      return response.json();
+
+      // ── Step 2. Resolve each title → TMDB media, client-side. ──
+      const titlesToLookup: string[] = backend.titles.length > 0 ? backend.titles : [debounced];
+      let source: AiSource = backend.titles.length > 0 ? "ai" : "fallback-no-ai";
+
+      const perTitle = await Promise.all(
+        titlesToLookup.map((t) =>
+          searchMulti(t).catch((e) => {
+            console.error("[ai-search] searchMulti failed for", t, e);
+            return [];
+          }),
+        ),
+      );
+      let results = perTitle.flat();
+
+      // ── Step 3. Fallbacks so a hallucinating AI never leaves us empty. ──
+      if (source === "ai" && results.length === 0) {
+        const direct = await searchMulti(debounced).catch(() => []);
+        if (direct.length > 0) {
+          results = direct;
+          source = "fallback-no-ai";
+        }
+      }
+      if (results.length === 0) source = "fallback-error";
+
+      return { results, source, aiError: backend.aiError };
     },
     enabled: debounced.length > 0,
-    retry: 1,
+    // No auto-retry: the try/catch + searchMulti fallback already handles
+    // backend outages gracefully, and a retry would just hang on another
+    // 15s of waiting before showing the user anything.
+    retry: 0,
   });
 
   const rawResults = aiSearchResults.data?.results ?? [];
@@ -77,7 +165,13 @@ function AiSearch() {
 
         <div className="sticky top-3 z-20 md:top-4">
           <div className="group relative flex items-center gap-3 rounded-2xl border border-white/10 bg-background/80 pl-5 pr-2 py-2 backdrop-blur-2xl shadow-[0_10px_40px_-20px_rgba(0,0,0,0.6)] transition-all duration-200 focus-within:border-primary/60 focus-within:shadow-[0_10px_40px_-15px_color-mix(in_oklab,var(--primary)_45%,transparent)]">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-muted-foreground transition group-focus-within:text-primary" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 shrink-0 text-muted-foreground transition group-focus-within:text-primary"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.5-3.5" strokeLinecap="round" />
             </svg>
@@ -94,7 +188,15 @@ function AiSearch() {
                 className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
                 aria-label="Clear search"
               >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" /></svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                >
+                  <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+                </svg>
               </button>
             )}
           </div>
@@ -108,26 +210,73 @@ function AiSearch() {
         )}
         {!loading && debounced && results.length > 0 && fellBack && (
           <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600 animate-fade-in dark:text-amber-300">
-            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01" strokeLinecap="round"/></svg>
+            <svg
+              viewBox="0 0 24 24"
+              className="h-3 w-3"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v4M12 16h.01" strokeLinecap="round" />
+            </svg>
             AI unavailable — showing direct search results
+          </div>
+        )}
+        {!loading && debounced && results.length === 0 && aiError && (
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive animate-fade-in">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-3 w-3"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v4M12 16h.01" strokeLinecap="round" />
+            </svg>
+            AI service error — {aiError}
           </div>
         )}
 
         {loading ? (
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {Array.from({ length: 12 }).map((_, i) => (<div key={i} className="aspect-[2/3] rounded-xl animate-shimmer" />))}
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="aspect-[2/3] rounded-xl animate-shimmer" />
+            ))}
           </div>
         ) : queryError ? (
           <div className="mt-16 flex flex-col items-center text-center text-muted-foreground animate-fade-in">
             <div className="grid h-16 w-16 place-items-center rounded-full bg-white/5 ring-1 ring-white/10">
-              <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-7 w-7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <path
+                  d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </div>
             <p className="mt-4 text-sm">AI search failed. Try again in a moment.</p>
           </div>
         ) : results.length === 0 && debounced ? (
           <div className="mt-16 flex flex-col items-center text-center text-muted-foreground animate-fade-in">
             <div className="grid h-16 w-16 place-items-center rounded-full bg-white/5 ring-1 ring-white/10">
-              <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-7 w-7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
             </div>
             <p className="mt-4 text-sm">
               No AI matches for <span className="font-semibold text-foreground">"{debounced}"</span>
@@ -139,7 +288,11 @@ function AiSearch() {
         ) : (
           <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-7 overflow-visible sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {results.map((m, i) => (
-              <div key={`${m.type}-${m.id}`} style={{ animationDelay: `${Math.min(i, 18) * 25}ms` }} className="animate-soft-rise">
+              <div
+                key={`${m.type}-${m.id}`}
+                style={{ animationDelay: `${Math.min(i, 18) * 25}ms` }}
+                className="animate-soft-rise"
+              >
                 <MediaCard media={m} fill />
               </div>
             ))}

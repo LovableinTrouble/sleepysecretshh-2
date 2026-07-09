@@ -23,7 +23,11 @@ export function loadCustomPlaylists(): CustomPlaylist[] {
 }
 
 export function saveCustomPlaylists(lists: CustomPlaylist[]): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(lists)); } catch {}
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(lists));
+  } catch {
+    /* no-op */
+  }
 }
 
 export function getCustomChannels(): CuratedChannel[] {
@@ -75,7 +79,9 @@ export async function fetchAndParsePlaylist(url: string, name: string): Promise<
   try {
     const res = await fetch(proxied);
     if (res.ok) text = await res.text();
-  } catch {}
+  } catch {
+    /* no-op */
+  }
   if (!text || !text.includes("#EXTINF")) {
     // Fallback: try direct (works if the host allows CORS).
     const res = await fetch(url);

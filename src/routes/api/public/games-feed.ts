@@ -158,10 +158,13 @@ export const Route = createFileRoute("/api/public/games-feed")({
           });
         } catch (err) {
           console.error("[games-feed] failed", err);
-          return new Response(JSON.stringify({ games: [], error: "Couldn't reach the game catalog." }), {
-            status: 502,
-            headers: { ...CORS, "content-type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({ games: [], error: "Couldn't reach the game catalog." }),
+            {
+              status: 502,
+              headers: { ...CORS, "content-type": "application/json" },
+            },
+          );
         }
       },
     },

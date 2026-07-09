@@ -4,14 +4,20 @@ const KEY = (id: number) => `sleepy:watch:${id}`;
 const WATCHLIST_KEY = "sleepy:watchlist.v1";
 
 export function stashWatchMedia(m: Media) {
-  try { localStorage.setItem(KEY(m.id), JSON.stringify(m)); } catch {}
+  try {
+    localStorage.setItem(KEY(m.id), JSON.stringify(m));
+  } catch {
+    /* no-op */
+  }
 }
 
 export function loadStashedMedia(id: number): Media | null {
   try {
     const raw = localStorage.getItem(KEY(id));
     if (raw) return JSON.parse(raw) as Media;
-  } catch {}
+  } catch {
+    /* no-op */
+  }
   return findById(id) ?? null;
 }
 
@@ -29,7 +35,9 @@ function getWatchlistRaw(): Media[] {
 function saveWatchlistRaw(list: Media[]) {
   try {
     localStorage.setItem(WATCHLIST_KEY, JSON.stringify(list.slice(0, 200)));
-  } catch {}
+  } catch {
+    /* no-op */
+  }
   window.dispatchEvent(new CustomEvent("watchlist-changed"));
 }
 

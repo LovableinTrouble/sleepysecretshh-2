@@ -18,7 +18,15 @@ export const Route = createFileRoute("/settings")({
 
 /* ---------- primitives ---------- */
 
-function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
+function Section({
+  title,
+  desc,
+  children,
+}: {
+  title: string;
+  desc?: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="relative rounded-3xl border border-glass-border bg-card/40 p-6 backdrop-blur-xl">
       <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
@@ -28,7 +36,15 @@ function Section({ title, desc, children }: { title: string; desc?: string; chil
   );
 }
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Row({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-3 border-b border-glass-border pb-4 last:border-0 last:pb-0 md:flex-row md:items-center md:justify-between md:gap-6">
       <div className="min-w-0 flex-1">
@@ -162,10 +178,7 @@ function Select({
     const r = triggerRef.current?.getBoundingClientRect();
     if (!r) return null;
     const MENU_WIDTH = 208; // matches w-52
-    const left = Math.max(
-      8,
-      Math.min(window.innerWidth - MENU_WIDTH - 8, r.right - MENU_WIDTH),
-    );
+    const left = Math.max(8, Math.min(window.innerWidth - MENU_WIDTH - 8, r.right - MENU_WIDTH));
     const top = r.bottom + 8;
     return { top, left, width: MENU_WIDTH };
   };
@@ -294,7 +307,13 @@ function IntegrationCard({
             {name}
             {connected && (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400 ring-1 ring-emerald-400/30">
-                <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-3 w-3"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                >
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
                 Connected
@@ -304,7 +323,10 @@ function IntegrationCard({
           <div className="mt-1 text-xs text-muted-foreground">{desc}</div>
         </div>
         {connected && (
-          <button onClick={() => onChange("")} className="text-xs text-muted-foreground hover:text-destructive">
+          <button
+            onClick={() => onChange("")}
+            className="text-xs text-muted-foreground hover:text-destructive"
+          >
             Clear
           </button>
         )}
@@ -372,7 +394,9 @@ function SettingsPage() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-bold">Get the Android app</div>
-            <div className="mt-0.5 text-xs text-muted-foreground">Instant startup, offline downloads, no ads.</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Instant startup, offline downloads, no ads.
+            </div>
           </div>
           <span className="shrink-0 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition group-hover:brightness-110">
             Download
@@ -384,17 +408,25 @@ function SettingsPage() {
           title="Streaming region"
           desc="Pick the closest p-stream edge for lower latency. Auto detects the closest one by IP."
         >
-          <Row label="Region" hint={`Detected: ${ints.pstreamRegion === "auto" ? "Auto" : ints.pstreamRegion}`}>
+          <Row
+            label="Region"
+            hint={`Detected: ${ints.pstreamRegion === "auto" ? "Auto" : ints.pstreamRegion}`}
+          >
             <Select
               value={ints.pstreamRegion}
-              onChange={(v) => setInt({ pstreamRegion: v as Settings["integrations"]["pstreamRegion"] })}
+              onChange={(v) =>
+                setInt({ pstreamRegion: v as Settings["integrations"]["pstreamRegion"] })
+              }
               options={REGION_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
             />
           </Row>
           <Row label="Detect now" hint="Refresh the IP-based region cache.">
             <RegionDetectButton
               onPicked={(r) =>
-                setInt({ pstreamRegion: r === "unknown" ? "auto" : (r as Settings["integrations"]["pstreamRegion"]) })
+                setInt({
+                  pstreamRegion:
+                    r === "unknown" ? "auto" : (r as Settings["integrations"]["pstreamRegion"]),
+                })
               }
             />
           </Row>
@@ -410,7 +442,10 @@ function SettingsPage() {
         </Section>
 
         {/* Theme picker */}
-        <Section title="Theme" desc="Pick a preset. Every surface, button and accent updates instantly when you save.">
+        <Section
+          title="Theme"
+          desc="Pick a preset. Every surface, button and accent updates instantly when you save."
+        >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {THEMES.map((t) => {
               const active = s.theme === t.id;
@@ -429,7 +464,13 @@ function SettingsPage() {
                   <div className="truncate text-[11px] text-muted-foreground">{t.description}</div>
                   {active && (
                     <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                      <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-3 w-3"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                      >
                         <path d="M20 6 9 17l-5-5" />
                       </svg>
                     </div>
@@ -440,13 +481,22 @@ function SettingsPage() {
             {/* Custom theme card */}
             <button
               onClick={() =>
-                set({ theme: "custom", customTheme: s.customTheme ?? { primary: "#b06bff", background: "#0f0a1c" } })
+                set({
+                  theme: "custom",
+                  customTheme: s.customTheme ?? { primary: "#b06bff", background: "#0f0a1c" },
+                })
               }
               className={`group relative overflow-hidden rounded-2xl border p-3 text-left transition ${s.theme === "custom" ? "border-primary ring-2 ring-primary/40" : "border-glass-border hover:border-primary/40"}`}
             >
               <div className="flex h-14 overflow-hidden rounded-xl">
-                <div className="flex-1" style={{ background: s.customTheme?.background ?? "#0f0a1c" }} />
-                <div className="flex-1" style={{ background: s.customTheme?.primary ?? "#b06bff" }} />
+                <div
+                  className="flex-1"
+                  style={{ background: s.customTheme?.background ?? "#0f0a1c" }}
+                />
+                <div
+                  className="flex-1"
+                  style={{ background: s.customTheme?.primary ?? "#b06bff" }}
+                />
                 <div
                   className="flex-1 bg-gradient-to-br"
                   style={{
@@ -458,7 +508,13 @@ function SettingsPage() {
               <div className="truncate text-[11px] text-muted-foreground">Pick your own colors</div>
               {s.theme === "custom" && (
                 <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                  >
                     <path d="M20 6 9 17l-5-5" />
                   </svg>
                 </div>
@@ -518,7 +574,10 @@ function SettingsPage() {
           </Row>
         </Section>
 
-        <Section title="Integrations" desc="Paste an API key to connect — a green check confirms it's saved.">
+        <Section
+          title="Integrations"
+          desc="Paste an API key to connect — a green check confirms it's saved."
+        >
           <div className="grid gap-3 md:grid-cols-2">
             <IntegrationCard
               name="Real-Debrid"
@@ -575,7 +634,11 @@ function SettingsPage() {
         <Section title="Catalog">
           <Row label="Custom TMDB API key" hint="Leave blank to use the built-in key.">
             <div className="w-72">
-              <TextField value={s.tmdbApiKey} onChange={(v) => set({ tmdbApiKey: v })} placeholder="optional" />
+              <TextField
+                value={s.tmdbApiKey}
+                onChange={(v) => set({ tmdbApiKey: v })}
+                placeholder="optional"
+              />
             </div>
           </Row>
           <Row label="Region">

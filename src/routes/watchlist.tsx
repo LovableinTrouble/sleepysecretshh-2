@@ -24,7 +24,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-
 export const Route = createFileRoute("/watchlist")({
   head: () => ({
     meta: [
@@ -49,21 +48,19 @@ function WatchlistPage() {
   const [pendingRemove, setPendingRemove] = useState<Media | null>(null);
   const [pendingFolderDelete, setPendingFolderDelete] = useState<WatchFolder | null>(null);
 
-
-  const active: WatchFolder | undefined =
-    folders.find((f) => f.id === activeId) ?? folders[0];
+  const active: WatchFolder | undefined = folders.find((f) => f.id === activeId) ?? folders[0];
 
   const items: Media[] = useMemo(() => {
     if (!active) return [];
-    return active.mediaIds
-      .map((id) => loadStashedMedia(id))
-      .filter((m): m is Media => !!m);
+    return active.mediaIds.map((id) => loadStashedMedia(id)).filter((m): m is Media => !!m);
   }, [active?.mediaIds.join(","), active?.id]);
-
 
   const submitCreate = () => {
     const n = newName.trim();
-    if (!n) { setCreating(false); return; }
+    if (!n) {
+      setCreating(false);
+      return;
+    }
     const f = createFolder(n);
     setNewName("");
     setCreating(false);
@@ -124,7 +121,10 @@ function WatchlistPage() {
               >
                 <button
                   onClick={() => setActiveId(f.id)}
-                  onDoubleClick={() => { setEditingId(f.id); setEditName(f.name); }}
+                  onDoubleClick={() => {
+                    setEditingId(f.id);
+                    setEditName(f.name);
+                  }}
                   className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
                     on
                       ? "bg-primary text-primary-foreground shadow-[0_0_20px_oklch(0.72_0.18_305_/_0.45)]"
@@ -146,7 +146,9 @@ function WatchlistPage() {
                   ) : (
                     <span>{f.name}</span>
                   )}
-                  <span className={`rounded-full px-1.5 text-[10px] ${on ? "bg-white/20" : "bg-white/5"}`}>
+                  <span
+                    className={`rounded-full px-1.5 text-[10px] ${on ? "bg-white/20" : "bg-white/5"}`}
+                  >
                     {f.mediaIds.length}
                   </span>
                 </button>
@@ -156,21 +158,38 @@ function WatchlistPage() {
 
           {creating ? (
             <form
-              onSubmit={(e) => { e.preventDefault(); submitCreate(); }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitCreate();
+              }}
               className="flex shrink-0 items-center gap-1 rounded-full glass-strong px-2 py-1.5"
             >
               <input
                 autoFocus
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Escape") setCreating(false); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setCreating(false);
+                }}
                 placeholder="Folder name"
                 className="w-36 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground/60"
               />
-              <button type="submit" className="rounded-full bg-primary p-1.5 text-primary-foreground" aria-label="Create">
+              <button
+                type="submit"
+                className="rounded-full bg-primary p-1.5 text-primary-foreground"
+                aria-label="Create"
+              >
                 <Check className="h-3.5 w-3.5" strokeWidth={3} />
               </button>
-              <button type="button" onClick={() => { setCreating(false); setNewName(""); }} className="rounded-full p-1.5 text-muted-foreground hover:bg-white/10" aria-label="Cancel">
+              <button
+                type="button"
+                onClick={() => {
+                  setCreating(false);
+                  setNewName("");
+                }}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-white/10"
+                aria-label="Cancel"
+              >
                 <X className="h-3.5 w-3.5" />
               </button>
             </form>
@@ -195,11 +214,16 @@ function WatchlistPage() {
           <div className="mt-4 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="font-semibold text-foreground">{active.name}</span>
-              <span>· {active.mediaIds.length} title{active.mediaIds.length === 1 ? "" : "s"}</span>
+              <span>
+                · {active.mediaIds.length} title{active.mediaIds.length === 1 ? "" : "s"}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => { setEditingId(active.id); setEditName(active.name); }}
+                onClick={() => {
+                  setEditingId(active.id);
+                  setEditName(active.name);
+                }}
                 className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium transition hover:bg-white/10"
               >
                 <Pencil className="h-3.5 w-3.5" /> Rename
@@ -222,7 +246,8 @@ function WatchlistPage() {
             <Bookmark className="h-10 w-10 text-muted-foreground/40" />
             <div className="text-lg font-semibold">Nothing in this folder yet</div>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Tap the <span className="rounded-full bg-primary/15 px-2 py-0.5 text-primary">+</span> on any poster to save it here.
+              Tap the <span className="rounded-full bg-primary/15 px-2 py-0.5 text-primary">+</span>{" "}
+              on any poster to save it here.
             </p>
           </div>
         ) : (
@@ -239,7 +264,11 @@ function WatchlistPage() {
               >
                 <MediaCard media={m} fill />
                 <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPendingRemove(m); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPendingRemove(m);
+                  }}
                   aria-label="Remove from folder"
                   className="absolute left-2 top-2 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white ring-1 ring-white/20 shadow-lg backdrop-blur-md transition active:scale-95 hover:bg-rose-500 hover:ring-rose-300/60"
                 >
@@ -250,7 +279,12 @@ function WatchlistPage() {
           </div>
         )}
 
-        <AlertDialog open={!!pendingRemove} onOpenChange={(o) => { if (!o) setPendingRemove(null); }}>
+        <AlertDialog
+          open={!!pendingRemove}
+          onOpenChange={(o) => {
+            if (!o) setPendingRemove(null);
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Remove from "{active?.name}"?</AlertDialogTitle>
@@ -273,7 +307,12 @@ function WatchlistPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <AlertDialog open={!!pendingFolderDelete} onOpenChange={(o) => { if (!o) setPendingFolderDelete(null); }}>
+        <AlertDialog
+          open={!!pendingFolderDelete}
+          onOpenChange={(o) => {
+            if (!o) setPendingFolderDelete(null);
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete folder "{pendingFolderDelete?.name}"?</AlertDialogTitle>
@@ -301,5 +340,4 @@ function WatchlistPage() {
       </div>
     </main>
   );
-
 }

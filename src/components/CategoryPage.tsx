@@ -32,7 +32,9 @@ export function CategoryPage({ title, subtitle, items, queryKey, queryFn }: Prop
         )}
         {!q.isLoading && (
           <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-7 overflow-visible sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 animate-fade-in">
-            {list.map((m) => <MediaCard key={`${m.type}-${m.id}`} media={m} fill />)}
+            {list.map((m) => (
+              <MediaCard key={`${m.type}-${m.id}`} media={m} fill />
+            ))}
           </div>
         )}
       </div>

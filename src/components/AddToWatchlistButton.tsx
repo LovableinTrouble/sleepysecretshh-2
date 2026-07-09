@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { Plus, Check } from "lucide-react";
 import type { Media } from "@/lib/catalog";
-import {
-  addToFolder,
-  removeFromFolder,
-  isInAnyFolder,
-  useFolders,
-} from "@/lib/store";
+import { addToFolder, removeFromFolder, isInAnyFolder, useFolders } from "@/lib/store";
 import { stashWatchMedia } from "@/lib/watch-stash";
 import {
   AlertDialog,
@@ -67,7 +62,9 @@ export function AddToWatchlistButton({ media, className }: Props) {
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent
-          onClick={(e) => { e.stopPropagation(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
         >
           <AlertDialogHeader>
             <AlertDialogTitle>Remove from watchlist?</AlertDialogTitle>
@@ -78,7 +75,10 @@ export function AddToWatchlistButton({ media, className }: Props) {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.stopPropagation(); confirmRemove(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                confirmRemove();
+              }}
               className="bg-rose-500 text-white hover:bg-rose-500/90"
             >
               Remove

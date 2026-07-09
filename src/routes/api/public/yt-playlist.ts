@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute } from "@tanstack/react-router";
 
 const INSTANCES = [
@@ -57,7 +58,10 @@ export const Route = createFileRoute("/api/public/yt-playlist")({
         let data: any = null;
         for (const p of attempts) {
           const r = await p;
-          if (r) { data = r; break; }
+          if (r) {
+            data = r;
+            break;
+          }
         }
         if (!data) {
           return new Response(JSON.stringify({ error: "not found" }), {
@@ -67,7 +71,11 @@ export const Route = createFileRoute("/api/public/yt-playlist")({
         }
         return new Response(JSON.stringify(data), {
           status: 200,
-          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300", ...CORS },
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=300",
+            ...CORS,
+          },
         });
       },
     },

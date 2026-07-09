@@ -1,7 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
-import { ArrowLeft, AlertTriangle, Maximize2, Volume2, VolumeX, RefreshCw, Tv2 } from "lucide-react";
+import {
+  ArrowLeft,
+  AlertTriangle,
+  Maximize2,
+  Volume2,
+  VolumeX,
+  RefreshCw,
+  Tv2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/live/$id")({
   head: () => ({
@@ -10,7 +19,7 @@ export const Route = createFileRoute("/live/$id")({
       { name: "description", content: "Live IPTV channel player." },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, any>) => ({
     url: typeof s.url === "string" ? s.url : undefined,
     name: typeof s.name === "string" ? s.name : undefined,
     logo: typeof s.logo === "string" ? s.logo : undefined,
@@ -51,7 +60,10 @@ function LivePage() {
     : "";
 
   useEffect(() => {
-    if (isEmbed) { setLoading(false); return; }
+    if (isEmbed) {
+      setLoading(false);
+      return;
+    }
     const v = videoRef.current;
     if (!v || !proxiedUrl) {
       setErr("No stream URL provided.");
@@ -106,19 +118,27 @@ function LivePage() {
           void v.play().catch(() => {});
         });
       });
-      hls.on(Hls.Events.ERROR, (_e: unknown, d: { fatal?: boolean; type?: string; details?: string }) => {
-        if (!d?.fatal) return;
-        if (d.type === "mediaError") {
-          try { hls?.recoverMediaError(); return; } catch { /* fallthrough */ }
-        }
-        setErr(
-          d.type === "networkError"
-            ? "Network error. The channel may be geo-blocked or offline."
-            : "This channel isn't responding. It may be geo-blocked or offline.",
-        );
-        setLoading(false);
-        if (stallTimer) clearTimeout(stallTimer);
-      });
+      hls.on(
+        Hls.Events.ERROR,
+        (_e: any, d: { fatal?: boolean; type?: string; details?: string }) => {
+          if (!d?.fatal) return;
+          if (d.type === "mediaError") {
+            try {
+              hls?.recoverMediaError();
+              return;
+            } catch {
+              /* fallthrough */
+            }
+          }
+          setErr(
+            d.type === "networkError"
+              ? "Network error. The channel may be geo-blocked or offline."
+              : "This channel isn't responding. It may be geo-blocked or offline.",
+          );
+          setLoading(false);
+          if (stallTimer) clearTimeout(stallTimer);
+        },
+      );
     } else {
       v.src = proxiedUrl;
       v.play().catch(() => {
@@ -238,13 +258,7 @@ function LivePage() {
             className="h-full w-full border-0 bg-black"
           />
         ) : (
-          <video
-            ref={videoRef}
-            controls
-            playsInline
-            autoPlay
-            className="h-full w-full bg-black"
-          />
+          <video ref={videoRef} controls playsInline autoPlay className="h-full w-full bg-black" />
         )}
         {loading && !err && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center bg-black/40">

@@ -37,7 +37,11 @@ export function BottomNav() {
   const loc = useLocation();
 
   // Don't render over the immersive player — it covers the bottom control bar.
-  if (loc.pathname === "/watch" || loc.pathname.startsWith("/watch/") || loc.pathname.startsWith("/sports/"))
+  if (
+    loc.pathname === "/watch" ||
+    loc.pathname.startsWith("/watch/") ||
+    loc.pathname.startsWith("/sports/")
+  )
     return null;
 
   return (

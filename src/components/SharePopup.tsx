@@ -24,7 +24,9 @@ export function SharePopup() {
     try {
       const seen = localStorage.getItem(KEY);
       if (seen === CURRENT_VERSION) return;
-    } catch {}
+    } catch {
+      /* no-op */
+    }
     // Small delay for smooth page load
     const t = setTimeout(() => setOpen(true), 600);
     return () => clearTimeout(t);
@@ -33,7 +35,9 @@ export function SharePopup() {
   const dismiss = () => {
     try {
       localStorage.setItem(KEY, CURRENT_VERSION);
-    } catch {}
+    } catch {
+      /* no-op */
+    }
     setDismissed(true);
     setOpen(false);
   };
@@ -73,7 +77,9 @@ export function SharePopup() {
             <span className="inline-block rounded-full bg-primary/15 px-2.5 py-0.5 text-[10px] font-semibold text-primary ring-1 ring-primary/25">
               Update {CURRENT_VERSION}
             </span>
-            <h2 className="mt-2.5 text-lg font-bold tracking-tight text-white">What's new in Sleepy</h2>
+            <h2 className="mt-2.5 text-lg font-bold tracking-tight text-white">
+              What's new in Sleepy
+            </h2>
           </div>
         </div>
 
@@ -105,7 +111,9 @@ export function SharePopup() {
           >
             Got it
           </button>
-          <p className="mt-2 text-center text-[10px] text-white/35">Won't show again until next update</p>
+          <p className="mt-2 text-center text-[10px] text-white/35">
+            Won't show again until next update
+          </p>
         </div>
       </div>
 

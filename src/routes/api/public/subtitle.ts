@@ -9,10 +9,7 @@ function srtToVtt(input: string): string {
   // Normalize line endings, strip BOM
   const text = input.replace(/^\uFEFF/, "").replace(/\r+/g, "");
   // Replace "00:00:00,000" -> "00:00:00.000" timecodes
-  const fixed = text.replace(
-    /(\d{2}:\d{2}:\d{2}),(\d{3})/g,
-    "$1.$2",
-  );
+  const fixed = text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2");
   return `WEBVTT\n\n${fixed.trim()}\n`;
 }
 

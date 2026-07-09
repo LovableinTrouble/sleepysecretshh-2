@@ -2,7 +2,13 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, AlertTriangle, RefreshCw, Maximize2, Users, ShieldAlert } from "lucide-react";
-import { fetchPpvAll, findEvent, hasPlayableIframe, isEventLive, normalizeIframeSrc } from "@/lib/sports";
+import {
+  fetchPpvAll,
+  findEvent,
+  hasPlayableIframe,
+  isEventLive,
+  normalizeIframeSrc,
+} from "@/lib/sports";
 import { SportIcon } from "@/components/SportIcon";
 
 export const Route = createFileRoute("/sports/$id")({
@@ -33,7 +39,11 @@ function SportsMatchPage() {
 
   const dismissWarn = () => {
     setShowPopupWarn(false);
-    try { sessionStorage.setItem("sleepy:popup-warn-dismissed", "1"); } catch {}
+    try {
+      sessionStorage.setItem("sleepy:popup-warn-dismissed", "1");
+    } catch {
+      /* no-op */
+    }
   };
 
   const { data, isLoading } = useQuery({
@@ -54,12 +64,22 @@ function SportsMatchPage() {
         iframe: normalizeIframeSrc(s.iframe),
       }))
       .filter((s) => /^https?:\/\//i.test(s.iframe));
-    return [{ key: "main", name: event.source_tag || event.tag || "Main", iframe: normalizeIframeSrc(event.iframe) }, ...subs]
-      .filter((s) => /^https?:\/\//i.test(s.iframe));
+    return [
+      {
+        key: "main",
+        name: event.source_tag || event.tag || "Main",
+        iframe: normalizeIframeSrc(event.iframe),
+      },
+      ...subs,
+    ].filter((s) => /^https?:\/\//i.test(s.iframe));
   }, [event]);
 
   const active = streams[Math.min(pick, streams.length - 1)];
-  const viewers = event ? (typeof event.viewers === "string" ? parseInt(event.viewers, 10) || 0 : event.viewers ?? 0) : 0;
+  const viewers = event
+    ? typeof event.viewers === "string"
+      ? parseInt(event.viewers, 10) || 0
+      : (event.viewers ?? 0)
+    : 0;
 
   const onBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) window.history.back();
@@ -69,7 +89,10 @@ function SportsMatchPage() {
   return (
     <div className="fixed inset-0 z-[70] flex flex-col bg-black text-white">
       <header className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/60 px-4 py-3 backdrop-blur">
-        <button onClick={onBack} className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold transition hover:bg-white/15">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold transition hover:bg-white/15"
+        >
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <div className="flex min-w-0 items-center gap-3">
@@ -83,12 +106,21 @@ function SportsMatchPage() {
                   <span className="h-1 w-1 rounded-full bg-white animate-pulse" /> LIVE
                 </span>
               )}
-              {viewers > 0 && <span className="inline-flex items-center gap-0.5"><Users className="h-3 w-3" />{viewers.toLocaleString()}</span>}
+              {viewers > 0 && (
+                <span className="inline-flex items-center gap-0.5">
+                  <Users className="h-3 w-3" />
+                  {viewers.toLocaleString()}
+                </span>
+              )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setReload((k) => k + 1)} aria-label="Reload" className="grid h-9 w-9 place-items-center rounded-full bg-white/10 transition hover:bg-white/15">
+          <button
+            onClick={() => setReload((k) => k + 1)}
+            aria-label="Reload"
+            className="grid h-9 w-9 place-items-center rounded-full bg-white/10 transition hover:bg-white/15"
+          >
             <RefreshCw className="h-4 w-4" />
           </button>
           <button
@@ -111,7 +143,9 @@ function SportsMatchPage() {
           <div className="absolute inset-0 grid place-items-center">
             <div className="text-center">
               <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <p className="mt-3 text-xs uppercase tracking-[0.3em] text-white/60">Loading stream…</p>
+              <p className="mt-3 text-xs uppercase tracking-[0.3em] text-white/60">
+                Loading stream…
+              </p>
             </div>
           </div>
         )}
@@ -122,10 +156,16 @@ function SportsMatchPage() {
               <AlertTriangle className="mx-auto h-10 w-10 text-amber-400" />
               <p className="mt-3 text-sm text-white">This match isn't available right now.</p>
               <div className="mt-5 flex justify-center gap-2">
-                <button onClick={() => setReload((k) => k + 1)} className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground">
+                <button
+                  onClick={() => setReload((k) => k + 1)}
+                  className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
+                >
                   Try again
                 </button>
-                <Link to="/sports" className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15">
+                <Link
+                  to="/sports"
+                  className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15"
+                >
                   Browse matches
                 </Link>
               </div>
@@ -152,13 +192,17 @@ function SportsMatchPage() {
       {streams.length > 1 && (
         <div className="border-t border-white/10 bg-black/60 px-4 py-2 backdrop-blur">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin">
-            <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-white/45">Streams</span>
+            <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-white/45">
+              Streams
+            </span>
             {streams.map((s, i) => (
               <button
                 key={s.key}
                 onClick={() => setPick(i)}
                 className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition ${
-                  i === pick ? "bg-primary text-primary-foreground" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
+                  i === pick
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 {s.name}
@@ -177,19 +221,35 @@ function SportsMatchPage() {
               </div>
               <h2 className="mt-4 text-lg font-bold tracking-tight text-white">Heads up</h2>
               <p className="mt-1.5 text-sm leading-relaxed text-white/65">
-                This stream is embedded from a third-party. They may open ads or new tabs on first click — we can't block them.
+                This stream is embedded from a third-party. They may open ads or new tabs on first
+                click — we can't block them.
               </p>
             </div>
             <div className="mx-6 mt-4 space-y-2 rounded-2xl bg-white/[0.04] p-3 text-[12px] text-white/70 ring-1 ring-white/5">
-              <div className="flex items-start gap-2"><span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" /><span>Use an ad-blocker like uBlock Origin for the cleanest experience.</span></div>
-              <div className="flex items-start gap-2"><span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" /><span>If a new tab opens, just close it — playback continues here.</span></div>
-              <div className="flex items-start gap-2"><span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" /><span>Never log in or install anything a pop-up asks for.</span></div>
+              <div className="flex items-start gap-2">
+                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
+                <span>Use an ad-blocker like uBlock Origin for the cleanest experience.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
+                <span>If a new tab opens, just close it — playback continues here.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
+                <span>Never log in or install anything a pop-up asks for.</span>
+              </div>
             </div>
             <div className="flex gap-2 p-5">
-              <Link to="/sports" className="flex-1 rounded-xl bg-white/8 px-4 py-2.5 text-center text-xs font-semibold text-white/85 transition hover:bg-white/12">
+              <Link
+                to="/sports"
+                className="flex-1 rounded-xl bg-white/8 px-4 py-2.5 text-center text-xs font-semibold text-white/85 transition hover:bg-white/12"
+              >
                 Go back
               </Link>
-              <button onClick={dismissWarn} className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90">
+              <button
+                onClick={dismissWarn}
+                className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
+              >
                 Continue
               </button>
             </div>

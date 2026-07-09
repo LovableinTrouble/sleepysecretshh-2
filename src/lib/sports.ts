@@ -12,7 +12,7 @@ export interface PpvEvent {
   colors?: string[];
   uri_name: string;
   starts_at: number; // seconds
-  ends_at: number;   // seconds
+  ends_at: number; // seconds
   always_live: 0 | 1;
   locale?: string;
   category_name: string;
@@ -30,7 +30,11 @@ export interface PpvCategory {
 }
 
 // Prefer our server proxy, then fall back to PPV's documented JSON hosts.
-const PPV_ENDPOINTS = ["/api/ppv/streams", "https://api.ppv.to/api/streams", "https://api.ppv.st/api/streams"] as const;
+const PPV_ENDPOINTS = [
+  "/api/ppv/streams",
+  "https://api.ppv.to/api/streams",
+  "https://api.ppv.st/api/streams",
+] as const;
 
 export async function fetchPpvAll(): Promise<PpvCategory[]> {
   let lastError = "Could not load PPV streams";
@@ -53,7 +57,9 @@ export async function fetchPpvAll(): Promise<PpvCategory[]> {
   throw new Error(lastError);
 }
 
-export interface FlatEvent extends PpvEvent { category: string }
+export interface FlatEvent extends PpvEvent {
+  category: string;
+}
 
 export function isRealSportsCategory(category?: string): boolean {
   if (!category) return false;
@@ -79,8 +85,16 @@ export function isEventLive(e: PpvEvent, nowSec = Date.now() / 1000): boolean {
   return e.starts_at <= nowSec && nowSec <= e.ends_at;
 }
 
-export function isLiveSportsEvent(e: PpvEvent, category?: string, nowSec = Date.now() / 1000): boolean {
-  return isRealSportsCategory(category || e.category_name) && isEventLive(e, nowSec) && hasPlayableIframe(e);
+export function isLiveSportsEvent(
+  e: PpvEvent,
+  category?: string,
+  nowSec = Date.now() / 1000,
+): boolean {
+  return (
+    isRealSportsCategory(category || e.category_name) &&
+    isEventLive(e, nowSec) &&
+    hasPlayableIframe(e)
+  );
 }
 
 export function flattenEvents(cats: PpvCategory[]): FlatEvent[] {

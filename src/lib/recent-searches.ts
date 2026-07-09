@@ -14,7 +14,11 @@ function read(): string[] {
 }
 
 function write(list: string[]) {
-  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch {}
+  try {
+    localStorage.setItem(KEY, JSON.stringify(list));
+  } catch {
+    /* no-op */
+  }
   window.dispatchEvent(new Event("sleepy:recents-changed"));
 }
 

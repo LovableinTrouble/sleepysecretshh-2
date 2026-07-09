@@ -7,7 +7,8 @@ export const Route = createFileRoute("/install")({
       { title: "Get the Sleepy App — Install on Android" },
       {
         name: "description",
-        content: "Download Sleepy for Android. Movies, TV, anime, sports and live channels in one beautiful, fast app.",
+        content:
+          "Download Sleepy for Android. Movies, TV, anime, sports and live channels in one beautiful, fast app.",
       },
     ],
   }),
@@ -54,7 +55,8 @@ function InstallPage() {
                 </span>
               </h1>
               <p className="mt-4 max-w-md text-base text-muted-foreground md:text-lg">
-                Everything you love about streaming — in one native app. Fast, private, and free forever.
+                Everything you love about streaming — in one native app. Fast, private, and free
+                forever.
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -132,7 +134,9 @@ function InstallPage() {
         <section className="mt-8 grid gap-4 lg:grid-cols-2">
           <div className="rounded-2xl border border-glass-border bg-white/[0.03] p-6">
             <h2 className="text-xl font-bold">Why the app?</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Faster, richer, and fully offline-capable.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Faster, richer, and fully offline-capable.
+            </p>
             <ul className="mt-5 space-y-3">
               {highlights.map((h) => (
                 <li key={h} className="flex items-start gap-3 text-sm">
@@ -145,7 +149,9 @@ function InstallPage() {
 
           <div className="rounded-2xl border border-glass-border bg-white/[0.03] p-6">
             <h2 className="text-xl font-bold">Install in 30 seconds</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Three simple steps — no store account required.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Three simple steps — no store account required.
+            </p>
             <ol className="mt-5 space-y-4">
               {[
                 { title: "Download the APK", desc: "Tap the download button above." },

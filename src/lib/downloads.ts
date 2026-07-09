@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -93,7 +94,8 @@ async function getToken(
     referer: pageUrl,
     priority: "u=1, i",
     "sec-ch-ua": '"(Not(A:Brand";v="99", "Google Chrome";v="134", "Chromium";v="134"',
-    "sec-ch-ua-full-version-list": '"(Not(A:Brand";v="99.0.0.0", "Google Chrome";v="134", "Chromium";v="134"',
+    "sec-ch-ua-full-version-list":
+      '"(Not(A:Brand";v="99.0.0.0", "Google Chrome";v="134", "Chromium";v="134"',
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Linux"',
     "sec-fetch-dest": "empty",
@@ -123,7 +125,7 @@ async function getToken(
   // "Invalid scope" 400 users were hitting. The exact field name isn't
   // documented, so try the handful of shapes a JSON API like this is likely
   // to accept, stopping at the first one that yields a token.
-  const bodyCandidates: (Record<string, unknown> | null)[] = [
+  const bodyCandidates: (Record<string, any> | null)[] = [
     { scope },
     { mediaScope: scope },
     { path: `/api/download/${scope}` },
@@ -132,7 +134,7 @@ async function getToken(
   ];
 
   const attemptOnce = async (
-    body: Record<string, unknown> | null,
+    body: Record<string, any> | null,
   ): Promise<{ token: string | null; cookie: string | null; detail: string }> => {
     const res = await fetch(`${BASE_URL}/api/verify-robot`, {
       method: "POST",
@@ -143,7 +145,11 @@ async function getToken(
     const verifyCookie = extractCookie(res) || cookie;
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      return { token: null, cookie: verifyCookie, detail: `verify-robot HTTP ${res.status}: ${text.slice(0, 200)}` };
+      return {
+        token: null,
+        cookie: verifyCookie,
+        detail: `verify-robot HTTP ${res.status}: ${text.slice(0, 200)}`,
+      };
     }
     const text = await res.text();
     let json: { token?: string; success?: boolean } = {};
@@ -156,7 +162,8 @@ async function getToken(
         detail: `verify-robot returned non-JSON (likely a bot-check page): ${text.slice(0, 200)}`,
       };
     }
-    if (!json.token) return { token: null, cookie: verifyCookie, detail: "verify-robot response had no token" };
+    if (!json.token)
+      return { token: null, cookie: verifyCookie, detail: "verify-robot response had no token" };
     return { token: json.token, cookie: verifyCookie, detail: "ok" };
   };
 
@@ -263,7 +270,9 @@ function mapPayload(payload: any) {
     .filter(Boolean) as DownloadsResult["subtitles"];
 
   return {
-    downloads: unique.sort((a, b) => (Number.parseInt(b.quality) || 0) - (Number.parseInt(a.quality) || 0)),
+    downloads: unique.sort(
+      (a, b) => (Number.parseInt(b.quality) || 0) - (Number.parseInt(a.quality) || 0),
+    ),
     subtitles,
   };
 }
@@ -276,7 +285,12 @@ export const resolveDownloaderSources = createServerFn({ method: "POST" })
     try {
       const { token, cookie, detail } = await getToken(pageUrl, scope);
       if (!token) {
-        return { ok: false, downloads: [], subtitles: [], error: `Downloader verification failed: ${detail}` };
+        return {
+          ok: false,
+          downloads: [],
+          subtitles: [],
+          error: `Downloader verification failed: ${detail}`,
+        };
       }
       const payload = await fetchPayload(pageUrl, token, cookie);
       const { downloads, subtitles } = mapPayload(payload);
@@ -287,6 +301,11 @@ export const resolveDownloaderSources = createServerFn({ method: "POST" })
         error: downloads.length ? undefined : "No downloads found for this title.",
       };
     } catch (err: any) {
-      return { ok: false, downloads: [], subtitles: [], error: err?.message || "Failed to load downloads." };
+      return {
+        ok: false,
+        downloads: [],
+        subtitles: [],
+        error: err?.message || "Failed to load downloads.",
+      };
     }
   });

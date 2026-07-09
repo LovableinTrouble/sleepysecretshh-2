@@ -19,8 +19,7 @@ const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
   "Access-Control-Allow-Headers": "Range, Content-Type, Accept",
-  "Access-Control-Expose-Headers":
-    "Content-Length, Content-Range, Accept-Ranges, Content-Type",
+  "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges, Content-Type",
 };
 
 function encodeUrl(value: string): string {
@@ -33,8 +32,7 @@ function encodeUrl(value: string): string {
 function decodeUrl(value: string): string | null {
   try {
     const padded =
-      value.replace(/-/g, "+").replace(/_/g, "/") +
-      "===".slice((value.length + 3) % 4);
+      value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4);
     const binary = atob(padded);
     const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
     return new TextDecoder().decode(bytes);
@@ -69,9 +67,7 @@ function rewritePlaylist(body: string, upstreamUrl: string): string {
     if (line.startsWith("#")) {
       // Rewrite URI="..." attributes inside tags like EXT-X-KEY, EXT-X-MAP,
       // EXT-X-MEDIA, EXT-X-I-FRAME-STREAM-INF.
-      out.push(
-        line.replace(/URI="([^"]+)"/g, (_m, u) => `URI="${rewriteUri(u)}"`),
-      );
+      out.push(line.replace(/URI="([^"]+)"/g, (_m, u) => `URI="${rewriteUri(u)}"`));
     } else {
       // Bare segment / variant playlist line.
       out.push(rewriteUri(line));
@@ -81,14 +77,17 @@ function rewritePlaylist(body: string, upstreamUrl: string): string {
 }
 
 function unavailablePlaylist(): Response {
-  return new Response("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-ENDLIST\n", {
-    status: 200,
-    headers: {
-      ...CORS,
-      "content-type": "application/vnd.apple.mpegurl",
-      "cache-control": "no-store",
+  return new Response(
+    "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-ENDLIST\n",
+    {
+      status: 200,
+      headers: {
+        ...CORS,
+        "content-type": "application/vnd.apple.mpegurl",
+        "cache-control": "no-store",
+      },
     },
-  });
+  );
 }
 
 export const Route = createFileRoute("/api/public/iptv-proxy")({
@@ -173,13 +172,7 @@ async function handle(request: Request, method: "GET" | "HEAD"): Promise<Respons
     /\.m3u8(\?|$)/i.test(parsed.pathname);
 
   const headers = new Headers(CORS);
-  const passthrough = [
-    "content-range",
-    "accept-ranges",
-    "last-modified",
-    "etag",
-    "cache-control",
-  ];
+  const passthrough = ["content-range", "accept-ranges", "last-modified", "etag", "cache-control"];
   for (const h of passthrough) {
     const v = upstream.headers.get(h);
     if (v) headers.set(h, v);

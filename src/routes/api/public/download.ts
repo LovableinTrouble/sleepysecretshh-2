@@ -16,7 +16,11 @@ const ALLOWED_HOST_SUFFIXES: string[] = [
 ];
 
 function inferFilename(url: URL, hint?: string | null): string {
-  if (hint && hint.trim()) return hint.trim().replace(/[\r\n"]/g, "").slice(0, 200);
+  if (hint && hint.trim())
+    return hint
+      .trim()
+      .replace(/[\r\n"]/g, "")
+      .slice(0, 200);
   const last = url.pathname.split("/").filter(Boolean).pop() ?? "download";
   const cleaned = decodeURIComponent(last).replace(/[\r\n"]/g, "");
   if (/\.[a-z0-9]{2,5}$/i.test(cleaned)) return cleaned.slice(0, 200);
@@ -36,8 +40,7 @@ function corsHeaders(): Record<string, string> {
 export const Route = createFileRoute("/api/public/download")({
   server: {
     handlers: {
-      OPTIONS: async () =>
-        new Response(null, { status: 204, headers: corsHeaders() }),
+      OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders() }),
 
       HEAD: async ({ request }) => handle(request, "HEAD"),
       GET: async ({ request }) => handle(request, "GET"),
@@ -105,13 +108,7 @@ async function handle(request: Request, method: "GET" | "HEAD"): Promise<Respons
   const filename = inferFilename(parsed, filenameHint);
   const headers = new Headers(corsHeaders());
 
-  const passthrough = [
-    "content-length",
-    "content-range",
-    "accept-ranges",
-    "last-modified",
-    "etag",
-  ];
+  const passthrough = ["content-length", "content-range", "accept-ranges", "last-modified", "etag"];
   for (const h of passthrough) {
     const v = upstream.headers.get(h);
     if (v) headers.set(h, v);
@@ -121,10 +118,7 @@ async function handle(request: Request, method: "GET" | "HEAD"): Promise<Respons
   // Force a generic binary type for video files so the browser triggers a
   // download instead of trying to play them inline in a new tab.
   const isMedia = /\.(mp4|mkv|m4v|webm|avi|mov|ts|m3u8)(\?|$)/i.test(parsed.pathname);
-  headers.set(
-    "content-type",
-    isMedia || !upstreamType ? "application/octet-stream" : upstreamType,
-  );
+  headers.set("content-type", isMedia || !upstreamType ? "application/octet-stream" : upstreamType);
   headers.set(
     "content-disposition",
     `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,

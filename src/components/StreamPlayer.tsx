@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft } from "lucide-react";
@@ -28,7 +29,7 @@ type CineSrcMessage = {
   playbackRate?: number;
   time?: number;
   sourceId?: string;
-  error?: unknown;
+  error?: any;
   internalNavigation?: boolean;
   source?: string;
 };
@@ -139,8 +140,7 @@ function EmbedVideo({
       } else {
         try {
           const originHost = new URL(event.origin).hostname.toLowerCase();
-          isAllowedOrigin =
-            originHost === "cinesrc.st" || originHost.endsWith(".cinesrc.st");
+          isAllowedOrigin = originHost === "cinesrc.st" || originHost.endsWith(".cinesrc.st");
         } catch {
           isAllowedOrigin = true;
         }
@@ -157,7 +157,7 @@ function EmbedVideo({
       } else {
         data = event.data as CineSrcMessage | undefined;
       }
-      if (!data || typeof (data as { type?: unknown }).type !== "string") return;
+      if (!data || typeof (data as { type?: any }).type !== "string") return;
 
       const t = data.type;
       switch (t) {

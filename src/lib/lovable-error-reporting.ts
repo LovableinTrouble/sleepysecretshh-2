@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 type LovableErrorOptions = {
   mechanism?: "manual" | "onerror" | "unhandledrejection" | "react_error_boundary";
   handled?: boolean;
@@ -6,8 +7,8 @@ type LovableErrorOptions = {
 
 type LovableEvents = {
   captureException?: (
-    error: unknown,
-    context?: Record<string, unknown>,
+    error: any,
+    context?: Record<string, any>,
     options?: LovableErrorOptions,
   ) => void;
 };
@@ -18,7 +19,7 @@ declare global {
   }
 }
 
-export function reportLovableError(error: unknown, context: Record<string, unknown> = {}) {
+export function reportLovableError(error: any, context: Record<string, any> = {}) {
   if (typeof window === "undefined") return;
   window.__lovableEvents?.captureException?.(
     error,

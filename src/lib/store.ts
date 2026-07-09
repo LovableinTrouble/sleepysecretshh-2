@@ -7,7 +7,6 @@ export const PUBLIC_TMDB_KEY = "8265bd1679663a7ea12ac168da84d2e8";
 
 export const DEFAULT_CINEPRO_URL = "https://core-lv20.onrender.com";
 
-
 export interface Settings {
   theme: string; // one of THEMES[].id
   animatedBg: boolean;
@@ -141,7 +140,8 @@ function read(): Settings {
       integrations: {
         ...DEFAULT_SETTINGS.integrations,
         ...(parsed?.integrations ?? {}),
-        cineproUrl: parsed?.integrations?.cineproUrl?.trim() || DEFAULT_SETTINGS.integrations.cineproUrl,
+        cineproUrl:
+          parsed?.integrations?.cineproUrl?.trim() || DEFAULT_SETTINGS.integrations.cineproUrl,
       },
     };
   } catch {
@@ -157,7 +157,11 @@ export function getSettings() {
 export function setSettings(patch: Partial<Settings>) {
   const next = { ...read(), ...patch };
   cached = next;
-  try { localStorage.setItem(KEY, JSON.stringify(next)); } catch {}
+  try {
+    localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    /* no-op */
+  }
   listeners.forEach((l) => l());
 }
 
@@ -166,7 +170,9 @@ export function useSettings(): [Settings, (p: Partial<Settings>) => void] {
   useEffect(() => {
     const cb = () => force((x) => x + 1);
     listeners.push(cb);
-    return () => { listeners = listeners.filter((l) => l !== cb); };
+    return () => {
+      listeners = listeners.filter((l) => l !== cb);
+    };
   }, []);
   return [read(), setSettings];
 }
@@ -188,11 +194,23 @@ let foldersCache: WatchFolder[] | null = null;
 
 function legacyWatchlist(): number[] {
   if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(WL_KEY) || "[]"); } catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(WL_KEY) || "[]");
+  } catch {
+    return [];
+  }
 }
 
 function defaultFolders(): WatchFolder[] {
-  return [{ id: "default", name: "My List", emoji: "", mediaIds: legacyWatchlist(), createdAt: Date.now() }];
+  return [
+    {
+      id: "default",
+      name: "My List",
+      emoji: "",
+      mediaIds: legacyWatchlist(),
+      createdAt: Date.now(),
+    },
+  ];
 }
 
 export function getFolders(): WatchFolder[] {
@@ -207,19 +225,33 @@ export function getFolders(): WatchFolder[] {
         return parsed;
       }
     }
-  } catch {}
+  } catch {
+    /* no-op */
+  }
   foldersCache = defaultFolders();
-  try { localStorage.setItem(WF_KEY, JSON.stringify(foldersCache)); } catch {}
+  try {
+    localStorage.setItem(WF_KEY, JSON.stringify(foldersCache));
+  } catch {
+    /* no-op */
+  }
   return foldersCache;
 }
 
 export function saveFolders(next: WatchFolder[]) {
   foldersCache = [...next];
-  try { localStorage.setItem(WF_KEY, JSON.stringify(foldersCache)); } catch {}
+  try {
+    localStorage.setItem(WF_KEY, JSON.stringify(foldersCache));
+  } catch {
+    /* no-op */
+  }
   // Mirror "default" folder back into legacy flat list so older code keeps working.
   const def = foldersCache.find((f) => f.id === "default");
   if (def) {
-    try { localStorage.setItem(WL_KEY, JSON.stringify(def.mediaIds)); } catch {}
+    try {
+      localStorage.setItem(WL_KEY, JSON.stringify(def.mediaIds));
+    } catch {
+      /* no-op */
+    }
   }
   folderListeners.forEach((l) => l());
 }
@@ -229,7 +261,9 @@ export function useFolders(): [WatchFolder[], (n: WatchFolder[]) => void] {
   useEffect(() => {
     const cb = () => force((x) => x + 1);
     folderListeners.push(cb);
-    return () => { folderListeners = folderListeners.filter((l) => l !== cb); };
+    return () => {
+      folderListeners = folderListeners.filter((l) => l !== cb);
+    };
   }, []);
   return [getFolders(), saveFolders];
 }
@@ -276,7 +310,9 @@ export function removeFromFolder(folderId: string, mediaId: number) {
 }
 
 export function folderIdsContaining(mediaId: number): string[] {
-  return getFolders().filter((f) => f.mediaIds.includes(mediaId)).map((f) => f.id);
+  return getFolders()
+    .filter((f) => f.mediaIds.includes(mediaId))
+    .map((f) => f.id);
 }
 
 export function isInAnyFolder(mediaId: number): boolean {
@@ -298,4 +334,3 @@ export function toggleWatchlist(id: number) {
   saveFolders(folders.map((f) => (f.id === "default" ? { ...f, mediaIds: nextIds } : f)));
   return nextIds;
 }
-

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { Download, Loader2, X } from "lucide-react";
 import type { Media } from "@/lib/catalog";
@@ -39,7 +40,9 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
       })
       .catch((err: any) => !dead && setError(err?.message || "Failed to load downloads."))
       .finally(() => !dead && setLoading(false));
-    return () => { dead = true; };
+    return () => {
+      dead = true;
+    };
   }, [open, media.id, media.title, isSeries, season, episode]);
 
   if (!open) return null;
@@ -110,9 +113,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
                     className="group flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 p-4 transition hover:border-white/20 hover:bg-black/60"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold uppercase text-white">
-                        {it.source}
-                      </p>
+                      <p className="truncate text-sm font-bold uppercase text-white">{it.source}</p>
                       <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
                         {it.quality} · {it.type.toUpperCase()}
                         {it.size ? ` · ${it.size}` : ""}

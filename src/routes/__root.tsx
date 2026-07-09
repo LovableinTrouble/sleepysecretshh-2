@@ -54,7 +54,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">This page didn't load</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          This page didn't load
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
@@ -92,7 +94,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Sleepy — Stream Everything" },
       {
         name: "description",
-        content: "Sleepy — stream movies, TV shows, anime, live sports and IPTV channels in one beautiful, fast UI.",
+        content:
+          "Sleepy — stream movies, TV shows, anime, live sports and IPTV channels in one beautiful, fast UI.",
       },
       { name: "author", content: "Sleepy" },
       { name: "theme-color", content: "#0b0b12" },
@@ -172,7 +175,8 @@ function AppShell() {
     if (typeof window === "undefined") return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      const isTyping = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+      const isTyping =
+        !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
       if (isTyping) return;
       if (e.key === "/") {
         e.preventDefault();
@@ -226,7 +230,8 @@ function SiteFooter({ pathname }: { pathname: string }) {
           <div className="space-y-1">
             <div className="text-base font-semibold text-white tracking-tight">Sleepy</div>
             <p className="max-w-xl text-white/60">
-              Stream movies, TV shows, anime, live sports and IPTV channels in one beautiful, fast UI.
+              Stream movies, TV shows, anime, live sports and IPTV channels in one beautiful, fast
+              UI.
             </p>
           </div>
           <div className="text-xs text-white/50 md:text-right">
@@ -251,14 +256,26 @@ function SiteFooter({ pathname }: { pathname: string }) {
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
-  const n = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n =
+    h.length === 3
+      ? h
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : h;
   const int = parseInt(n, 16);
   return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
 }
 function rgbStr(r: number, g: number, b: number, a?: number) {
-  return a != null ? `rgba(${r|0}, ${g|0}, ${b|0}, ${a})` : `rgb(${r|0}, ${g|0}, ${b|0})`;
+  return a != null
+    ? `rgba(${r | 0}, ${g | 0}, ${b | 0}, ${a})`
+    : `rgb(${r | 0}, ${g | 0}, ${b | 0})`;
 }
-function mix(a: [number, number, number], b: [number, number, number], t: number): [number, number, number] {
+function mix(
+  a: [number, number, number],
+  b: [number, number, number],
+  t: number,
+): [number, number, number] {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 }
 function luminance([r, g, b]: [number, number, number]) {
@@ -266,10 +283,32 @@ function luminance([r, g, b]: [number, number, number]) {
 }
 
 const CUSTOM_TOKENS = [
-  "--background","--foreground","--card","--card-foreground","--popover","--popover-foreground",
-  "--primary","--primary-foreground","--secondary","--secondary-foreground","--muted","--muted-foreground",
-  "--accent","--accent-foreground","--destructive","--destructive-foreground","--border","--input","--ring",
-  "--glass","--glass-border","--gradient-primary","--gradient-bg","--shadow-glow","--shadow-glass","--radius",
+  "--background",
+  "--foreground",
+  "--card",
+  "--card-foreground",
+  "--popover",
+  "--popover-foreground",
+  "--primary",
+  "--primary-foreground",
+  "--secondary",
+  "--secondary-foreground",
+  "--muted",
+  "--muted-foreground",
+  "--accent",
+  "--accent-foreground",
+  "--destructive",
+  "--destructive-foreground",
+  "--border",
+  "--input",
+  "--ring",
+  "--glass",
+  "--glass-border",
+  "--gradient-primary",
+  "--gradient-bg",
+  "--shadow-glow",
+  "--shadow-glass",
+  "--radius",
 ];
 
 // Debounce helper to prevent rapid updates
@@ -299,7 +338,7 @@ function applyCustomTheme(root: HTMLElement, primaryHex: string, bgHex: string) 
     ["--primary-foreground", rgbStr(...(luminance(pr) > 0.55 ? black : white))],
     ["--secondary", rgbStr(...mix(bg, tint, 0.12))],
     ["--secondary-foreground", rgbStr(...fg)],
-    ["--muted", rgbStr(...mix(bg, tint, 0.10))],
+    ["--muted", rgbStr(...mix(bg, tint, 0.1))],
     ["--muted-foreground", rgbStr(...mix(fg, bg, 0.35))],
     ["--accent", rgbStr(...mix(pr, tint, 0.15))],
     ["--accent-foreground", rgbStr(...fg)],
@@ -308,10 +347,16 @@ function applyCustomTheme(root: HTMLElement, primaryHex: string, bgHex: string) 
     ["--border", rgbStr(mix(fg, bg, 0.7)[0], mix(fg, bg, 0.7)[1], mix(fg, bg, 0.7)[2], 0.35)],
     ["--input", rgbStr(...mix(bg, tint, 0.14))],
     ["--ring", rgbStr(...pr)],
-    ["--glass", rgbStr(mix(bg, tint, 0.10)[0], mix(bg, tint, 0.10)[1], mix(bg, tint, 0.10)[2], 0.55)],
+    ["--glass", rgbStr(mix(bg, tint, 0.1)[0], mix(bg, tint, 0.1)[1], mix(bg, tint, 0.1)[2], 0.55)],
     ["--glass-border", rgbStr(fg[0], fg[1], fg[2], 0.12)],
-    ["--gradient-primary", `linear-gradient(135deg, ${rgbStr(...mix(pr, tint, 0.15))}, ${rgbStr(...pr)})`],
-    ["--gradient-bg", `radial-gradient(ellipse at top, ${rgbStr(...mix(bg, pr, 0.20))} 0%, ${rgbStr(...bg)} 60%)`],
+    [
+      "--gradient-primary",
+      `linear-gradient(135deg, ${rgbStr(...mix(pr, tint, 0.15))}, ${rgbStr(...pr)})`,
+    ],
+    [
+      "--gradient-bg",
+      `radial-gradient(ellipse at top, ${rgbStr(...mix(bg, pr, 0.2))} 0%, ${rgbStr(...bg)} 60%)`,
+    ],
     ["--shadow-glow", `0 10px 60px -10px ${rgbStr(pr[0], pr[1], pr[2], 0.45)}`],
     ["--shadow-glass", `0 8px 32px 0 ${rgbStr(0, 0, 0, 0.5)}`],
   ];

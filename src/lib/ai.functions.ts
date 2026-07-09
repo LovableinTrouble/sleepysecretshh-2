@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createServerFn } from "@tanstack/react-start";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
@@ -9,7 +10,7 @@ const RecommendInput = z.object({
 });
 
 export const recommendMedia = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => RecommendInput.parse(input))
+  .inputValidator((input: any) => RecommendInput.parse(input))
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) return { text: "AI is not configured. Add LOVABLE_API_KEY." };
@@ -30,8 +31,12 @@ export const recommendMedia = createServerFn({ method: "POST" })
       return { text };
     } catch (e: any) {
       const status = e?.statusCode ?? e?.status;
-      if (status === 429) return { text: "I'm getting too many requests right now — try again in a moment." };
-      if (status === 402) return { text: "AI credits are exhausted on this workspace. Please add credits to keep chatting." };
+      if (status === 429)
+        return { text: "I'm getting too many requests right now — try again in a moment." };
+      if (status === 402)
+        return {
+          text: "AI credits are exhausted on this workspace. Please add credits to keep chatting.",
+        };
       return { text: "Hmm, I couldn't reach the AI right now. Try again shortly." };
     }
   });

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -11,7 +12,11 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Sleepy — Home" },
-      { name: "description", content: "Discover trending movies, TV shows and anime — beautifully curated on Sleepy. Continue watching across devices with a single account number." },
+      {
+        name: "description",
+        content:
+          "Discover trending movies, TV shows and anime — beautifully curated on Sleepy. Continue watching across devices with a single account number.",
+      },
     ],
   }),
   component: Home,
@@ -38,20 +43,45 @@ function Home() {
     fetchOnline();
   }, []);
 
-  const trending = useQuery({ queryKey: ["trending"], queryFn: () => fetchTrending("all"), staleTime: 5 * 60_000 });
-  const movies = useQuery({ queryKey: ["popular-movies"], queryFn: () => fetchPopular("movie", 2), staleTime: 5 * 60_000 });
-  const tv = useQuery({ queryKey: ["popular-tv"], queryFn: () => fetchPopular("tv", 2), staleTime: 5 * 60_000 });
-  const top = useQuery({ queryKey: ["top-movies"], queryFn: () => fetchTopRated("movie", 1), staleTime: 5 * 60_000 });
-  const anime = useQuery({ queryKey: ["anime-trending-week-v2"], queryFn: () => fetchAnime(2), staleTime: 30 * 60_000 });
+  const trending = useQuery({
+    queryKey: ["trending"],
+    queryFn: () => fetchTrending("all"),
+    staleTime: 5 * 60_000,
+  });
+  const movies = useQuery({
+    queryKey: ["popular-movies"],
+    queryFn: () => fetchPopular("movie", 2),
+    staleTime: 5 * 60_000,
+  });
+  const tv = useQuery({
+    queryKey: ["popular-tv"],
+    queryFn: () => fetchPopular("tv", 2),
+    staleTime: 5 * 60_000,
+  });
+  const top = useQuery({
+    queryKey: ["top-movies"],
+    queryFn: () => fetchTopRated("movie", 1),
+    staleTime: 5 * 60_000,
+  });
+  const anime = useQuery({
+    queryKey: ["anime-trending-week-v2"],
+    queryFn: () => fetchAnime(2),
+    staleTime: 30 * 60_000,
+  });
 
   const featured = (trending.data ?? []).slice(0, 6);
 
-  const openDetails = (m: any) => { stashWatchMedia(m); navigate({ to: "/media/$type/$id", params: { type: m.type, id: String(m.id) } }); };
-  const play = (m: any) => { stashWatchMedia(m); navigate({ to: "/watch/$id", params: { id: String(m.id) }, search: { t: m.type } }); };
+  const openDetails = (m: any) => {
+    stashWatchMedia(m);
+    navigate({ to: "/media/$type/$id", params: { type: m.type, id: String(m.id) } });
+  };
+  const play = (m: any) => {
+    stashWatchMedia(m);
+    navigate({ to: "/watch/$id", params: { id: String(m.id) }, search: { t: m.type } });
+  };
 
   return (
     <div className="relative min-h-screen pb-20 md:pb-8 animate-page-in">
-
       {/* Online user count - top right, home page only */}
       {onlineCount !== null && (
         <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white/80 ring-1 ring-white/10">

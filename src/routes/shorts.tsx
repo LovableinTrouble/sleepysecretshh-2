@@ -1,7 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Play, Bookmark, Volume2, VolumeX, Check, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import {
+  Play,
+  Bookmark,
+  Volume2,
+  VolumeX,
+  Check,
+  ChevronUp,
+  ChevronDown,
+  Loader2,
+} from "lucide-react";
 import { fetchTrendingPage, fetchPopularPage, fetchMovieVideos, fetchTVVideos } from "@/lib/tmdb";
 import type { Media } from "@/lib/catalog";
 
@@ -50,7 +59,9 @@ function getWatchlist(): Media[] {
 function toggleWatchlist(m: Media) {
   const list = getWatchlist();
   const exists = list.some((x) => x.id === m.id && x.type === m.type);
-  const next = exists ? list.filter((x) => !(x.id === m.id && x.type === m.type)) : [m, ...list.slice(0, 199)];
+  const next = exists
+    ? list.filter((x) => !(x.id === m.id && x.type === m.type))
+    : [m, ...list.slice(0, 199)];
   localStorage.setItem(WATCHLIST_KEY, JSON.stringify(next));
   window.dispatchEvent(new CustomEvent("watchlist-changed"));
 }
@@ -67,7 +78,10 @@ async function loadPage(
     else if (filter === "trending") items = await fetchTrendingPage("all", page);
     else {
       // "all" — interleave movies + tv
-      const [m, t] = await Promise.all([fetchPopularPage("movie", page), fetchPopularPage("tv", page)]);
+      const [m, t] = await Promise.all([
+        fetchPopularPage("movie", page),
+        fetchPopularPage("tv", page),
+      ]);
       items = [];
       const max = Math.max(m.length, t.length);
       for (let i = 0; i < max; i++) {
@@ -140,7 +154,8 @@ function ShortsPage() {
     queryKey: ["shorts-feed", filter],
     queryFn: ({ pageParam }) => loadPage(filter, pageParam as number, queryClient),
     initialPageParam: 1,
-    getNextPageParam: (lastPage, allPages) => (lastPage.length === 0 ? undefined : allPages.length + 1),
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === 0 ? undefined : allPages.length + 1,
     staleTime: 10 * 60 * 1000,
   });
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
@@ -370,7 +385,10 @@ function ShortSlide({
   useEffect(() => {
     if (!active) return;
     const post = (func: string) => {
-      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args: [] }), "*");
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func, args: [] }),
+        "*",
+      );
     };
     const attempts = [0, 250, 800, 1500].map((delay) =>
       window.setTimeout(() => {
@@ -422,7 +440,12 @@ function ShortSlide({
               allowFullScreen
               frameBorder={0}
             />
-            <div className="absolute inset-0 z-10" onClick={onToggleMute} role="button" aria-label="Toggle sound" />
+            <div
+              className="absolute inset-0 z-10"
+              onClick={onToggleMute}
+              role="button"
+              aria-label="Toggle sound"
+            />
           </>
         ) : (
           short.poster && (
@@ -462,7 +485,9 @@ function ShortSlide({
             ) : null}
           </div>
           <h3 className="text-lg font-bold text-white drop-shadow md:text-xl">{short.title}</h3>
-          <p className="mt-1 line-clamp-2 text-xs text-white/80 drop-shadow md:text-sm">{short.overview}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-white/80 drop-shadow md:text-sm">
+            {short.overview}
+          </p>
         </div>
       </div>
 
@@ -483,10 +508,20 @@ function ShortSlide({
             >
               <ChevronUp className="h-4 w-4" />
             </ActionButton>
-            <ActionButton label="Next" size="sm" disabled={isLast} onClick={onNext} className="bg-white/15 text-white">
+            <ActionButton
+              label="Next"
+              size="sm"
+              disabled={isLast}
+              onClick={onNext}
+              className="bg-white/15 text-white"
+            >
               <ChevronDown className="h-4 w-4" />
             </ActionButton>
-            <ActionButton label="Watch" onClick={onWatch} className="bg-primary text-primary-foreground">
+            <ActionButton
+              label="Watch"
+              onClick={onWatch}
+              className="bg-primary text-primary-foreground"
+            >
               <Play className="h-5 w-5" fill="currentColor" />
             </ActionButton>
             <ActionButton

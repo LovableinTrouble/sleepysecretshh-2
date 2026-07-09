@@ -11,7 +11,10 @@ export function BootLoader() {
     bootShown = true;
     const t1 = setTimeout(() => setPhase("out"), 550);
     const t2 = setTimeout(() => setPhase("gone"), 950);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, []);
 
   if (phase === "gone") return null;

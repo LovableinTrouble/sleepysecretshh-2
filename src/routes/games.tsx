@@ -36,7 +36,10 @@ export const Route = createFileRoute("/games")({
 
 async function loadGames(): Promise<CatalogGame[]> {
   const res = await fetch(FEED_URL, { signal: AbortSignal.timeout(10000) });
-  const body = (await res.json().catch(() => null)) as { games?: CatalogGame[]; error?: string } | null;
+  const body = (await res.json().catch(() => null)) as {
+    games?: CatalogGame[];
+    error?: string;
+  } | null;
   if (!res.ok || !body) {
     throw new Error(body?.error || `Failed to load games (${res.status})`);
   }
@@ -229,7 +232,9 @@ function GamesPage() {
           )}
 
           {!isLoading && !error && games.length === 0 && (
-            <div className="mt-16 text-center text-sm text-muted-foreground">No games match "{query}".</div>
+            <div className="mt-16 text-center text-sm text-muted-foreground">
+              No games match "{query}".
+            </div>
           )}
         </div>
       </div>
@@ -263,7 +268,9 @@ function GameCard({ game, onOpen }: { game: CatalogGame; onOpen: () => void }) {
         </div>
       </div>
       <div className="absolute inset-x-0 bottom-0 p-2">
-        <p className="line-clamp-2 text-[11px] font-semibold text-white drop-shadow md:text-xs">{game.name}</p>
+        <p className="line-clamp-2 text-[11px] font-semibold text-white drop-shadow md:text-xs">
+          {game.name}
+        </p>
         <p className="mt-0.5 text-[10px] font-medium text-white/60">{game.category}</p>
       </div>
     </button>
@@ -331,7 +338,9 @@ function GamePlayer({ game, onClose }: { game: CatalogGame; onClose: () => void 
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-white">{game.name}</p>
-          {game.instructions && <p className="truncate text-[11px] text-white/50">{game.instructions}</p>}
+          {game.instructions && (
+            <p className="truncate text-[11px] text-white/50">{game.instructions}</p>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button

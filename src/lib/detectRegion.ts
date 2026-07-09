@@ -17,7 +17,12 @@ export type Region =
   | "mumbai"
   | "unknown";
 
-const REGION_COORDS: { region: Exclude<Region, "auto" | "unknown">; lat: number; lon: number; label: string }[] = [
+const REGION_COORDS: {
+  region: Exclude<Region, "auto" | "unknown">;
+  lat: number;
+  lon: number;
+  label: string;
+}[] = [
   { region: "dallas", lat: 32.7767, lon: -96.797, label: "Dallas, US" },
   { region: "portland", lat: 45.5152, lon: -122.6784, label: "Portland, US" },
   { region: "new-york", lat: 40.7128, lon: -74.006, label: "New York, US" },
@@ -40,8 +45,7 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   const φ2 = (lat2 * Math.PI) / 180;
   const Δφ = ((lat2 - lat1) * Math.PI) / 180;
   const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -83,7 +87,9 @@ function writeCache(region: Region) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ region, ts: Date.now() }));
-  } catch {}
+  } catch {
+    /* no-op */
+  }
 }
 
 /**
@@ -105,7 +111,9 @@ export async function detectRegion(userPicked?: Region): Promise<Region> {
       writeCache(region);
       return region;
     }
-  } catch {}
+  } catch {
+    /* no-op */
+  }
 
   try {
     const res = await fetch("https://ipinfo.io/json", { signal: AbortSignal.timeout(4000) });
@@ -118,7 +126,9 @@ export async function detectRegion(userPicked?: Region): Promise<Region> {
         return region;
       }
     }
-  } catch {}
+  } catch {
+    /* no-op */
+  }
 
   return cached?.region ?? "unknown";
 }

@@ -11,7 +11,12 @@ import {
 } from "@/lib/recent-searches";
 
 export const Route = createFileRoute("/search")({
-  head: () => ({ meta: [{ title: "Search — Sleepy" }, { name: "description", content: "Search the Sleepy catalog." }] }),
+  head: () => ({
+    meta: [
+      { title: "Search — Sleepy" },
+      { name: "description", content: "Search the Sleepy catalog." },
+    ],
+  }),
   component: Search,
 });
 
@@ -37,7 +42,11 @@ function Search() {
     return () => clearTimeout(t);
   }, [debounced]);
 
-  const trend = useQuery({ queryKey: ["search-trending"], queryFn: () => fetchTrending("all"), staleTime: 5 * 60_000 });
+  const trend = useQuery({
+    queryKey: ["search-trending"],
+    queryFn: () => fetchTrending("all"),
+    staleTime: 5 * 60_000,
+  });
   const res = useQuery({
     queryKey: ["search", debounced],
     queryFn: () => searchMulti(debounced),
@@ -50,7 +59,7 @@ function Search() {
   });
 
   const rawResults = debounced ? (res.data ?? []) : (trend.data ?? []);
-  const loading = debounced ? (res.isLoading || people.isLoading) : trend.isLoading;
+  const loading = debounced ? res.isLoading || people.isLoading : trend.isLoading;
   const peopleResults = debounced ? (people.data ?? []) : [];
   const showRecents = !debounced && recents.length > 0;
 
@@ -63,7 +72,8 @@ function Search() {
     return items;
   }, [rawResults, filter, sort]);
 
-  const showPeople = debounced && (filter === "all" || filter === "people") && peopleResults.length > 0;
+  const showPeople =
+    debounced && (filter === "all" || filter === "people") && peopleResults.length > 0;
   const totalCount = results.length + (showPeople ? peopleResults.length : 0);
 
   return (
@@ -79,7 +89,13 @@ function Search() {
         {/* Clean search bar */}
         <div className="sticky top-3 z-20 md:top-4">
           <div className="group relative flex items-center gap-3 rounded-2xl border border-white/10 bg-background/80 pl-5 pr-2 py-2 backdrop-blur-2xl shadow-[0_10px_40px_-20px_rgba(0,0,0,0.6)] transition-all duration-200 focus-within:border-primary/60 focus-within:shadow-[0_10px_40px_-15px_color-mix(in_oklab,var(--primary)_45%,transparent)]">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-muted-foreground transition group-focus-within:text-primary" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 shrink-0 text-muted-foreground transition group-focus-within:text-primary"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.5-3.5" strokeLinecap="round" />
             </svg>
@@ -87,7 +103,9 @@ function Search() {
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) addRecentSearch(q.trim()); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && q.trim()) addRecentSearch(q.trim());
+              }}
               placeholder="Movies, TV, anime, people…"
               className="h-10 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/70"
             />
@@ -97,7 +115,15 @@ function Search() {
                 className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
                 aria-label="Clear search"
               >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" /></svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                >
+                  <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+                </svg>
               </button>
             )}
           </div>
@@ -105,18 +131,22 @@ function Search() {
           {/* Filter chips */}
           <div className="mt-3 flex flex-wrap items-center gap-2 animate-fade-in">
             <div className="flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
-              {([
-                ["all", "All"],
-                ["movie", "Movies"],
-                ["tv", "TV"],
-                ["anime", "Anime"],
-                ["people", "People"],
-              ] as [FilterType, string][]).map(([k, label]) => (
+              {(
+                [
+                  ["all", "All"],
+                  ["movie", "Movies"],
+                  ["tv", "TV"],
+                  ["anime", "Anime"],
+                  ["people", "People"],
+                ] as [FilterType, string][]
+              ).map(([k, label]) => (
                 <button
                   key={k}
                   onClick={() => setFilter(k)}
                   className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                    filter === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    filter === k
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {label}
@@ -130,7 +160,9 @@ function Search() {
         {showRecents && (
           <section className="mt-7 animate-fade-in">
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Recent</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                Recent
+              </h2>
               <button
                 onClick={clearRecentSearches}
                 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground transition hover:text-foreground"
@@ -149,7 +181,16 @@ function Search() {
                     onClick={() => setQ(term)}
                     className="flex items-center gap-2 py-1.5 text-sm font-medium text-foreground"
                   >
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-3.5 w-3.5 text-muted-foreground"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M12 8v4l3 2" />
+                      <circle cx="12" cy="12" r="9" />
+                    </svg>
                     {term}
                   </button>
                   <button
@@ -157,7 +198,15 @@ function Search() {
                     aria-label={`Remove ${term}`}
                     className="rounded-full p-1.5 text-muted-foreground opacity-0 transition group-hover/chip:opacity-100 hover:bg-white/10 hover:text-foreground"
                   >
-                    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M18 6 6 18M6 6l12 12" strokeLinecap="round"/></svg>
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-3 w-3"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.6"
+                    >
+                      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+                    </svg>
                   </button>
                 </div>
               ))}
@@ -169,25 +218,44 @@ function Search() {
           <h2 className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             {debounced ? `Results for "${debounced}"` : "Trending now"}
           </h2>
-          {!loading && <div className="text-xs text-muted-foreground">{totalCount} result{totalCount === 1 ? "" : "s"}</div>}
+          {!loading && (
+            <div className="text-xs text-muted-foreground">
+              {totalCount} result{totalCount === 1 ? "" : "s"}
+            </div>
+          )}
         </div>
 
         {loading ? (
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {Array.from({ length: 12 }).map((_, i) => (<div key={i} className="aspect-[2/3] rounded-xl animate-shimmer" />))}
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="aspect-[2/3] rounded-xl animate-shimmer" />
+            ))}
           </div>
         ) : totalCount === 0 && debounced ? (
           <div className="mt-16 flex flex-col items-center text-center text-muted-foreground animate-fade-in">
             <div className="grid h-16 w-16 place-items-center rounded-full bg-white/5 ring-1 ring-white/10">
-              <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-7 w-7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
             </div>
-            <p className="mt-4 text-sm">No matches for <span className="font-semibold text-foreground">"{debounced}"</span></p>
+            <p className="mt-4 text-sm">
+              No matches for <span className="font-semibold text-foreground">"{debounced}"</span>
+            </p>
           </div>
         ) : (
           <>
             {showPeople && (
               <section className="mt-6">
-                <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">People</h3>
+                <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                  People
+                </h3>
                 <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
                   {peopleResults.map((p, i) => (
                     <Link
@@ -199,13 +267,26 @@ function Search() {
                     >
                       <div className="h-24 w-24 overflow-hidden rounded-full ring-1 ring-white/10 transition group-hover:ring-primary/60 sm:h-28 sm:w-28">
                         {p.profile ? (
-                          <img src={p.profile} alt={p.name} loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+                          <img
+                            src={p.profile}
+                            alt={p.name}
+                            loading="lazy"
+                            className="h-full w-full object-cover transition group-hover:scale-105"
+                          />
                         ) : (
-                          <div className="grid h-full w-full place-items-center bg-white/5 text-xs text-muted-foreground">No photo</div>
+                          <div className="grid h-full w-full place-items-center bg-white/5 text-xs text-muted-foreground">
+                            No photo
+                          </div>
                         )}
                       </div>
-                      <div className="mt-2 line-clamp-1 text-sm font-semibold text-foreground">{p.name}</div>
-                      {p.knownFor && <div className="line-clamp-1 text-[11px] text-muted-foreground">{p.knownFor}</div>}
+                      <div className="mt-2 line-clamp-1 text-sm font-semibold text-foreground">
+                        {p.name}
+                      </div>
+                      {p.knownFor && (
+                        <div className="line-clamp-1 text-[11px] text-muted-foreground">
+                          {p.knownFor}
+                        </div>
+                      )}
                     </Link>
                   ))}
                 </div>
@@ -214,7 +295,11 @@ function Search() {
             {results.length > 0 && (
               <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-7 overflow-visible sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {results.map((m, i) => (
-                  <div key={`${m.type}-${m.id}`} style={{ animationDelay: `${Math.min(i, 18) * 25}ms` }} className="animate-soft-rise">
+                  <div
+                    key={`${m.type}-${m.id}`}
+                    style={{ animationDelay: `${Math.min(i, 18) * 25}ms` }}
+                    className="animate-soft-rise"
+                  >
                     <MediaCard media={m} fill />
                   </div>
                 ))}
@@ -255,17 +340,44 @@ function SearchSortSelect({ value, onChange }: { value: SortKey; onChange: (v: S
         aria-expanded={open}
       >
         <span className="truncate">{active.label}</span>
-        <svg viewBox="0 0 24 24" className={`h-3 w-3 shrink-0 text-muted-foreground transition ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        <svg
+          viewBox="0 0 24 24"
+          className={`h-3 w-3 shrink-0 text-muted-foreground transition ${open ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
       </button>
-      <div className={`absolute left-0 top-10 z-40 w-44 overflow-hidden rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl transition duration-150 ${open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"}`}>
+      <div
+        className={`absolute left-0 top-10 z-40 w-44 overflow-hidden rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl transition duration-150 ${open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"}`}
+      >
         {SEARCH_SORT_OPTIONS.map((option) => (
           <button
             key={option.key}
-            onClick={() => { onChange(option.key); setOpen(false); }}
+            onClick={() => {
+              onChange(option.key);
+              setOpen(false);
+            }}
             className={`flex h-9 w-full items-center justify-between rounded-xl px-3 text-left text-xs font-semibold transition ${value === option.key ? "bg-primary/20 text-white ring-1 ring-primary/35" : "text-white/65 hover:bg-white/8 hover:text-white"}`}
           >
             {option.label}
-            {value === option.key && <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-primary" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg>}
+            {value === option.key && (
+              <svg
+                viewBox="0 0 24 24"
+                className="h-3.5 w-3.5 text-primary"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M5 12l5 5L20 7" />
+              </svg>
+            )}
           </button>
         ))}
       </div>

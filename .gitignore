@@ -31,3 +31,10 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Sleepy AI Search backend lives in a SEPARATE GitHub repo and is
+# deployed to Render from there — not from this repo. The `backend/`
+# folder here is just a local reference copy for development. Keep it
+# gitignored so we don't accidentally commit stale changes to the wrong
+# repo, and to avoid confusion about which repo deploys to Render.
+backend

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { Media, MediaKind } from "@/lib/catalog";
@@ -7,7 +8,7 @@ import { fetchMediaById } from "@/lib/tmdb";
 
 export const Route = createFileRoute("/watch/$id")({
   head: () => ({ meta: [{ title: "Now Playing — Sleepy" }] }),
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, any>) => ({
     s: s.s ? Number(s.s) : undefined,
     e: s.e ? Number(s.e) : undefined,
     t: typeof s.t === "string" ? (s.t as MediaKind) : undefined,
@@ -26,7 +27,10 @@ function WatchPage() {
   useEffect(() => {
     const numeric = Number(id);
     const cached = loadStashedMedia(numeric);
-    if (cached) { setMedia(cached); return; }
+    if (cached) {
+      setMedia(cached);
+      return;
+    }
     const kind: MediaKind = t ?? (s ? "tv" : "movie");
     fetchMediaById(numeric, kind)
       .then(setMedia)
@@ -52,7 +56,10 @@ function WatchPage() {
           <div className="text-xs uppercase tracking-[0.4em] text-white/40">Loading title</div>
           <div className="mt-2 text-lg">{error ?? "Preparing your stream…"}</div>
           {error && (
-            <button onClick={onClose} className="mt-6 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground">
+            <button
+              onClick={onClose}
+              className="mt-6 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
+            >
               Go back
             </button>
           )}
