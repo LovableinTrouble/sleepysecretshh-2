@@ -1,4 +1,5 @@
 import type { Media } from "./catalog";
+import { getSettings } from "./store";
 
 /**
  * Source registry — Prionix is the only source (third-party iframe embed
@@ -36,9 +37,6 @@ const PRIONIX: Source = {
       prioritize: "true",
     });
     try {
-      // Lazy-read febbox token so we don't pull settings at module load.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getSettings } = require("./store") as typeof import("./store");
       const tok = getSettings().integrations.febboxToken?.trim();
       if (tok) params.set("febbox", tok);
     } catch {}
