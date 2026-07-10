@@ -48,7 +48,13 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
 
   if (!open) return null;
 
-  const downloadHref = (item: DownloadItem) => item.url;
+  const proxied = (url: string, fileName?: string) => {
+    const params = new URLSearchParams({ url });
+    if (fileName) params.set("filename", fileName);
+    return `/api/public/download?${params.toString()}`;
+  };
+  const downloadHref = (item: DownloadItem) =>
+    item.url.startsWith("magnet:") ? item.url : proxied(item.url, item.fileName);
 
   return (
     <div

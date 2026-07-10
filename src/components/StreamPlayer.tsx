@@ -107,36 +107,6 @@ function EmbedVideo({
   onClose: () => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Intercept fullscreen requests from the iframe so our watermark overlay
-  // stays visible: we fullscreen the container div instead of the iframe.
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const onFs = (e: Event) => {
-      e.stopPropagation();
-      if (!document.fullscreenElement) {
-        container.requestFullscreen().catch(() => {});
-      } else {
-        document.exitFullscreen().catch(() => {});
-      }
-    };
-    container.addEventListener("fullscreenchange", onFs);
-    // When the iframe triggers fullscreen, catch it on the container
-    const observer = new MutationObserver(() => {
-      if (document.fullscreenElement === iframeRef.current) {
-        document.exitFullscreen().then(() => {
-          container.requestFullscreen().catch(() => {});
-        }).catch(() => {});
-      }
-    });
-    observer.observe(document, { subtree: false, childList: false, attributes: true, attributeFilter: ["fullscreen"] });
-    return () => {
-      container.removeEventListener("fullscreenchange", onFs);
-      observer.disconnect();
-    };
-  }, []);
   const seasonKey = season ?? null;
   const epKey = episode ?? null;
 
@@ -218,7 +188,7 @@ function EmbedVideo({
   }, [media.id, seasonKey, epKey, recordProgress]);
 
   return (
-    <div ref={containerRef} className="relative h-full w-full bg-black [&:fullscreen]:h-screen [&:fullscreen]:w-screen">
+    <div className="relative h-full w-full bg-black">
       <iframe
         ref={iframeRef}
         src={url}
@@ -227,13 +197,6 @@ function EmbedVideo({
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
         referrerPolicy="no-referrer"
-
-      />
-      {/* Transparent click-blocker over the CineSrc watermark area */}
-      <div
-        aria-hidden="true"
-        className="absolute bottom-2 right-[150px] h-11 w-24 rounded-full md:bottom-3 md:right-[190px] md:h-11 md:w-[124px]"
-        style={{ pointerEvents: "auto", background: "transparent" }}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <button
