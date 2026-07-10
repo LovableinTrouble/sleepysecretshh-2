@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
-import { Download, Loader2, X } from "lucide-react";
+import { Download, Loader2, Play, X } from "lucide-react";
 import type { Media } from "@/lib/catalog";
 import { resolveDownloaderSources, type DownloadItem } from "@/lib/downloads";
 
@@ -62,8 +62,13 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     if (fileName) params.set("filename", fileName);
     return `/api/public/download?${params.toString()}`;
   };
-  const downloadHref = (item: DownloadItem) =>
-    item.url.startsWith("magnet:") ? item.url : proxied(item.url, item.fileName);
+  const downloadHref = (item: DownloadItem) => {
+    if (item.url.startsWith("magnet:")) return item.url;
+    if (isStream(item)) return item.url;
+    return proxied(item.url, item.fileName);
+  };
+  const isStream = (item: DownloadItem) =>
+    item.type === "hls" || (item.type === "file" && !/\.(mp4|mkv|m4v|webm|avi|mov|ts)(\?|$)/i.test(item.url));
 
   return (
     <div
@@ -118,27 +123,30 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
           )}
           {!loading && !error && items.length > 0 && (
             <ul className="space-y-2">
-              {items.map((it) => (
-                <li key={it.id}>
-                  <a
-                    href={downloadHref(it)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 p-4 transition hover:border-white/20 hover:bg-black/60"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold uppercase text-white">{it.source}</p>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
-                        {it.quality} · {it.type.toUpperCase()}
-                        {it.size ? ` · ${it.size}` : ""}
-                      </p>
-                    </div>
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
-                      <Download className="h-4 w-4" />
-                    </div>
-                  </a>
-                </li>
-              ))}
+              {items.map((it) => {
+                const stream = isStream(it);
+                return (
+                  <li key={it.id}>
+                    <a
+                      href={downloadHref(it)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 p-4 transition hover:border-white/20 hover:bg-black/60"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold uppercase text-white">{it.source}</p>
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
+                          {it.quality} · {stream ? "STREAM" : it.type.toUpperCase()}
+                          {it.size ? ` · ${it.size}` : ""}
+                        </p>
+                      </div>
+                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
+                        {stream ? <Play className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                      </div>
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

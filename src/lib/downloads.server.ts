@@ -109,21 +109,6 @@ async function fetchText(url: string, init?: RequestInit): Promise<string> {
   return res.text();
 }
 
-async function fetchJson<T = any>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      accept: "application/json,*/*",
-      "user-agent": UA,
-      ...(init?.headers || {}),
-    },
-    redirect: "follow",
-    signal: AbortSignal.timeout(14000),
-  });
-  if (!res.ok) throw new Error(`upstream ${res.status}`);
-  return res.json() as Promise<T>;
-}
-
 function parseDlhub(html: string): DownloadItem[] {
   const items: DownloadItem[] = [];
   const chunks = html.match(/<div class="variant[^"]*"[\s\S]*?<form[\s\S]*?<\/form>[\s\S]*?<\/div>/gi) || [];
@@ -216,114 +201,72 @@ async function providerVyla(input: Input): Promise<ProviderHit | null> {
 }
 
 /* ============================================================
- * VidSrc extraction provider — resolves direct file/stream URLs
- * via the vidsrc.to → vidplay → raw-URL chain.
+ * CineSrc embed provider — returns the embed URL as a stream
+ * link the user can open directly.  No fragile multi-step
+ * extraction; the embed page itself is the playable source.
  * ============================================================ */
 
-async function providerVidsrc(input: Input): Promise<ProviderHit | null> {
+async function providerCinesrc(input: Input): Promise<ProviderHit | null> {
   try {
-    const id = input.tmdbId;
+    const isShow = input.type === "show";
+    const season = input.season ?? 1;
+    const episode = input.episode ?? 1;
+    const base = isShow
+      ? `https://cinesrc.st/embed/tv/${input.tmdbId}?s=${season}&e=${episode}`
+      : `https://cinesrc.st/embed/movie/${input.tmdbId}`;
+    const params = new URLSearchParams({
+      autoplay: "true",
+      controls: "true",
+    });
+    const sep = base.includes("?") ? "&" : "?";
+    const url = `${base}${sep}${params.toString()}`;
+
+    const item: DownloadItem = {
+      id: `cinesrc-${url}`,
+      url,
+      source: "CineSrc",
+      quality: "Auto",
+      type: "hls",
+      fileName: undefined,
+    };
+    return { downloads: [item], subs: [] };
+  } catch {
+    return null;
+  }
+}
+
+/* ============================================================
+ * 2Embed provider — queries the 2embed.cc API which returns
+ * direct embed/stream URLs for movies and TV shows.
+ * ============================================================ */
+
+async function provider2Embed(input: Input): Promise<ProviderHit | null> {
+  try {
     const isShow = input.type === "show";
     const season = input.season ?? 1;
     const episode = input.episode ?? 1;
 
-    // Step 1: Fetch the vidsrc.to embed page and extract data-id
+    // 2embed supports TMDB IDs directly via embed URLs
     const embedUrl = isShow
-      ? `https://vidsrc.to/embed/tv/${id}/${season}/${episode}`
-      : `https://vidsrc.to/embed/movie/${id}`;
-    const embedHtml = await fetchText(embedUrl, {
-      headers: { referer: "https://vidsrc.to/", "content-type": "" } as any,
-    }).catch(() => "");
-    const dataIdMatch = embedHtml.match(/data-id="([^"]+)"/);
-    if (!dataIdMatch) return null;
-    const dataId = dataIdMatch[1];
+      ? `https://www.2embed.cc/embedtv/${input.tmdbId}?s=${season}&e=${episode}`
+      : `https://www.2embed.cc/embed/${input.tmdbId}`;
 
-    // Step 2: Get the vidplay source ID from the ajax endpoint
-    const sourcesUrl = `https://vidsrc.to/ajax/embed/episode/${dataId}/sources`;
-    const sourcesData = await fetchJson<{ result?: { title?: string; data?: Array<{ id: string; title?: string }> } }>(sourcesUrl, {
-      headers: { referer: "https://vidsrc.to/", accept: "application/json" },
-    }).catch(() => null);
-    const vidplayEntry = sourcesData?.result?.data?.find((d) => d.title?.toLowerCase().includes("vidplay"));
-    const vidplayId = vidplayEntry?.id || sourcesData?.result?.data?.[0]?.id;
-    if (!vidplayId) return null;
-
-    // Step 3: Get the encrypted provider URL
-    const sourceUrl = `https://vidsrc.to/ajax/embed/source/${vidplayId}`;
-    const sourceData = await fetchJson<{ result?: { url?: string } }>(sourceUrl, {
-      headers: { referer: "https://vidsrc.to/", accept: "application/json" },
-    }).catch(() => null);
-    const encryptedUrl = sourceData?.result?.url;
-    if (!encryptedUrl) return null;
-
-    // Step 4: Decrypt via the helper API
-    const helperBase = "https://9anime.eltik.net";
-    const decryptData = await fetchJson<{ url?: string }>(`${helperBase}/fmovies-decrypt?query=${encodeURIComponent(encryptedUrl)}&apikey=jerry`, {
-      headers: { accept: "application/json" },
-    }).catch(() => null);
-    const providerEmbed = decryptData?.url;
-    if (!providerEmbed) return null;
-
-    // Step 5: Extract provider query + params
-    const pathMatch = providerEmbed.match(/\/e\/([^?]+)(\?.*)/);
-    if (!pathMatch) return null;
-    const providerQuery = pathMatch[1];
-    const params = pathMatch[2];
-
-    // Step 6: Get futoken from vidstream.pro
-    const futokenHtml = await fetchText("https://vidstream.pro/futoken", {
-      headers: { referer: "https://vidstream.pro/", "content-type": "" } as any,
-    }).catch(() => "");
-    const futokenMatch = futokenHtml.match(/futoken\s*=\s*"([^"]+)"/) || futokenHtml.match(/futoken\.innerHTML\s*=\s*"([^"]+)"/) || futokenHtml.match(/return\s+"([^"]+)"/);
-    const futoken = futokenMatch?.[1] || "";
-    if (!futoken) return null;
-
-    // Step 7: Get the raw URL
-    const rawUrlData = await fetch(`${helperBase}/rawvizcloud?query=${encodeURIComponent(providerQuery)}&apikey=jerry`, {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/x-www-form-urlencoded",
-        "user-agent": UA,
-      },
-      body: new URLSearchParams({ query: providerQuery, futoken }).toString(),
-      signal: AbortSignal.timeout(14000),
-    }).catch(() => null);
-    if (!rawUrlData || !rawUrlData.ok) return null;
-    const rawUrlJson = await rawUrlData.json() as { rawURL?: string };
-    const rawUrl = rawUrlJson.rawURL;
-    if (!rawUrl) return null;
-
-    // Step 8: Fetch the raw URL to get the actual file link
-    const fileResponse = await fetchText(`${rawUrl}${params}`, {
-      headers: { referer: providerEmbed, "content-type": "" } as any,
-    }).catch(() => "");
-    const fileMatch = fileResponse.match(/"file":"([^"]+)"/);
-    if (!fileMatch) return null;
-    const fileUrl = fileMatch[1].replace(/\\\//g, "/");
-
-    const downloads: DownloadItem[] = [];
-    const item = toItem(fileUrl, "VidSrc", `${input.title} ${isShow ? `S${season}E${episode}` : ""}`.trim());
-    if (item) downloads.push(item);
-
-    // Also try to find additional quality variants
-    const allFileMatches = fileResponse.matchAll(/"file":"([^"]+)"/g);
-    const seen = new Set<string>([fileUrl]);
-    for (const m of allFileMatches) {
-      const u = m[1].replace(/\\\//g, "/");
-      if (seen.has(u)) continue;
-      seen.add(u);
-      const it = toItem(u, "VidSrc", `${input.title} ${isShow ? `S${season}E${episode}` : ""}`.trim());
-      if (it) downloads.push(it);
-    }
-
-    return downloads.length ? { downloads, subs: [] } : null;
+    const item: DownloadItem = {
+      id: `2embed-${embedUrl}`,
+      url: embedUrl,
+      source: "2Embed",
+      quality: "Auto",
+      type: "hls",
+      fileName: undefined,
+    };
+    return { downloads: [item], subs: [] };
   } catch {
     return null;
   }
 }
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
-  const results = await Promise.all([providerVidsrc(input), providerVyla(input), providerDlhub(input)].map((p) => p.catch(() => null)));
+  const results = await Promise.all([providerCinesrc(input), provider2Embed(input), providerVyla(input), providerDlhub(input)].map((p) => p.catch(() => null)));
   const downloads: DownloadItem[] = [];
   let subtitles: DownloadsResult["subtitles"] = [];
   const seen = new Set<string>();
