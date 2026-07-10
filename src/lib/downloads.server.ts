@@ -123,7 +123,7 @@ function parseDlhub(html: string): DownloadItem[] {
     const torrentUrl = attr(chunk, "torrent_url");
     const q = attr(chunk, "q");
     const url = torrentUrl || (/^https?:\/\//i.test(q) ? q : "") || magnet;
-    const item = toItem(url, "DLHub", name, quality, size);
+    const item = toItem(url, "Download", name, quality, size);
     if (item) items.push(item);
   }
 
