@@ -91,6 +91,21 @@ function toItem(url: string, source: string, label: string, quality?: string, si
   };
 }
 
+async function fetchJson(url: string, init?: RequestInit): Promise<any> {
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      accept: "application/json,*/*",
+      "user-agent": UA,
+      ...(init?.headers || {}),
+    },
+    redirect: "follow",
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!res.ok) throw new Error(`upstream ${res.status}`);
+  return res.json();
+}
+
 async function fetchText(url: string, init?: RequestInit): Promise<string> {
   const res = await fetch(url, {
     ...init,
@@ -103,11 +118,54 @@ async function fetchText(url: string, init?: RequestInit): Promise<string> {
       ...(init?.headers || {}),
     },
     redirect: "follow",
-    signal: AbortSignal.timeout(14000),
+    signal: AbortSignal.timeout(12000),
   });
   if (!res.ok) throw new Error(`upstream ${res.status}`);
   return res.text();
 }
+
+/* ============================================================
+ * YTS provider — queries yts.mx API for direct .torrent files
+ * and magnet links. Movies only.
+ * ============================================================ */
+
+async function providerYts(input: Input): Promise<ProviderHit | null> {
+  if (input.type === "show") return null;
+  try {
+    const term = encodeURIComponent(input.title);
+    const data = await fetchJson(`https://yts.mx/api/v2/list_movies.json?query_term=${term}&limit=5`);
+    if (!data?.data?.movies?.length) return null;
+
+    const downloads: DownloadItem[] = [];
+    const seen = new Set<string>();
+
+    for (const movie of data.data.movies) {
+      if (input.year && movie.year && String(movie.year) !== String(input.year)) continue;
+      for (const t of movie.torrents || []) {
+        const hash = t.hash || "";
+        const quality = t.quality || "Auto";
+        const size = t.size || "";
+        const torrentUrl = t.url || "";
+        const name = `${movie.title} ${quality}`;
+        const magnet = hash ? makeMagnet(hash, name) : "";
+        const url = torrentUrl || magnet;
+        if (!url || seen.has(url)) continue;
+        seen.add(url);
+        const item = toItem(url, "YTS", name, quality, size);
+        if (item) downloads.push(item);
+      }
+    }
+
+    return downloads.length ? { downloads: downloads.slice(0, 10), subs: [] } : null;
+  } catch {
+    return null;
+  }
+}
+
+/* ============================================================
+ * DLHub provider — scrapes dlhub.cc search for direct download
+ * file links (.torrent, magnet, and direct file URLs).
+ * ============================================================ */
 
 function parseDlhub(html: string): DownloadItem[] {
   const items: DownloadItem[] = [];
@@ -123,7 +181,7 @@ function parseDlhub(html: string): DownloadItem[] {
     const torrentUrl = attr(chunk, "torrent_url");
     const q = attr(chunk, "q");
     const url = torrentUrl || (/^https?:\/\//i.test(q) ? q : "") || magnet;
-    const item = toItem(url, "Download", name, quality, size);
+    const item = toItem(url, "DLHub", name, quality, size);
     if (item) items.push(item);
   }
 
@@ -167,6 +225,11 @@ async function providerDlhub(input: Input): Promise<ProviderHit | null> {
   return downloads.length ? { downloads: downloads.slice(0, 12), subs: [] } : null;
 }
 
+/* ============================================================
+ * Vyla provider — optional, uses VYLA_API_KEY env var.
+ * Returns direct download file links from Vyla API.
+ * ============================================================ */
+
 async function providerVyla(input: Input): Promise<ProviderHit | null> {
   let key: string | undefined;
   try {
@@ -183,7 +246,7 @@ async function providerVyla(input: Input): Promise<ProviderHit | null> {
   try {
     const res = await fetch(`https://api.vyla.cc${path}`, {
       headers: { authorization: `Bearer ${key}`, accept: "application/json", "user-agent": UA },
-      signal: AbortSignal.timeout(14000),
+      signal: AbortSignal.timeout(12000),
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -206,65 +269,53 @@ async function providerVyla(input: Input): Promise<ProviderHit | null> {
 }
 
 /* ============================================================
- * CineSrc embed provider — returns the embed URL as a stream
- * link the user can open directly.  No fragile multi-step
- * extraction; the embed page itself is the playable source.
+ * 1337x provider — scrapes 1337x search for torrent/magnet links.
+ * Works for both movies and TV shows.
  * ============================================================ */
 
-async function providerCinesrc(input: Input): Promise<ProviderHit | null> {
+async function provider1337x(input: Input): Promise<ProviderHit | null> {
   try {
-    const isShow = input.type === "show";
-    const season = input.season ?? 1;
-    const episode = input.episode ?? 1;
-    const base = isShow
-      ? `https://cinesrc.st/embed/tv/${input.tmdbId}?s=${season}&e=${episode}`
-      : `https://cinesrc.st/embed/movie/${input.tmdbId}`;
-    const params = new URLSearchParams({
-      autoplay: "true",
-      controls: "true",
-    });
-    const sep = base.includes("?") ? "&" : "?";
-    const url = `${base}${sep}${params.toString()}`;
+    const title = input.title.trim();
+    let query = title;
+    if (input.type === "show") {
+      const s = String(input.season ?? 1).padStart(2, "0");
+      const e = String(input.episode ?? 1).padStart(2, "0");
+      query = `${title} S${s}E${e}`;
+    } else if (input.year) {
+      query = `${title} ${input.year}`;
+    }
 
-    const item: DownloadItem = {
-      id: `cinesrc-${url}`,
-      url,
-      source: "CineSrc",
-      quality: "Auto",
-      type: "hls",
-      fileName: undefined,
-    };
-    return { downloads: [item], subs: [] };
-  } catch {
-    return null;
-  }
-}
+    const searchUrl = `https://1337x.to/search/${encodeURIComponent(query)}/1/`;
+    const html = await fetchText(searchUrl, {
+      headers: { "user-agent": UA, referer: "https://1337x.to/" },
+    }).catch(() => "");
+    if (!html) return null;
 
-/* ============================================================
- * 2Embed provider — queries the 2embed.cc API which returns
- * direct embed/stream URLs for movies and TV shows.
- * ============================================================ */
+    const downloads: DownloadItem[] = [];
+    const seen = new Set<string>();
 
-async function provider2Embed(input: Input): Promise<ProviderHit | null> {
-  try {
-    const isShow = input.type === "show";
-    const season = input.season ?? 1;
-    const episode = input.episode ?? 1;
+    const rowRegex = /<a href="(https:\/\/1337x\.to\/torrent\/\d+\/[^"]+)"[^>]*class="[^"]*"[^>]*>([^<]+)<\/a>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = rowRegex.exec(html)) !== null && downloads.length < 8) {
+      const detailUrl = match[1];
+      const name = stripTags(match[2]);
+      if (seen.has(detailUrl)) continue;
+      seen.add(detailUrl);
 
-    // 2embed supports TMDB IDs directly via embed URLs
-    const embedUrl = isShow
-      ? `https://www.2embed.cc/embedtv/${input.tmdbId}?s=${season}&e=${episode}`
-      : `https://www.2embed.cc/embed/${input.tmdbId}`;
+      const detailHtml = await fetchText(detailUrl, {
+        headers: { "user-agent": UA, referer: "https://1337x.to/" },
+      }).catch(() => "");
+      if (!detailHtml) continue;
 
-    const item: DownloadItem = {
-      id: `2embed-${embedUrl}`,
-      url: embedUrl,
-      source: "2Embed",
-      quality: "Auto",
-      type: "hls",
-      fileName: undefined,
-    };
-    return { downloads: [item], subs: [] };
+      const magnetMatch = detailHtml.match(/href="(magnet:\?xt=urn:btih:[^"]+)"/i);
+      const sizeMatch = detailHtml.match(/<strong>([\d.]+\s*[KMGT]B)<\/strong>/i);
+      if (magnetMatch) {
+        const item = toItem(magnetMatch[1], "1337x", name, qualityGuess(name), sizeMatch?.[1]);
+        if (item) downloads.push(item);
+      }
+    }
+
+    return downloads.length ? { downloads, subs: [] } : null;
   } catch {
     return null;
   }
@@ -272,7 +323,7 @@ async function provider2Embed(input: Input): Promise<ProviderHit | null> {
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   try {
-    const providers = [providerCinesrc, provider2Embed, providerVyla, providerDlhub];
+    const providers = [providerYts, providerDlhub, provider1337x, providerVyla];
     const results = await Promise.all(
       providers.map((fn) => Promise.resolve().then(() => fn(input)).catch(() => null)),
     );

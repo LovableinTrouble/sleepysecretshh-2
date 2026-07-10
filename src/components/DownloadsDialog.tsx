@@ -46,15 +46,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
           error?: string;
         };
         if (data.ok)
-          setItems(
-            data.downloads.filter(
-              (d) =>
-                !d.url.startsWith("magnet:") &&
-                d.type !== "torrent" &&
-                !d.url.endsWith(".torrent") &&
-                !/\.torrent(\?|$)/i.test(d.url),
-            ),
-          );
+          setItems(data.downloads);
         else setError(data.error || "No downloads found for this title.");
       } catch (err: any) {
         if (!dead) setError(err?.message || "Failed to load downloads.");
