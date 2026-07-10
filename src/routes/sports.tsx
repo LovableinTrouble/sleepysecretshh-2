@@ -47,7 +47,8 @@ function SportsPage() {
     queryFn: fetchPpvAll,
     staleTime: 60_000,
     refetchInterval: 60_000,
-    retry: 2,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
   const all = useMemo(() => (data ? flattenEvents(data) : []), [data]);

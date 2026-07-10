@@ -181,6 +181,8 @@ function SportsMatchPage() {
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             allowFullScreen
             loading="eager"
+            referrerPolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups-to-escape-sandbox"
             className="absolute inset-0 h-full w-full border-0 bg-black"
           />
         )}
