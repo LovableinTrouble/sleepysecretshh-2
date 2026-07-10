@@ -107,6 +107,36 @@ function EmbedVideo({
   onClose: () => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Intercept fullscreen requests from the iframe so our watermark overlay
+  // stays visible: we fullscreen the container div instead of the iframe.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const onFs = (e: Event) => {
+      e.stopPropagation();
+      if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+    container.addEventListener("fullscreenchange", onFs);
+    // When the iframe triggers fullscreen, catch it on the container
+    const observer = new MutationObserver(() => {
+      if (document.fullscreenElement === iframeRef.current) {
+        document.exitFullscreen().then(() => {
+          container.requestFullscreen().catch(() => {});
+        }).catch(() => {});
+      }
+    });
+    observer.observe(document, { subtree: false, childList: false, attributes: true, attributeFilter: ["fullscreen"] });
+    return () => {
+      container.removeEventListener("fullscreenchange", onFs);
+      observer.disconnect();
+    };
+  }, []);
   const seasonKey = season ?? null;
   const epKey = episode ?? null;
 
@@ -188,7 +218,7 @@ function EmbedVideo({
   }, [media.id, seasonKey, epKey, recordProgress]);
 
   return (
-    <div className="relative h-full w-full bg-black">
+    <div ref={containerRef} className="relative h-full w-full bg-black [&:fullscreen]:h-screen [&:fullscreen]:w-screen">
       <iframe
         ref={iframeRef}
         src={url}
@@ -197,19 +227,13 @@ function EmbedVideo({
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
         referrerPolicy="no-referrer"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
+
       />
-      {/* Opaque cover over only the CineSrc watermark; positioned left of the cloud control. */}
+      {/* Transparent click-blocker over the CineSrc watermark area */}
       <div
         aria-hidden="true"
         className="absolute bottom-2 right-[150px] h-11 w-24 rounded-full md:bottom-3 md:right-[190px] md:h-11 md:w-[124px]"
-        style={{
-          pointerEvents: "auto",
-          background:
-            "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.96) 16%, rgba(0,0,0,0.96) 84%, rgba(0,0,0,0) 100%)",
-          maskImage: "linear-gradient(to top, black 0%, black 72%, transparent 100%)",
-          WebkitMaskImage: "linear-gradient(to top, black 0%, black 72%, transparent 100%)",
-        }}
+        style={{ pointerEvents: "auto", background: "transparent" }}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <button

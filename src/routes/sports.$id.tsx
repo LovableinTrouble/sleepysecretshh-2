@@ -181,9 +181,6 @@ function SportsMatchPage() {
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             allowFullScreen
             loading="eager"
-            // Blocks popup windows/tabs, top-level navigation hijacks, and
-            // native alert/confirm/prompt dialogs from the third-party embed.
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
             className="absolute inset-0 h-full w-full border-0 bg-black"
           />
         )}
@@ -219,24 +216,24 @@ function SportsMatchPage() {
               <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30">
                 <ShieldAlert className="h-6 w-6" />
               </div>
-              <h2 className="mt-4 text-lg font-bold tracking-tight text-white">Heads up</h2>
+              <h2 className="mt-4 text-lg font-bold tracking-tight text-white">Before you watch</h2>
               <p className="mt-1.5 text-sm leading-relaxed text-white/65">
-                This stream is embedded from a third-party. They may open ads or new tabs on first
-                click — we can't block them.
+                Live sports are served from third-party embeds. Ads and pop-ups may appear on first
+                interaction — this is normal and outside our control.
               </p>
             </div>
             <div className="mx-6 mt-4 space-y-2 rounded-2xl bg-white/[0.04] p-3 text-[12px] text-white/70 ring-1 ring-white/5">
               <div className="flex items-start gap-2">
                 <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
-                <span>Use an ad-blocker like uBlock Origin for the cleanest experience.</span>
+                <span>An ad-blocker (e.g. uBlock Origin) will significantly improve your experience.</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
-                <span>If a new tab opens, just close it — playback continues here.</span>
+                <span>New tabs or redirects? Just close them — the stream stays here.</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
-                <span>Never log in or install anything a pop-up asks for.</span>
+                <span>Do not enter credentials or install anything a pop-up requests.</span>
               </div>
             </div>
             <div className="flex gap-2 p-5">
