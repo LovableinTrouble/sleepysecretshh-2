@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Download, Loader2, Play, X } from "lucide-react";
 import type { Media } from "@/lib/catalog";
-import { resolveDownloaderSources, type DownloadItem } from "@/lib/downloads";
+import type { DownloadItem } from "@/lib/downloads";
 
 interface DownloadsDialogProps {
   open: boolean;
@@ -24,21 +24,31 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     setLoading(true);
     setError(null);
     setItems([]);
-    resolveDownloaderSources({
-      data: {
-        tmdbId: media.id,
-        title: media.title,
-        year: media.year,
-        type: isSeries ? "show" : "movie",
-        season: isSeries ? (season ?? 1) : undefined,
-        episode: isSeries ? (episode ?? 1) : undefined,
-      },
-    })
-      .then((res) => {
+    (async () => {
+      try {
+        const res = await fetch("/api/downloads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tmdbId: media.id,
+            title: media.title,
+            year: media.year,
+            type: isSeries ? "show" : "movie",
+            season: isSeries ? (season ?? 1) : undefined,
+            episode: isSeries ? (episode ?? 1) : undefined,
+          }),
+        });
         if (dead) return;
-        if (res.ok)
+        if (!res.ok) throw new Error(`Server responded ${res.status}`);
+        const data = (await res.json()) as {
+          ok: boolean;
+          downloads: DownloadItem[];
+          subtitles: any[];
+          error?: string;
+        };
+        if (data.ok)
           setItems(
-            res.downloads.filter(
+            data.downloads.filter(
               (d) =>
                 !d.url.startsWith("magnet:") &&
                 d.type !== "torrent" &&
@@ -46,10 +56,13 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
                 !/\.torrent(\?|$)/i.test(d.url),
             ),
           );
-        else setError(res.error || "No downloads found for this title.");
-      })
-      .catch((err: any) => !dead && setError(err?.message || "Failed to load downloads."))
-      .finally(() => !dead && setLoading(false));
+        else setError(data.error || "No downloads found for this title.");
+      } catch (err: any) {
+        if (!dead) setError(err?.message || "Failed to load downloads.");
+      } finally {
+        if (!dead) setLoading(false);
+      }
+    })();
     return () => {
       dead = true;
     };
