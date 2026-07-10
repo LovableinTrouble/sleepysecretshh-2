@@ -201,7 +201,7 @@ async function providerVyla(input: Input): Promise<ProviderHit | null> {
 }
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
-  const results = await Promise.all([providerVyla(input)].map((p) => p.catch(() => null)));
+  const results = await Promise.all([providerVyla(input), providerDlhub(input)].map((p) => p.catch(() => null)));
   const downloads: DownloadItem[] = [];
   let subtitles: DownloadsResult["subtitles"] = [];
   const seen = new Set<string>();
