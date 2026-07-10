@@ -36,7 +36,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     })
       .then((res) => {
         if (dead) return;
-        if (res.ok) setItems(res.downloads.filter((d) => !d.url.startsWith("magnet:")));
+        if (res.ok) setItems(res.downloads);
         else setError(res.error || "No downloads found for this title.");
       })
       .catch((err: any) => !dead && setError(err?.message || "Failed to load downloads."))
@@ -48,13 +48,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
 
   if (!open) return null;
 
-  const proxied = (url: string, fileName?: string) => {
-    const params = new URLSearchParams({ url });
-    if (fileName) params.set("filename", fileName);
-    return `/api/public/download?${params.toString()}`;
-  };
-  const downloadHref = (item: DownloadItem) =>
-    item.url.startsWith("magnet:") ? item.url : proxied(item.url, item.fileName);
+  const downloadHref = (item: DownloadItem) => item.url;
 
   return (
     <div
@@ -113,6 +107,8 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
                 <li key={it.id}>
                   <a
                     href={downloadHref(it)}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="group flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 p-4 transition hover:border-white/20 hover:bg-black/60"
                   >
                     <div className="min-w-0">
