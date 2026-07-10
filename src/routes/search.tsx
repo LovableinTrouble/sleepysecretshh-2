@@ -1,8 +1,11 @@
-import { createFileRoute, Link, useRouter, useSearch } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Sparkles } from "lucide-react";
 import { MediaCard } from "@/components/MediaCard";
 import { searchMulti, searchPeople, fetchTrending } from "@/lib/tmdb";
+import { aiSearchTitles } from "@/lib/ai.functions";
 import {
   addRecentSearch,
   clearRecentSearches,
@@ -28,8 +31,9 @@ function Search() {
   const [debounced, setDebounced] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<SortKey>("relevance");
+  const [aiMode, setAiMode] = useState(false);
   const recents = useRecentSearches();
-  const router = useRouter();
+  const aiFn = useServerFn(aiSearchTitles);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim()), 350);
@@ -50,17 +54,48 @@ function Search() {
   const res = useQuery({
     queryKey: ["search", debounced],
     queryFn: () => searchMulti(debounced),
-    enabled: debounced.length > 0,
+    enabled: debounced.length > 0 && !aiMode,
   });
   const people = useQuery({
     queryKey: ["search-people", debounced],
     queryFn: () => searchPeople(debounced),
-    enabled: debounced.length > 0,
+    enabled: debounced.length > 0 && !aiMode,
+  });
+  const ai = useQuery({
+    queryKey: ["ai-search", debounced],
+    queryFn: async () => {
+      const r = await aiFn({ data: { query: debounced } });
+      if (!r.titles.length) {
+        const direct = await searchMulti(debounced).catch(() => []);
+        return { results: direct, error: r.error, aiUsed: false };
+      }
+      const perTitle = await Promise.all(
+        r.titles.map((t) => searchMulti(t).catch(() => [])),
+      );
+      const seen = new Set<string>();
+      const merged = perTitle.flat().filter((m) => {
+        const k = `${m.type}-${m.id}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+      return { results: merged, error: r.error, aiUsed: true };
+    },
+    enabled: debounced.length > 0 && aiMode,
+    retry: 0,
   });
 
-  const rawResults = debounced ? (res.data ?? []) : (trend.data ?? []);
-  const loading = debounced ? res.isLoading || people.isLoading : trend.isLoading;
-  const peopleResults = debounced ? (people.data ?? []) : [];
+  const rawResults = debounced
+    ? aiMode
+      ? (ai.data?.results ?? [])
+      : (res.data ?? [])
+    : (trend.data ?? []);
+  const loading = debounced
+    ? aiMode
+      ? ai.isLoading
+      : res.isLoading || people.isLoading
+    : trend.isLoading;
+  const peopleResults = debounced && !aiMode ? (people.data ?? []) : [];
   const showRecents = !debounced && recents.length > 0;
 
   const results = useMemo(() => {
@@ -73,16 +108,18 @@ function Search() {
   }, [rawResults, filter, sort]);
 
   const showPeople =
-    debounced && (filter === "all" || filter === "people") && peopleResults.length > 0;
+    !aiMode && debounced && (filter === "all" || filter === "people") && peopleResults.length > 0;
   const totalCount = results.length + (showPeople ? peopleResults.length : 0);
 
   return (
     <div className="min-h-screen px-5 pb-32 pt-16 md:px-10 md:pt-20 animate-page-in">
       <div className="mx-auto max-w-6xl">
         <div className="mb-7">
-          <div className="text-xs uppercase tracking-[0.32em] text-primary/80">Search</div>
+          <div className="text-xs uppercase tracking-[0.32em] text-primary/80">
+            {aiMode ? "AI Search" : "Search"}
+          </div>
           <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
-            Find something to watch
+            {aiMode ? "Find something with AI" : "Find something to watch"}
           </h1>
         </div>
 
@@ -106,9 +143,24 @@ function Search() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && q.trim()) addRecentSearch(q.trim());
               }}
-              placeholder="Movies, TV, anime, people…"
+              placeholder={
+                aiMode ? "Ask AI: mood, genre, actor, vibe…" : "Movies, TV, anime, people…"
+              }
               className="h-10 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/70"
             />
+            <button
+              onClick={() => setAiMode((v) => !v)}
+              aria-pressed={aiMode}
+              title={aiMode ? "Turn AI off" : "Search with AI"}
+              className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
+                aiMode
+                  ? "bg-primary text-primary-foreground shadow-[0_0_20px_color-mix(in_oklab,var(--primary)_45%,transparent)]"
+                  : "bg-white/5 text-muted-foreground ring-1 ring-white/10 hover:text-foreground"
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              AI
+            </button>
             {q && (
               <button
                 onClick={() => setQ("")}
@@ -129,6 +181,7 @@ function Search() {
           </div>
 
           {/* Filter chips */}
+          {!aiMode && (
           <div className="mt-3 flex flex-wrap items-center gap-2 animate-fade-in">
             <div className="flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
               {(
@@ -155,6 +208,7 @@ function Search() {
             </div>
             <SearchSortSelect value={sort} onChange={setSort} />
           </div>
+          )}
         </div>
 
         {showRecents && (
