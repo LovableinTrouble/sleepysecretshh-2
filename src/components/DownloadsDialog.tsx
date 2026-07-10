@@ -36,7 +36,12 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     })
       .then((res) => {
         if (dead) return;
-        if (res.ok) setItems(res.downloads.filter((d) => !d.url.startsWith("magnet:")));
+        if (res.ok)
+          setItems(
+            res.downloads.filter(
+              (d) => !d.url.startsWith("magnet:") && d.source.toLowerCase() !== "dlhub",
+            ),
+          );
         else setError(res.error || "No downloads found for this title.");
       })
       .catch((err: any) => !dead && setError(err?.message || "Failed to load downloads."))
@@ -48,7 +53,13 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
 
   if (!open) return null;
 
-  const downloadHref = (item: DownloadItem) => item.url;
+  const proxied = (url: string, fileName?: string) => {
+    const params = new URLSearchParams({ url });
+    if (fileName) params.set("filename", fileName);
+    return `/api/public/download?${params.toString()}`;
+  };
+  const downloadHref = (item: DownloadItem) =>
+    item.url.startsWith("magnet:") ? item.url : proxied(item.url, item.fileName);
 
   return (
     <div
