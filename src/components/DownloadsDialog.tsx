@@ -36,7 +36,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     })
       .then((res) => {
         if (dead) return;
-        if (res.ok) setItems(res.downloads);
+        if (res.ok) setItems(res.downloads.filter((d) => !d.url.startsWith("magnet:")));
         else setError(res.error || "No downloads found for this title.");
       })
       .catch((err: any) => !dead && setError(err?.message || "Failed to load downloads."))
