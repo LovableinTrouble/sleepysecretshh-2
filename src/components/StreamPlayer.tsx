@@ -199,6 +199,15 @@ function EmbedVideo({
         referrerPolicy="no-referrer"
         sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
       />
+      {/* Invisible click-blocker over the CineSrc watermark (bottom-right of the
+       * player control bar, between the cast/cloud icon and the settings gear).
+       * Fully transparent, non-interactive-looking, but intercepts pointer
+       * events so the underlying watermark link can't be clicked. */}
+      <div
+        aria-hidden="true"
+        className="absolute bottom-3 right-[130px] h-8 w-24 md:right-[150px] md:h-9 md:w-28"
+        style={{ pointerEvents: "auto", background: "transparent" }}
+      />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <button
           onClick={onClose}

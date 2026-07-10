@@ -19,7 +19,6 @@ import { Route as IptvRouteImport } from './routes/iptv'
 import { Route as InstallRouteImport } from './routes/install'
 import { Route as GamesRouteImport } from './routes/games'
 import { Route as ExploreRouteImport } from './routes/explore'
-import { Route as AiSearchRouteImport } from './routes/ai-search'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as SportsIdRouteImport } from './routes/sports.$id'
@@ -81,11 +80,6 @@ const GamesRoute = GamesRouteImport.update({
 const ExploreRoute = ExploreRouteImport.update({
   id: '/explore',
   path: '/explore',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AiSearchRoute = AiSearchRouteImport.update({
-  id: '/ai-search',
-  path: '/ai-search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -151,7 +145,6 @@ const ApiPpvStreamsRoute = ApiPpvStreamsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/ai-search': typeof AiSearchRoute
   '/explore': typeof ExploreRoute
   '/games': typeof GamesRoute
   '/install': typeof InstallRoute
@@ -176,7 +169,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/ai-search': typeof AiSearchRoute
   '/explore': typeof ExploreRoute
   '/games': typeof GamesRoute
   '/install': typeof InstallRoute
@@ -202,7 +194,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/ai-search': typeof AiSearchRoute
   '/explore': typeof ExploreRoute
   '/games': typeof GamesRoute
   '/install': typeof InstallRoute
@@ -229,7 +220,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/ai-search'
     | '/explore'
     | '/games'
     | '/install'
@@ -254,7 +244,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/ai-search'
     | '/explore'
     | '/games'
     | '/install'
@@ -279,7 +268,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/ai-search'
     | '/explore'
     | '/games'
     | '/install'
@@ -305,7 +293,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AiSearchRoute: typeof AiSearchRoute
   ExploreRoute: typeof ExploreRoute
   GamesRoute: typeof GamesRoute
   InstallRoute: typeof InstallRoute
@@ -398,13 +385,6 @@ declare module '@tanstack/react-router' {
       path: '/explore'
       fullPath: '/explore'
       preLoaderRoute: typeof ExploreRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ai-search': {
-      id: '/ai-search'
-      path: '/ai-search'
-      fullPath: '/ai-search'
-      preLoaderRoute: typeof AiSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -507,7 +487,6 @@ const SportsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AiSearchRoute: AiSearchRoute,
   ExploreRoute: ExploreRoute,
   GamesRoute: GamesRoute,
   InstallRoute: InstallRoute,
@@ -532,13 +511,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
