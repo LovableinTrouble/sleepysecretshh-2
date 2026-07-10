@@ -168,7 +168,12 @@ async function providerDlhub(input: Input): Promise<ProviderHit | null> {
 }
 
 async function providerVyla(input: Input): Promise<ProviderHit | null> {
-  const key = process.env.VYLA_API_KEY?.trim();
+  let key: string | undefined;
+  try {
+    key = process.env.VYLA_API_KEY?.trim();
+  } catch {
+    return null;
+  }
   if (!key) return null;
 
   const path =
@@ -266,25 +271,37 @@ async function provider2Embed(input: Input): Promise<ProviderHit | null> {
 }
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
-  const results = await Promise.all([providerCinesrc(input), provider2Embed(input), providerVyla(input), providerDlhub(input)].map((p) => p.catch(() => null)));
-  const downloads: DownloadItem[] = [];
-  let subtitles: DownloadsResult["subtitles"] = [];
-  const seen = new Set<string>();
+  try {
+    const providers = [providerCinesrc, provider2Embed, providerVyla, providerDlhub];
+    const results = await Promise.all(
+      providers.map((fn) => Promise.resolve().then(() => fn(input)).catch(() => null)),
+    );
+    const downloads: DownloadItem[] = [];
+    let subtitles: DownloadsResult["subtitles"] = [];
+    const seen = new Set<string>();
 
-  for (const hit of results) {
-    if (!hit) continue;
-    for (const item of hit.downloads) {
-      if (seen.has(item.url)) continue;
-      seen.add(item.url);
-      downloads.push(item);
+    for (const hit of results) {
+      if (!hit) continue;
+      for (const item of hit.downloads) {
+        if (seen.has(item.url)) continue;
+        seen.add(item.url);
+        downloads.push(item);
+      }
+      if (!subtitles.length && hit.subs.length) subtitles = hit.subs;
     }
-    if (!subtitles.length && hit.subs.length) subtitles = hit.subs;
-  }
 
-  return {
-    ok: downloads.length > 0,
-    downloads,
-    subtitles,
-    error: downloads.length ? undefined : "No downloads found for this title.",
-  };
+    return {
+      ok: downloads.length > 0,
+      downloads,
+      subtitles,
+      error: downloads.length ? undefined : "No downloads found for this title.",
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      downloads: [],
+      subtitles: [],
+      error: `Download resolver error: ${(e as Error)?.message || String(e)}`,
+    };
+  }
 }
