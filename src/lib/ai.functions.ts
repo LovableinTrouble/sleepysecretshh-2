@@ -40,3 +40,47 @@ export const recommendMedia = createServerFn({ method: "POST" })
       return { text: "Hmm, I couldn't reach the AI right now. Try again shortly." };
     }
   });
+
+const AiTitlesInput = z.object({
+  query: z.string().min(1).max(500),
+});
+
+/**
+ * AI Search: turn a natural-language query into a list of movie/TV titles.
+ * Uses the Lovable AI Gateway (no external backend).
+ */
+export const aiSearchTitles = createServerFn({ method: "POST" })
+  .inputValidator((input: any) => AiTitlesInput.parse(input))
+  .handler(async ({ data }): Promise<{ titles: string[]; error: string | null }> => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) return { titles: [], error: "LOVABLE_API_KEY not configured" };
+
+    const gateway = createOpenAICompatible({
+      name: "lovable",
+      baseURL: "https://ai.gateway.lovable.dev/v1",
+      headers: { "Lovable-API-Key": key, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
+    });
+
+    try {
+      const { text } = await generateText({
+        model: gateway("google/gemini-3-flash-preview"),
+        system:
+          "You recommend movies and TV shows. Given a user's query (mood, genre, actor, theme, description, or vibe), respond with ONLY a JSON array of 8-12 real title strings, most relevant first. No prose, no keys, no markdown — just the raw JSON array.",
+        prompt: data.query,
+      });
+      const match = text.match(/\[[\s\S]*\]/);
+      if (!match) return { titles: [], error: "AI returned no JSON" };
+      const parsed = JSON.parse(match[0]);
+      if (!Array.isArray(parsed)) return { titles: [], error: "AI response not array" };
+      const titles = parsed
+        .filter((t: any): t is string => typeof t === "string" && t.trim().length > 0)
+        .slice(0, 12);
+      return { titles, error: null };
+    } catch (e: any) {
+      const status = e?.statusCode ?? e?.status;
+      if (status === 429) return { titles: [], error: "Rate limited — try again shortly." };
+      if (status === 402)
+        return { titles: [], error: "AI credits exhausted on this workspace." };
+      return { titles: [], error: e?.message || "AI request failed" };
+    }
+  });
