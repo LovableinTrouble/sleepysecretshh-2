@@ -199,16 +199,16 @@ function EmbedVideo({
         referrerPolicy="no-referrer"
         sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
       />
-      {/* Opaque cover over the CineSrc watermark on the player control bar.
-       * Matches the near-black control-bar background so it blends in and the
-       * watermark is not visible or clickable. */}
+      {/* Opaque cover over only the CineSrc watermark; positioned left of the cloud control. */}
       <div
         aria-hidden="true"
-        className="absolute bottom-2 right-[110px] h-10 w-28 md:bottom-3 md:right-[135px] md:h-11 md:w-32"
+        className="absolute bottom-2 right-[150px] h-11 w-24 rounded-full md:bottom-3 md:right-[190px] md:h-11 md:w-[124px]"
         style={{
           pointerEvents: "auto",
           background:
-            "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 60%, rgba(0,0,0,0) 100%)",
+            "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.96) 16%, rgba(0,0,0,0.96) 84%, rgba(0,0,0,0) 100%)",
+          maskImage: "linear-gradient(to top, black 0%, black 72%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to top, black 0%, black 72%, transparent 100%)",
         }}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">

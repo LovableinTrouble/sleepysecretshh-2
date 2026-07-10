@@ -28,6 +28,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
       data: {
         tmdbId: media.id,
         title: media.title,
+        year: media.year,
         type: isSeries ? "show" : "movie",
         season: isSeries ? (season ?? 1) : undefined,
         episode: isSeries ? (episode ?? 1) : undefined,
@@ -52,6 +53,8 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     if (fileName) params.set("filename", fileName);
     return `/api/public/download?${params.toString()}`;
   };
+  const downloadHref = (item: DownloadItem) =>
+    item.url.startsWith("magnet:") ? item.url : proxied(item.url, item.fileName);
 
   return (
     <div
@@ -109,7 +112,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
               {items.map((it) => (
                 <li key={it.id}>
                   <a
-                    href={proxied(it.url, it.fileName)}
+                    href={downloadHref(it)}
                     className="group flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 p-4 transition hover:border-white/20 hover:bg-black/60"
                   >
                     <div className="min-w-0">
