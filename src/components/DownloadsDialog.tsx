@@ -26,18 +26,17 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     setItems([]);
     (async () => {
       try {
-        const res = await fetch("/api/downloads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tmdbId: media.id,
-            title: media.title,
-            year: media.year,
-            type: isSeries ? "show" : "movie",
-            season: isSeries ? (season ?? 1) : undefined,
-            episode: isSeries ? (episode ?? 1) : undefined,
-          }),
+        const params = new URLSearchParams({
+          tmdbId: media.id,
+          title: media.title,
+          type: isSeries ? "show" : "movie",
         });
+        if (media.year) params.set("year", media.year);
+        if (isSeries) {
+          params.set("season", String(season ?? 1));
+          params.set("episode", String(episode ?? 1));
+        }
+        const res = await fetch(`/api/downloads?${params.toString()}`);
         if (dead) return;
         if (!res.ok) throw new Error(`Server responded ${res.status}`);
         const data = (await res.json()) as {
