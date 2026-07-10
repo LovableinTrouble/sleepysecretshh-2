@@ -44,7 +44,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     return () => {
       dead = true;
     };
-  }, [open, media.id, media.title, isSeries, season, episode]);
+  }, [open, media.id, media.title, media.year, isSeries, season, episode]);
 
   if (!open) return null;
 

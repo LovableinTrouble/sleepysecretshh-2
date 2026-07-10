@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { resolveDownloadProviders } from "./downloads.server";
 
 export interface DownloadItem {
   id: string;
@@ -33,5 +32,6 @@ const DownloadsSchema = z.object({
 export const resolveDownloaderSources = createServerFn({ method: "POST" })
   .inputValidator((data) => DownloadsSchema.parse(data))
   .handler(async ({ data }): Promise<DownloadsResult> => {
+    const { resolveDownloadProviders } = await import("./downloads.server");
     return resolveDownloadProviders(data);
   });
