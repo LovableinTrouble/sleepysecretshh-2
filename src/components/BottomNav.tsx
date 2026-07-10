@@ -8,7 +8,6 @@ import {
   Settings as SettingsIcon,
   Gamepad2,
   Smartphone,
-  Sparkles, // Import Sparkles icon
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,7 +18,6 @@ const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/shorts", label: "Shorts", icon: Smartphone },
   { to: "/watchlist", label: "Watchlist", icon: Bookmark },
   { to: "/search", label: "Search", icon: Search },
-  { to: "/ai-search", label: "AI Search", icon: Sparkles }, // AI Search item
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
