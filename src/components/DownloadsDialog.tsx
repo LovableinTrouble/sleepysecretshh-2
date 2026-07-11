@@ -27,7 +27,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     (async () => {
       try {
         const params = new URLSearchParams({
-          tmdbId: media.id,
+          tmdbId: String(media.id),
           title: media.title,
           type: isSeries ? "show" : "movie",
         });
