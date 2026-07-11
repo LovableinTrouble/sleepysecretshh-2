@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
-import { Download, Loader2, Play, X } from "lucide-react";
+import { ChevronRight, Download, Loader2, Play, X } from "lucide-react";
 import type { Media } from "@/lib/catalog";
 import type { DownloadItem } from "@/lib/downloads";
 
@@ -17,6 +17,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<DownloadItem[]>([]);
+  const [webtorOpen, setWebtorOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +68,6 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     return `/api/public/download?${params.toString()}`;
   };
   const downloadHref = (item: DownloadItem) => {
-    if (item.url.startsWith("magnet:")) return item.url;
     if (isStream(item)) return item.url;
     return proxied(item.url, item.fileName);
   };
