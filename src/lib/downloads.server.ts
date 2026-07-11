@@ -325,7 +325,7 @@ async function providerRgShows(input: Input): Promise<ProviderHit | null> {
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   try {
-    const providers = [providerYts, providerDlhub, provider1337x, providerVyla];
+    const providers = [providerAutoEmbed, providerRgShows, providerYts, providerDlhub, providerVyla];
     const results = await Promise.all(
       providers.map((fn) => Promise.resolve().then(() => fn(input)).catch(() => null)),
     );
