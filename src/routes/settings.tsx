@@ -242,7 +242,7 @@ function Select({
               overflowY: "auto",
               zIndex: 999999,
             }}
-            className="overflow-hidden rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl"
+            className="rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl"
           >
             {options.map((o) => (
               <button
