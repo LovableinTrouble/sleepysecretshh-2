@@ -253,53 +253,71 @@ async function providerVyla(input: Input): Promise<ProviderHit | null> {
 }
 
 /* ============================================================
- * 1337x provider — scrapes 1337x search for torrent/magnet links.
- * Works for both movies and TV shows.
+ * Direct source providers — try to return playable mp4 / m3u8
+ * URLs sourced from public TMDB-keyed embed APIs. When they
+ * work, users get direct downloads instead of .torrent files.
  * ============================================================ */
 
-async function provider1337x(input: Input): Promise<ProviderHit | null> {
-  try {
-    const title = input.title.trim();
-    let query = title;
-    if (input.type === "show") {
-      const s = String(input.season ?? 1).padStart(2, "0");
-      const e = String(input.episode ?? 1).padStart(2, "0");
-      query = `${title} S${s}E${e}`;
-    } else if (input.year) {
-      query = `${title} ${input.year}`;
-    }
+async function providerAutoEmbed(input: Input): Promise<ProviderHit | null> {
+  const bases = ["https://tom.autoembed.cc", "https://autoembed.cc"];
+  const path =
+    input.type === "show"
+      ? `/api/getVideoSource?type=tv&id=${input.tmdbId}/${input.season ?? 1}/${input.episode ?? 1}`
+      : `/api/getVideoSource?type=movie&id=${input.tmdbId}`;
 
-    const searchUrl = `https://1337x.to/search/${encodeURIComponent(query)}/1/`;
-    const html = await fetchText(searchUrl, {
-      headers: { "user-agent": UA, referer: "https://1337x.to/" },
-    }).catch(() => "");
-    if (!html) return null;
-
-    const downloads: DownloadItem[] = [];
-    const seen = new Set<string>();
-
-    const rowRegex = /<a href="(https:\/\/1337x\.to\/torrent\/\d+\/[^"]+)"[^>]*class="[^"]*"[^>]*>([^<]+)<\/a>/gi;
-    let match: RegExpExecArray | null;
-    while ((match = rowRegex.exec(html)) !== null && downloads.length < 8) {
-      const detailUrl = match[1];
-      const name = stripTags(match[2]);
-      if (seen.has(detailUrl)) continue;
-      seen.add(detailUrl);
-
-      const detailHtml = await fetchText(detailUrl, {
-        headers: { "user-agent": UA, referer: "https://1337x.to/" },
-      }).catch(() => "");
-      if (!detailHtml) continue;
-
-      const magnetMatch = detailHtml.match(/href="(magnet:\?xt=urn:btih:[^"]+)"/i);
-      const sizeMatch = detailHtml.match(/<strong>([\d.]+\s*[KMGT]B)<\/strong>/i);
-      if (magnetMatch) {
-        const item = toItem(magnetMatch[1], "1337x", name, qualityGuess(name), sizeMatch?.[1]);
+  for (const base of bases) {
+    try {
+      const data = await fetchJson(`${base}${path}`);
+      const sources: any[] = Array.isArray(data?.videoSource)
+        ? data.videoSource
+        : Array.isArray(data?.sources)
+          ? data.sources
+          : data?.url
+            ? [{ url: data.url, quality: data.quality }]
+            : [];
+      const subs: DownloadsResult["subtitles"] = (Array.isArray(data?.subtitles) ? data.subtitles : [])
+        .map((s: any) => ({
+          url: String(s?.url || s?.file || ""),
+          label: String(s?.label || s?.lang || s?.language || "Unknown"),
+          language: String(s?.language || s?.lang || s?.label || ""),
+          type: /\.vtt/i.test(String(s?.url || s?.file || "")) ? ("vtt" as const) : ("srt" as const),
+        }))
+        .filter((s: any) => s.url);
+      const downloads: DownloadItem[] = [];
+      for (const src of sources) {
+        const url = String(src?.url || src?.file || "");
+        if (!url) continue;
+        const q = String(src?.quality || src?.label || qualityGuess(url));
+        const item = toItem(url, "AutoEmbed", `${input.title} ${q}`, q);
         if (item) downloads.push(item);
       }
+      if (downloads.length) return { downloads, subs };
+    } catch {
+      /* try next base */
     }
+  }
+  return null;
+}
 
-    return downloads.length ? { downloads, subs: [] } : null;
+async function providerRgShows(input: Input): Promise<ProviderHit | null> {
+  try {
+    const url =
+      input.type === "show"
+        ? `https://api.rgshows.me/main/tv/${input.tmdbId}/${input.season ?? 1}/${input.episode ?? 1}`
+        : `https://api.rgshows.me/main/movie/${input.tmdbId}`;
+    const data = await fetchJson(url);
+    const stream = data?.stream;
+    if (!stream?.url) return null;
+    const item = toItem(String(stream.url), "RgShows", `${input.title} ${stream.quality || "Auto"}`, stream.quality);
+    const subs: DownloadsResult["subtitles"] = (Array.isArray(stream.captions) ? stream.captions : [])
+      .map((c: any) => ({
+        url: String(c?.url || ""),
+        label: String(c?.language || c?.label || "Unknown"),
+        language: String(c?.language || ""),
+        type: /\.vtt/i.test(String(c?.url || "")) ? ("vtt" as const) : ("srt" as const),
+      }))
+      .filter((c: any) => c.url);
+    return item ? { downloads: [item], subs } : null;
   } catch {
     return null;
   }
