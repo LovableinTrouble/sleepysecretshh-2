@@ -18,14 +18,6 @@ type ProviderHit = {
 const UA =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36";
 
-const TRACKERS = [
-  "udp://tracker.opentrackr.org:1337/announce",
-  "udp://open.stealth.si:80/announce",
-  "udp://tracker.torrent.eu.org:451/announce",
-  "udp://tracker.dler.org:6969/announce",
-  "udp://exodus.desync.com:6969/announce",
-];
-
 function htmlDecode(value: string): string {
   return value
     .replace(/&amp;/g, "&")
@@ -52,7 +44,6 @@ function safeFilename(name: string): string {
 
 function inferType(url: string): DownloadItem["type"] {
   const lower = url.toLowerCase();
-  if (lower.startsWith("magnet:")) return "magnet";
   if (lower.includes(".torrent") || lower.includes("/torrent/")) return "torrent";
   if (lower.includes(".m3u8")) return "hls";
   if (lower.includes(".mkv")) return "mkv";
@@ -69,16 +60,12 @@ function qualityGuess(text: string): string {
   return "Auto";
 }
 
-function makeMagnet(infoHash: string, name: string): string {
-  const params = new URLSearchParams({ xt: `urn:btih:${infoHash}`, dn: name });
-  for (const tracker of TRACKERS) params.append("tr", tracker);
-  return `magnet:?${params.toString()}`;
-}
-
 function toItem(url: string, source: string, label: string, quality?: string, size?: string): DownloadItem | null {
   const u = url.trim();
-  if (!/^https?:\/\//i.test(u) && !/^magnet:/i.test(u)) return null;
+  if (!/^https?:\/\//i.test(u)) return null;
   const type = inferType(u);
+  // We only expose direct file downloads + .torrent files — no magnets.
+  if (type === "file" && u.startsWith("magnet:")) return null;
   const baseName = safeFilename(label || source || "download");
   return {
     id: `${source}-${u}`,
@@ -142,13 +129,11 @@ async function providerYts(input: Input): Promise<ProviderHit | null> {
     for (const movie of data.data.movies) {
       if (input.year && movie.year && String(movie.year) !== String(input.year)) continue;
       for (const t of movie.torrents || []) {
-        const hash = t.hash || "";
         const quality = t.quality || "Auto";
         const size = t.size || "";
         const torrentUrl = t.url || "";
         const name = `${movie.title} ${quality}`;
-        const magnet = hash ? makeMagnet(hash, name) : "";
-        const url = torrentUrl || magnet;
+        const url = torrentUrl;
         if (!url || seen.has(url)) continue;
         seen.add(url);
         const item = toItem(url, "YTS", name, quality, size);
@@ -176,11 +161,10 @@ function parseDlhub(html: string): DownloadItem[] {
     const quality = stripTags(chunk.match(/<span class="qbadge">([\s\S]*?)<\/span>/i)?.[1] || qualityGuess(name));
     const afterQuality = chunk.split(/<span class="qbadge">[\s\S]*?<\/span>/i)[1] || chunk;
     const size = stripTags(afterQuality.match(/<span class="small">([\s\S]*?)<\/span>/i)?.[1] || "");
-    const infoHash = attr(chunk, "info_hash");
-    const magnet = attr(chunk, "magnet") || (infoHash ? makeMagnet(infoHash, name) : "");
     const torrentUrl = attr(chunk, "torrent_url");
     const q = attr(chunk, "q");
-    const url = torrentUrl || (/^https?:\/\//i.test(q) ? q : "") || magnet;
+    const direct = /^https?:\/\//i.test(q) ? q : "";
+    const url = direct || torrentUrl;
     const item = toItem(url, "DLHub", name, quality, size);
     if (item) items.push(item);
   }
