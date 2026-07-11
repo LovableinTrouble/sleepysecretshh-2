@@ -114,6 +114,21 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
               Season {season ?? 1} · Episode {episode ?? 1}
             </p>
           )}
+          <button
+            type="button"
+            onClick={() => setWebtorOpen(true)}
+            className="mb-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-transparent p-4 text-left transition hover:border-primary/50 hover:from-primary/25"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-bold uppercase text-white">Torrent Streamer</p>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-white/50">
+                Upload a .torrent — stream instantly via webtor
+              </p>
+            </div>
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/20 text-primary">
+              <ChevronRight className="h-4 w-4" />
+            </div>
+          </button>
           {loading && (
             <div className="grid place-items-center py-12 text-white/60">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -164,6 +179,39 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
           </button>
         </div>
       </div>
+      {webtorOpen && (
+        <div
+          className="fixed inset-0 z-[110] flex flex-col bg-black/95 animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Torrent streamer"
+        >
+          <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-card/80 px-5 py-3 backdrop-blur-xl">
+            <div>
+              <p className="text-sm font-bold text-white">Torrent Streamer</p>
+              <p className="text-[11px] text-white/50">
+                Drop or pick a .torrent file — powered by webtor.io
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setWebtorOpen(false)}
+              className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-white/70 hover:bg-white/20"
+              aria-label="Close streamer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <iframe
+            src="https://webtor.io/"
+            title="webtor.io streamer"
+            className="h-full w-full flex-1 border-0 bg-black"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      )}
     </div>
   );
 }
