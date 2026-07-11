@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
-import { Download, Loader2, Play, X } from "lucide-react";
+import { ChevronRight, Download, Loader2, Play, X } from "lucide-react";
 import type { Media } from "@/lib/catalog";
 import type { DownloadItem } from "@/lib/downloads";
 
@@ -17,6 +17,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<DownloadItem[]>([]);
+  const [webtorOpen, setWebtorOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -27,7 +28,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     (async () => {
       try {
         const params = new URLSearchParams({
-          tmdbId: media.id,
+          tmdbId: String(media.id),
           title: media.title,
           type: isSeries ? "show" : "movie",
         });
@@ -67,7 +68,6 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     return `/api/public/download?${params.toString()}`;
   };
   const downloadHref = (item: DownloadItem) => {
-    if (item.url.startsWith("magnet:")) return item.url;
     if (isStream(item)) return item.url;
     return proxied(item.url, item.fileName);
   };
@@ -114,6 +114,21 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
               Season {season ?? 1} · Episode {episode ?? 1}
             </p>
           )}
+          <button
+            type="button"
+            onClick={() => setWebtorOpen(true)}
+            className="mb-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-transparent p-4 text-left transition hover:border-primary/50 hover:from-primary/25"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-bold uppercase text-white">Torrent Streamer</p>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-white/50">
+                Upload a .torrent — stream instantly via webtor
+              </p>
+            </div>
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/20 text-primary">
+              <ChevronRight className="h-4 w-4" />
+            </div>
+          </button>
           {loading && (
             <div className="grid place-items-center py-12 text-white/60">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -164,6 +179,39 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
           </button>
         </div>
       </div>
+      {webtorOpen && (
+        <div
+          className="fixed inset-0 z-[110] flex flex-col bg-black/95 animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Torrent streamer"
+        >
+          <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-card/80 px-5 py-3 backdrop-blur-xl">
+            <div>
+              <p className="text-sm font-bold text-white">Torrent Streamer</p>
+              <p className="text-[11px] text-white/50">
+                Drop or pick a .torrent file — powered by webtor.io
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setWebtorOpen(false)}
+              className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-white/70 hover:bg-white/20"
+              aria-label="Close streamer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <iframe
+            src="https://webtor.io/"
+            title="webtor.io streamer"
+            className="h-full w-full flex-1 border-0 bg-black"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      )}
     </div>
   );
 }

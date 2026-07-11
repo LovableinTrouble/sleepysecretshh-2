@@ -133,7 +133,12 @@ function Select({
   // stacking context (each Settings section has `backdrop-blur-xl`, which
   // creates one — without a portal the dropdown is trapped underneath
   // subsequent sibling sections).
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [menuPos, setMenuPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
 
   // Recompute position whenever the menu is open (handles scroll / resize).
   // The initial position is already set synchronously in the click handler,
@@ -179,8 +184,15 @@ function Select({
     if (!r) return null;
     const MENU_WIDTH = 208; // matches w-52
     const left = Math.max(8, Math.min(window.innerWidth - MENU_WIDTH - 8, r.right - MENU_WIDTH));
-    const top = r.bottom + 8;
-    return { top, left, width: MENU_WIDTH };
+    const GAP = 8;
+    const MARGIN = 12;
+    const estHeight = Math.min(options.length * 40 + 16, 360);
+    const spaceBelow = window.innerHeight - r.bottom - GAP - MARGIN;
+    const spaceAbove = r.top - GAP - MARGIN;
+    const openUp = spaceBelow < estHeight && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(160, Math.min(estHeight, openUp ? spaceAbove : spaceBelow));
+    const top = openUp ? Math.max(MARGIN, r.top - GAP - maxHeight) : r.bottom + GAP;
+    return { top, left, width: MENU_WIDTH, maxHeight };
   };
 
   return (
@@ -226,9 +238,11 @@ function Select({
               top: menuPos.top,
               left: menuPos.left,
               width: menuPos.width,
-              zIndex: 9999,
+              maxHeight: menuPos.maxHeight,
+              overflowY: "auto",
+              zIndex: 999999,
             }}
-            className="overflow-hidden rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl"
+            className="rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl"
           >
             {options.map((o) => (
               <button

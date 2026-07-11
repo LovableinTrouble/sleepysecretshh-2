@@ -18,14 +18,6 @@ type ProviderHit = {
 const UA =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36";
 
-const TRACKERS = [
-  "udp://tracker.opentrackr.org:1337/announce",
-  "udp://open.stealth.si:80/announce",
-  "udp://tracker.torrent.eu.org:451/announce",
-  "udp://tracker.dler.org:6969/announce",
-  "udp://exodus.desync.com:6969/announce",
-];
-
 function htmlDecode(value: string): string {
   return value
     .replace(/&amp;/g, "&")
@@ -52,7 +44,6 @@ function safeFilename(name: string): string {
 
 function inferType(url: string): DownloadItem["type"] {
   const lower = url.toLowerCase();
-  if (lower.startsWith("magnet:")) return "magnet";
   if (lower.includes(".torrent") || lower.includes("/torrent/")) return "torrent";
   if (lower.includes(".m3u8")) return "hls";
   if (lower.includes(".mkv")) return "mkv";
@@ -69,16 +60,12 @@ function qualityGuess(text: string): string {
   return "Auto";
 }
 
-function makeMagnet(infoHash: string, name: string): string {
-  const params = new URLSearchParams({ xt: `urn:btih:${infoHash}`, dn: name });
-  for (const tracker of TRACKERS) params.append("tr", tracker);
-  return `magnet:?${params.toString()}`;
-}
-
 function toItem(url: string, source: string, label: string, quality?: string, size?: string): DownloadItem | null {
   const u = url.trim();
-  if (!/^https?:\/\//i.test(u) && !/^magnet:/i.test(u)) return null;
+  if (!/^https?:\/\//i.test(u)) return null;
   const type = inferType(u);
+  // We only expose direct file downloads + .torrent files — no magnets.
+  if (type === "file" && u.startsWith("magnet:")) return null;
   const baseName = safeFilename(label || source || "download");
   return {
     id: `${source}-${u}`,
@@ -142,13 +129,11 @@ async function providerYts(input: Input): Promise<ProviderHit | null> {
     for (const movie of data.data.movies) {
       if (input.year && movie.year && String(movie.year) !== String(input.year)) continue;
       for (const t of movie.torrents || []) {
-        const hash = t.hash || "";
         const quality = t.quality || "Auto";
         const size = t.size || "";
         const torrentUrl = t.url || "";
         const name = `${movie.title} ${quality}`;
-        const magnet = hash ? makeMagnet(hash, name) : "";
-        const url = torrentUrl || magnet;
+        const url = torrentUrl;
         if (!url || seen.has(url)) continue;
         seen.add(url);
         const item = toItem(url, "YTS", name, quality, size);
@@ -176,11 +161,10 @@ function parseDlhub(html: string): DownloadItem[] {
     const quality = stripTags(chunk.match(/<span class="qbadge">([\s\S]*?)<\/span>/i)?.[1] || qualityGuess(name));
     const afterQuality = chunk.split(/<span class="qbadge">[\s\S]*?<\/span>/i)[1] || chunk;
     const size = stripTags(afterQuality.match(/<span class="small">([\s\S]*?)<\/span>/i)?.[1] || "");
-    const infoHash = attr(chunk, "info_hash");
-    const magnet = attr(chunk, "magnet") || (infoHash ? makeMagnet(infoHash, name) : "");
     const torrentUrl = attr(chunk, "torrent_url");
     const q = attr(chunk, "q");
-    const url = torrentUrl || (/^https?:\/\//i.test(q) ? q : "") || magnet;
+    const direct = /^https?:\/\//i.test(q) ? q : "";
+    const url = direct || torrentUrl;
     const item = toItem(url, "DLHub", name, quality, size);
     if (item) items.push(item);
   }
@@ -269,53 +253,71 @@ async function providerVyla(input: Input): Promise<ProviderHit | null> {
 }
 
 /* ============================================================
- * 1337x provider — scrapes 1337x search for torrent/magnet links.
- * Works for both movies and TV shows.
+ * Direct source providers — try to return playable mp4 / m3u8
+ * URLs sourced from public TMDB-keyed embed APIs. When they
+ * work, users get direct downloads instead of .torrent files.
  * ============================================================ */
 
-async function provider1337x(input: Input): Promise<ProviderHit | null> {
-  try {
-    const title = input.title.trim();
-    let query = title;
-    if (input.type === "show") {
-      const s = String(input.season ?? 1).padStart(2, "0");
-      const e = String(input.episode ?? 1).padStart(2, "0");
-      query = `${title} S${s}E${e}`;
-    } else if (input.year) {
-      query = `${title} ${input.year}`;
-    }
+async function providerAutoEmbed(input: Input): Promise<ProviderHit | null> {
+  const bases = ["https://tom.autoembed.cc", "https://autoembed.cc"];
+  const path =
+    input.type === "show"
+      ? `/api/getVideoSource?type=tv&id=${input.tmdbId}/${input.season ?? 1}/${input.episode ?? 1}`
+      : `/api/getVideoSource?type=movie&id=${input.tmdbId}`;
 
-    const searchUrl = `https://1337x.to/search/${encodeURIComponent(query)}/1/`;
-    const html = await fetchText(searchUrl, {
-      headers: { "user-agent": UA, referer: "https://1337x.to/" },
-    }).catch(() => "");
-    if (!html) return null;
-
-    const downloads: DownloadItem[] = [];
-    const seen = new Set<string>();
-
-    const rowRegex = /<a href="(https:\/\/1337x\.to\/torrent\/\d+\/[^"]+)"[^>]*class="[^"]*"[^>]*>([^<]+)<\/a>/gi;
-    let match: RegExpExecArray | null;
-    while ((match = rowRegex.exec(html)) !== null && downloads.length < 8) {
-      const detailUrl = match[1];
-      const name = stripTags(match[2]);
-      if (seen.has(detailUrl)) continue;
-      seen.add(detailUrl);
-
-      const detailHtml = await fetchText(detailUrl, {
-        headers: { "user-agent": UA, referer: "https://1337x.to/" },
-      }).catch(() => "");
-      if (!detailHtml) continue;
-
-      const magnetMatch = detailHtml.match(/href="(magnet:\?xt=urn:btih:[^"]+)"/i);
-      const sizeMatch = detailHtml.match(/<strong>([\d.]+\s*[KMGT]B)<\/strong>/i);
-      if (magnetMatch) {
-        const item = toItem(magnetMatch[1], "1337x", name, qualityGuess(name), sizeMatch?.[1]);
+  for (const base of bases) {
+    try {
+      const data = await fetchJson(`${base}${path}`);
+      const sources: any[] = Array.isArray(data?.videoSource)
+        ? data.videoSource
+        : Array.isArray(data?.sources)
+          ? data.sources
+          : data?.url
+            ? [{ url: data.url, quality: data.quality }]
+            : [];
+      const subs: DownloadsResult["subtitles"] = (Array.isArray(data?.subtitles) ? data.subtitles : [])
+        .map((s: any) => ({
+          url: String(s?.url || s?.file || ""),
+          label: String(s?.label || s?.lang || s?.language || "Unknown"),
+          language: String(s?.language || s?.lang || s?.label || ""),
+          type: /\.vtt/i.test(String(s?.url || s?.file || "")) ? ("vtt" as const) : ("srt" as const),
+        }))
+        .filter((s: any) => s.url);
+      const downloads: DownloadItem[] = [];
+      for (const src of sources) {
+        const url = String(src?.url || src?.file || "");
+        if (!url) continue;
+        const q = String(src?.quality || src?.label || qualityGuess(url));
+        const item = toItem(url, "AutoEmbed", `${input.title} ${q}`, q);
         if (item) downloads.push(item);
       }
+      if (downloads.length) return { downloads, subs };
+    } catch {
+      /* try next base */
     }
+  }
+  return null;
+}
 
-    return downloads.length ? { downloads, subs: [] } : null;
+async function providerRgShows(input: Input): Promise<ProviderHit | null> {
+  try {
+    const url =
+      input.type === "show"
+        ? `https://api.rgshows.me/main/tv/${input.tmdbId}/${input.season ?? 1}/${input.episode ?? 1}`
+        : `https://api.rgshows.me/main/movie/${input.tmdbId}`;
+    const data = await fetchJson(url);
+    const stream = data?.stream;
+    if (!stream?.url) return null;
+    const item = toItem(String(stream.url), "RgShows", `${input.title} ${stream.quality || "Auto"}`, stream.quality);
+    const subs: DownloadsResult["subtitles"] = (Array.isArray(stream.captions) ? stream.captions : [])
+      .map((c: any) => ({
+        url: String(c?.url || ""),
+        label: String(c?.language || c?.label || "Unknown"),
+        language: String(c?.language || ""),
+        type: /\.vtt/i.test(String(c?.url || "")) ? ("vtt" as const) : ("srt" as const),
+      }))
+      .filter((c: any) => c.url);
+    return item ? { downloads: [item], subs } : null;
   } catch {
     return null;
   }
@@ -323,7 +325,7 @@ async function provider1337x(input: Input): Promise<ProviderHit | null> {
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   try {
-    const providers = [providerYts, providerDlhub, provider1337x, providerVyla];
+    const providers = [providerAutoEmbed, providerRgShows, providerYts, providerDlhub, providerVyla];
     const results = await Promise.all(
       providers.map((fn) => Promise.resolve().then(() => fn(input)).catch(() => null)),
     );
