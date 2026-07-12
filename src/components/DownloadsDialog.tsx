@@ -281,14 +281,58 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
               <X className="h-4 w-4" />
             </button>
           </div>
-          <iframe
-            src="https://webtor.io/"
-            title="webtor.io streamer"
-            className="h-full w-full flex-1 border-0 bg-black"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowFullScreen
-            referrerPolicy="no-referrer"
-          />
+          <div className="relative flex-1 overflow-hidden bg-black">
+            {!torrentUrl && (
+              <label
+                htmlFor="sleepy-torrent-input"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const f = e.dataTransfer.files?.[0];
+                  if (f) pickTorrent(f);
+                }}
+                className="absolute inset-0 grid cursor-pointer place-items-center px-6"
+              >
+                <div className="flex max-w-md flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-white/15 bg-white/5 px-8 py-12 text-center transition hover:border-primary/40 hover:bg-primary/5">
+                  <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/15 text-primary">
+                    <Upload className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-base font-bold text-white">Drop a .torrent file</p>
+                    <p className="mt-1 text-xs text-white/50">
+                      or click to browse — streamed instantly via webtor
+                    </p>
+                  </div>
+                  {webtorErr && <p className="text-xs text-destructive">{webtorErr}</p>}
+                </div>
+                <input
+                  id="sleepy-torrent-input"
+                  type="file"
+                  accept=".torrent,application/x-bittorrent"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) pickTorrent(f);
+                  }}
+                />
+              </label>
+            )}
+            {torrentUrl && (
+              <div className="absolute inset-0">
+                <div id="sleepy-webtor-player" className="webtor h-full w-full" />
+                {!webtorReady && !webtorErr && (
+                  <div className="pointer-events-none absolute inset-0 grid place-items-center text-white/60">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                )}
+                {webtorErr && (
+                  <div className="absolute inset-0 grid place-items-center px-6 text-center text-sm text-destructive">
+                    {webtorErr}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
