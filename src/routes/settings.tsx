@@ -401,19 +401,17 @@ function SettingsPage() {
 
         <a
           href="/install"
-          className="group flex items-center gap-4 rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/15 to-transparent p-5 transition hover:border-primary/50 hover:from-primary/20"
+          className="group flex items-center gap-3 rounded-2xl border border-glass-border bg-card/40 px-4 py-3 backdrop-blur-xl transition hover:border-primary/40 hover:bg-card/60"
         >
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/20 ring-1 ring-primary/30">
-            <Download className="h-6 w-6 text-primary" />
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+            <Download className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-bold">Get the Android app</div>
-            <div className="mt-0.5 text-xs text-muted-foreground">
-              Instant startup, offline downloads, no ads.
-            </div>
+            <div className="text-sm font-semibold">Android app</div>
+            <div className="text-[11px] text-muted-foreground">Instant startup · offline · no ads</div>
           </div>
-          <span className="shrink-0 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition group-hover:brightness-110">
-            Download
+          <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-primary-foreground transition group-hover:brightness-110">
+            Get
           </span>
         </a>
 
