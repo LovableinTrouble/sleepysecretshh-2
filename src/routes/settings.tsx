@@ -417,6 +417,21 @@ function SettingsPage() {
           </span>
         </a>
 
+        {/* Febbox token — surfaced at the top so users can wire premium access
+            immediately without hunting through the integrations section. */}
+        <Section
+          title="Febbox cookie"
+          desc="Unlocks premium sources inside the CineSrc player. Paste your Febbox UI token."
+        >
+          <IntegrationCard
+            name="Febbox"
+            desc="Token is passed to the embed as the `febbox` query param."
+            placeholder="Febbox token / cookie"
+            value={ints.febboxToken}
+            onChange={(v) => setInt({ febboxToken: v })}
+          />
+        </Section>
+
         {/* p-stream region — picks the closest CDN/proxy edge for subtitles. */}
         <Section
           title="Streaming region"
