@@ -204,21 +204,48 @@ async function providerYts(input: Input): Promise<ProviderHit | null> {
  * file links (.torrent, magnet, and direct file URLs).
  * ============================================================ */
 
-function parseDlhub(html: string, _requestedTitle: string): DownloadItem[] {
+/** Parse DLHub search results by finding all download forms.
+ *  Each form has hidden inputs for magnet, torrent_url, q, info_hash.
+ *  The vname/qbadge/small elements appear in the surrounding variant div.
+ *  We find each form, then search backwards for the vname/qbadge/small
+ *  that precede it in the same variant block. */
+function parseDlhub(html: string, requestedTitle: string): DownloadItem[] {
   const items: DownloadItem[] = [];
-  const chunks = html.match(/<div class="variant[^"]*"[\s\S]*?<form[\s\S]*?<\/form>[\s\S]*?<\/div>/gi) || [];
 
-  for (const chunk of chunks) {
-    const name = stripTags(chunk.match(/<div class="vname">([\s\S]*?)<\/div>/i)?.[1] || "Download");
-    // Only filter by title when a title was provided; skip filter otherwise.
-    if (_requestedTitle && !titleMatches(name, _requestedTitle)) continue;
-    const quality = stripTags(chunk.match(/<span class="qbadge">([\s\S]*?)<\/span>/i)?.[1] || qualityGuess(name));
-    const afterQuality = chunk.split(/<span class="qbadge">[\s\S]*?<\/span>/i)[1] || chunk;
-    const size = stripTags(afterQuality.match(/<span class="small">([\s\S]*?)<\/span>/i)?.[1] || "");
-    const torrentUrl = attr(chunk, "torrent_url");
-    const q = attr(chunk, "q");
+  // Find all download forms with their positions.
+  const formRegex = /<form[^>]*action="\/download"[^>]*>[\s\S]*?<\/form>/gi;
+  let formMatch: RegExpExecArray | null;
+
+  while ((formMatch = formRegex.exec(html)) !== null) {
+    const form = formMatch[0];
+    const formStart = formMatch.index;
+
+    // Skip JS template literals (they contain ${...} or esc() calls).
+    if (form.includes("esc(") || form.includes("${")) continue;
+
+    // Search backwards from the form for the nearest vname, qbadge, and small.
+    const context = html.slice(Math.max(0, formStart - 500), formStart);
+
+    const nameMatch = context.match(/<div class="vname">([\s\S]*?)<\/div>/i);
+    const name = nameMatch ? stripTags(nameMatch[1]) : `Download`;
+
+    // Filter by title when requested.
+    if (requestedTitle && !titleMatches(name, requestedTitle)) continue;
+
+    const qbadgeMatch = context.match(/<span class="qbadge">([\s\S]*?)<\/span>/i);
+    const quality = qbadgeMatch ? stripTags(qbadgeMatch[1]) : qualityGuess(name);
+
+    // Size appears after the qbadge — search in the context after qbadge.
+    const smallMatch = context.match(/<span class="small">([\s\S]*?)<\/span>/i);
+    const size = smallMatch ? stripTags(smallMatch[1]) : "";
+
+    // Prefer magnet link, then torrent URL, then direct q URL.
+    const magnet = attr(form, "magnet");
+    const torrentUrl = attr(form, "torrent_url");
+    const q = attr(form, "q");
     const direct = /^https?:\/\//i.test(q) ? q : "";
-    const url = direct || torrentUrl;
+    const url = magnet || direct || torrentUrl;
+
     const item = toItem(url, "DLHub", name, quality, size);
     if (item) items.push(item);
   }
@@ -252,6 +279,7 @@ async function providerDlhub(input: Input): Promise<ProviderHit | null> {
   for (const query of dlhubQueries(input)) {
     const body = new URLSearchParams(query).toString();
     const html = await fetchText("https://dlhub.cc/search", { method: "POST", body }).catch(() => "");
+    if (!html) continue;
     const parsed = parseDlhub(html, input.title);
     // If title matching filters everything out, fall back to unfiltered results
     // rather than returning nothing.
@@ -261,10 +289,10 @@ async function providerDlhub(input: Input): Promise<ProviderHit | null> {
       seen.add(item.url);
       downloads.push(item);
     }
-    if (downloads.length >= 8) break;
+    if (downloads.length >= 10) break;
   }
 
-  return downloads.length ? { downloads: downloads.slice(0, 12), subs: [] } : null;
+  return downloads.length ? { downloads: downloads.slice(0, 15), subs: [] } : null;
 }
 
 /* ============================================================
@@ -383,7 +411,9 @@ async function providerRgShows(input: Input): Promise<ProviderHit | null> {
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   try {
-    const providers = [providerAutoEmbed, providerRgShows, providerYts, providerDlhub, providerVyla];
+    // DLHub is the primary provider — it returns magnet links that work with WebTor.
+    // AutoEmbed/RgShows provide direct streams. YTS is a fallback for movies.
+    const providers = [providerDlhub, providerAutoEmbed, providerRgShows, providerYts, providerVyla];
     const results = await Promise.all(
       providers.map((fn) => Promise.resolve().then(() => fn(input)).catch(() => null)),
     );

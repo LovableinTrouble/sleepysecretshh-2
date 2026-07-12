@@ -179,9 +179,14 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     setWebtorMagnet(null);
   };
 
-  const streamMagnet = (magnet: string) => {
-    setWebtorMagnet(magnet);
-    setTorrentUrl(null);
+  const streamMagnet = (url: string) => {
+    if (url.startsWith("magnet:")) {
+      setWebtorMagnet(url);
+      setTorrentUrl(null);
+    } else {
+      setTorrentUrl(url);
+      setWebtorMagnet(null);
+    }
     setTorrentName(null);
     setWebtorOpen(true);
   };
@@ -294,6 +299,18 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
                       </div>
                     </a>
                     {magnet && (
+                      <button
+                        type="button"
+                        onClick={() => streamMagnet(it.url)}
+                        className="group flex shrink-0 items-center gap-2 rounded-2xl border border-primary/25 bg-primary/10 px-3 transition hover:border-primary/50 hover:bg-primary/15"
+                        aria-label="Stream via WebTor"
+                        title="Stream via WebTor"
+                      >
+                        <Zap className="h-4 w-4 text-primary" />
+                        <span className="text-[11px] font-bold text-primary">Stream</span>
+                      </button>
+                    )}
+                    {!magnet && it.type === "torrent" && (
                       <button
                         type="button"
                         onClick={() => streamMagnet(it.url)}

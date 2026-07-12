@@ -301,12 +301,18 @@ function WebTorStreamPlayer({
         if (dead) return;
         const data = await res.json();
         if (dead) return;
-        const magnetItems = (data.downloads || []).filter(
+        const allDownloads: DownloadItem[] = data.downloads || [];
+        // Prefer magnet links, but fall back to .torrent URLs for WebTor.
+        const magnetItems = allDownloads.filter(
           (d: DownloadItem) => d.type === "magnet" || d.url.startsWith("magnet:"),
         );
-        if (magnetItems.length > 0) {
-          setMagnets(magnetItems);
-          setActiveMagnet(magnetItems[0].url);
+        const torrentItems = allDownloads.filter(
+          (d: DownloadItem) => d.type === "torrent" || /\.torrent($|\?)/i.test(d.url),
+        );
+        const streamable = magnetItems.length > 0 ? magnetItems : torrentItems;
+        if (streamable.length > 0) {
+          setMagnets(streamable);
+          setActiveMagnet(streamable[0].url);
           setPhase("found");
         } else {
           setPhase("error");
@@ -350,7 +356,11 @@ function WebTorStreamPlayer({
             }
           },
         };
-        config.magnet = activeMagnet;
+        if (activeMagnet.startsWith("magnet:")) {
+          config.magnet = activeMagnet;
+        } else {
+          config.torrentUrl = activeMagnet;
+        }
         (window as any).webtor = (window as any).webtor || [];
         (window as any).webtor.push(config);
         setTimeout(() => {
