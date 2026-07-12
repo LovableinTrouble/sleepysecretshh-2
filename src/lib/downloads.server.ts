@@ -44,6 +44,7 @@ function safeFilename(name: string): string {
 
 function inferType(url: string): DownloadItem["type"] {
   const lower = url.toLowerCase();
+  if (lower.startsWith("magnet:")) return "magnet";
   if (lower.includes(".torrent") || lower.includes("/torrent/")) return "torrent";
   if (lower.includes(".m3u8")) return "hls";
   if (lower.includes(".mkv")) return "mkv";
@@ -58,6 +59,20 @@ function qualityGuess(text: string): string {
   if (/480/i.test(text)) return "480p";
   if (/3d/i.test(text)) return "3D";
   return "Auto";
+}
+
+const TRACKERS = [
+  "udp://tracker.opentrackr.org:1337/announce",
+  "udp://open.stealth.si:80/announce",
+  "udp://tracker.torrent.eu.org:451/announce",
+  "udp://tracker.dler.org:6969/announce",
+  "udp://exodus.desync.com:6969/announce",
+];
+
+function makeMagnet(infoHash: string, name: string): string {
+  const params = new URLSearchParams({ xt: `urn:btih:${infoHash}`, dn: name });
+  for (const tracker of TRACKERS) params.append("tr", tracker);
+  return `magnet:?${params.toString()}`;
 }
 
 function toItem(url: string, source: string, label: string, quality?: string, size?: string): DownloadItem | null {
@@ -88,24 +103,24 @@ function normalizeTitle(s: string): string {
     .trim();
 }
 
-/** Check if a candidate title is an exact (or near-exact) match for the
- *  requested title. Prevents returning downloads for similarly-named movies. */
+/** Check if a candidate title is a match for the requested title.
+ *  Uses normalized comparison with prefix matching to avoid false positives
+ *  like "Inception 2" matching "Inception", while still allowing quality/year
+ *  suffixes like "Inception 2010 1080p" to match "Inception". */
 function titleMatches(candidate: string, requested: string): boolean {
   const c = normalizeTitle(candidate);
   const r = normalizeTitle(requested);
   if (!c || !r) return false;
   if (c === r) return true;
-  // Allow the candidate to contain the requested title as a prefix or exact
-  // substring (e.g. "Inception 2010 1080p" matches "Inception").
-  if (c.startsWith(r + " ") || c.startsWith(r)) return true;
-  // Reject if the candidate has extra words that make it a different title.
-  // E.g. "Inception 2" should NOT match "Inception".
-  const rWords = r.split(" ");
-  const cWords = c.split(" ");
-  if (rWords.length === 0) return false;
-  // Every word of the requested title must appear in order at the start.
-  for (let i = 0; i < rWords.length; i++) {
-    if (cWords[i] !== rWords[i]) return false;
+  // Candidate must start with the full requested title.
+  if (!c.startsWith(r + " ") && !c.startsWith(r)) return false;
+  // Check that the word AFTER the requested title isn't a sequel number
+  // or a different title word (e.g. "inception 2" should NOT match "inception").
+  const after = c.slice(r.length).trim();
+  if (after) {
+    const nextWord = after.split(" ")[0];
+    // Reject sequel-like patterns: "2", "3", "ii", "iii", "reboot", etc.
+    if (/^(2|3|4|5|6|7|8|9|ii|iii|iv|v|vi|reboot|remake|sequel)$/.test(nextWord)) return false;
   }
   return true;
 }
@@ -152,23 +167,25 @@ async function providerYts(input: Input): Promise<ProviderHit | null> {
   if (input.type === "show") return null;
   try {
     const term = encodeURIComponent(input.title);
-    const data = await fetchJson(`https://yts.mx/api/v2/list_movies.json?query_term=${term}&limit=5`);
+    const data = await fetchJson(`https://yts.mx/api/v2/list_movies.json?query_term=${term}&limit=20`);
     if (!data?.data?.movies?.length) return null;
 
     const downloads: DownloadItem[] = [];
     const seen = new Set<string>();
 
-    const requestedNorm = normalizeTitle(input.title);
     for (const movie of data.data.movies) {
-      // YTS does fuzzy matching on query_term — filter to exact title only.
-      if (normalizeTitle(movie.title) !== requestedNorm) continue;
+      // Use titleMatches to filter out wrong movies with similar names.
+      if (!titleMatches(movie.title, input.title)) continue;
       if (input.year && movie.year && String(movie.year) !== String(input.year)) continue;
       for (const t of movie.torrents || []) {
         const quality = t.quality || "Auto";
         const size = t.size || "";
         const torrentUrl = t.url || "";
+        const hash = t.hash || "";
         const name = `${movie.title} ${quality}`;
-        const url = torrentUrl;
+        // Generate a magnet link from the info hash so WebTor can stream it.
+        const magnet = hash ? makeMagnet(hash, name) : "";
+        const url = magnet || torrentUrl;
         if (!url || seen.has(url)) continue;
         seen.add(url);
         const item = toItem(url, "YTS", name, quality, size);
@@ -193,8 +210,8 @@ function parseDlhub(html: string, _requestedTitle: string): DownloadItem[] {
 
   for (const chunk of chunks) {
     const name = stripTags(chunk.match(/<div class="vname">([\s\S]*?)<\/div>/i)?.[1] || "Download");
-    // Only include results whose name matches the requested title.
-    if (!titleMatches(name, _requestedTitle)) continue;
+    // Only filter by title when a title was provided; skip filter otherwise.
+    if (_requestedTitle && !titleMatches(name, _requestedTitle)) continue;
     const quality = stripTags(chunk.match(/<span class="qbadge">([\s\S]*?)<\/span>/i)?.[1] || qualityGuess(name));
     const afterQuality = chunk.split(/<span class="qbadge">[\s\S]*?<\/span>/i)[1] || chunk;
     const size = stripTags(afterQuality.match(/<span class="small">([\s\S]*?)<\/span>/i)?.[1] || "");
@@ -235,7 +252,11 @@ async function providerDlhub(input: Input): Promise<ProviderHit | null> {
   for (const query of dlhubQueries(input)) {
     const body = new URLSearchParams(query).toString();
     const html = await fetchText("https://dlhub.cc/search", { method: "POST", body }).catch(() => "");
-    for (const item of parseDlhub(html, input.title)) {
+    const parsed = parseDlhub(html, input.title);
+    // If title matching filters everything out, fall back to unfiltered results
+    // rather than returning nothing.
+    const filtered = parsed.length > 0 ? parsed : parseDlhub(html, "");
+    for (const item of filtered) {
       if (seen.has(item.url)) continue;
       seen.add(item.url);
       downloads.push(item);
