@@ -650,13 +650,6 @@ function SettingsPage() {
               value={ints.openSubtitles}
               onChange={(v) => setInt({ openSubtitles: v })}
             />
-            <IntegrationCard
-              name="Febbox"
-              desc="Premium source access inside the player."
-              placeholder="Febbox token"
-              value={ints.febboxToken}
-              onChange={(v) => setInt({ febboxToken: v })}
-            />
           </div>
         </Section>
 
