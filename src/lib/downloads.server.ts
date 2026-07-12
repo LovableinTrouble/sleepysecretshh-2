@@ -62,10 +62,8 @@ function qualityGuess(text: string): string {
 
 function toItem(url: string, source: string, label: string, quality?: string, size?: string): DownloadItem | null {
   const u = url.trim();
-  if (!/^https?:\/\//i.test(u)) return null;
+  if (!/^https?:\/\//i.test(u) && !/^magnet:/i.test(u)) return null;
   const type = inferType(u);
-  // We only expose direct file downloads + .torrent files — no magnets.
-  if (type === "file" && u.startsWith("magnet:")) return null;
   const baseName = safeFilename(label || source || "download");
   return {
     id: `${source}-${u}`,
@@ -76,6 +74,40 @@ function toItem(url: string, source: string, label: string, quality?: string, si
     size: size || undefined,
     fileName: type === "torrent" ? `${baseName}.torrent` : undefined,
   };
+}
+
+/** Normalize a title for exact-match comparison: lowercase, strip punctuation,
+ *  collapse whitespace, remove common articles. */
+function normalizeTitle(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[\u2018\u2019'".,!?:;()\[\]{}]/g, "")
+    .replace(/\b(the|a|an)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Check if a candidate title is an exact (or near-exact) match for the
+ *  requested title. Prevents returning downloads for similarly-named movies. */
+function titleMatches(candidate: string, requested: string): boolean {
+  const c = normalizeTitle(candidate);
+  const r = normalizeTitle(requested);
+  if (!c || !r) return false;
+  if (c === r) return true;
+  // Allow the candidate to contain the requested title as a prefix or exact
+  // substring (e.g. "Inception 2010 1080p" matches "Inception").
+  if (c.startsWith(r + " ") || c.startsWith(r)) return true;
+  // Reject if the candidate has extra words that make it a different title.
+  // E.g. "Inception 2" should NOT match "Inception".
+  const rWords = r.split(" ");
+  const cWords = c.split(" ");
+  if (rWords.length === 0) return false;
+  // Every word of the requested title must appear in order at the start.
+  for (let i = 0; i < rWords.length; i++) {
+    if (cWords[i] !== rWords[i]) return false;
+  }
+  return true;
 }
 
 async function fetchJson(url: string, init?: RequestInit): Promise<any> {
@@ -126,7 +158,10 @@ async function providerYts(input: Input): Promise<ProviderHit | null> {
     const downloads: DownloadItem[] = [];
     const seen = new Set<string>();
 
+    const requestedNorm = normalizeTitle(input.title);
     for (const movie of data.data.movies) {
+      // YTS does fuzzy matching on query_term — filter to exact title only.
+      if (normalizeTitle(movie.title) !== requestedNorm) continue;
       if (input.year && movie.year && String(movie.year) !== String(input.year)) continue;
       for (const t of movie.torrents || []) {
         const quality = t.quality || "Auto";
@@ -152,12 +187,14 @@ async function providerYts(input: Input): Promise<ProviderHit | null> {
  * file links (.torrent, magnet, and direct file URLs).
  * ============================================================ */
 
-function parseDlhub(html: string): DownloadItem[] {
+function parseDlhub(html: string, _requestedTitle: string): DownloadItem[] {
   const items: DownloadItem[] = [];
   const chunks = html.match(/<div class="variant[^"]*"[\s\S]*?<form[\s\S]*?<\/form>[\s\S]*?<\/div>/gi) || [];
 
   for (const chunk of chunks) {
     const name = stripTags(chunk.match(/<div class="vname">([\s\S]*?)<\/div>/i)?.[1] || "Download");
+    // Only include results whose name matches the requested title.
+    if (!titleMatches(name, _requestedTitle)) continue;
     const quality = stripTags(chunk.match(/<span class="qbadge">([\s\S]*?)<\/span>/i)?.[1] || qualityGuess(name));
     const afterQuality = chunk.split(/<span class="qbadge">[\s\S]*?<\/span>/i)[1] || chunk;
     const size = stripTags(afterQuality.match(/<span class="small">([\s\S]*?)<\/span>/i)?.[1] || "");
@@ -198,7 +235,7 @@ async function providerDlhub(input: Input): Promise<ProviderHit | null> {
   for (const query of dlhubQueries(input)) {
     const body = new URLSearchParams(query).toString();
     const html = await fetchText("https://dlhub.cc/search", { method: "POST", body }).catch(() => "");
-    for (const item of parseDlhub(html)) {
+    for (const item of parseDlhub(html, input.title)) {
       if (seen.has(item.url)) continue;
       seen.add(item.url);
       downloads.push(item);

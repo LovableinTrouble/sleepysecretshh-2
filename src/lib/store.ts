@@ -63,7 +63,7 @@ export interface Settings {
   preferredSource: string;
   preferredDownloadSource: string;
   /** Main embed provider used for the video player. */
-  embedProvider: "vidsrc";
+  embedProvider: "vidsrc" | "webtor";
   /** Optional custom theme values applied when `theme === "custom"`. */
   customTheme: { primary: string; background: string } | null;
   language: "en" | "es" | "fr" | "ja" | "de";

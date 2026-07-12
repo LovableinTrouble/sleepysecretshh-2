@@ -2,19 +2,20 @@ import type { Media } from "./catalog";
 import { getSettings } from "./store";
 
 /**
- * Source registry — Prionix is the only source (third-party iframe embed
- * backed by zxcstream.xyz).
+ * Source registry — CineSrc is the default embed source (third-party iframe
+ * embed backed by zxcstream.xyz). WebTor is an alternative that streams
+ * torrents directly in-browser via the webtor.io embed SDK.
  */
 export interface Source {
   id: string;
   name: string;
   badge?: string;
-  kind: "embed";
-  tier: "primary";
+  kind: "embed" | "webtor";
+  tier: "primary" | "alt";
   build: (m: Media, season?: number, episode?: number) => string;
 }
 
-export type SourceKey = "prionix";
+export type SourceKey = "prionix" | "webtor";
 
 const PRIONIX: Source = {
   id: "prionix",
@@ -27,7 +28,6 @@ const PRIONIX: Source = {
     const base = isShow
       ? `https://cinesrc.st/embed/tv/${m.id}?s=${season}&e=${episode}`
       : `https://cinesrc.st/embed/movie/${m.id}`;
-    // Sleepy accent (indigo) — pass as hex with %23 replaced by URLSearchParams.
     const params = new URLSearchParams({
       color: "#6366f1",
       autoplay: "true",
@@ -47,16 +47,41 @@ const PRIONIX: Source = {
   },
 };
 
-export const SOURCES: Source[] = [PRIONIX];
+/**
+ * WebTor source — builds a magnet-search URL that the StreamPlayer uses
+ * to find a matching torrent and stream it via the webtor.io SDK.
+ * The build() returns a search query string (not a direct embed URL)
+ * that the WebTorStreamPlayer component uses to find magnet links.
+ */
+const WEBTOR: Source = {
+  id: "webtor",
+  name: "WebTor",
+  badge: "Beta",
+  kind: "webtor",
+  tier: "alt",
+  build: (m, season, episode) => {
+    const isShow = m.type !== "movie" && season != null && episode != null;
+    if (isShow) {
+      const s = String(season).padStart(2, "0");
+      const e = String(episode).padStart(2, "0");
+      return `${m.title} S${s}E${e}`;
+    }
+    return m.year ? `${m.title} ${m.year}` : m.title;
+  },
+};
+
+export const SOURCES: Source[] = [PRIONIX, WEBTOR];
 
 export function getOrderedSources(): Source[] {
-  return [PRIONIX];
+  return [PRIONIX, WEBTOR];
 }
 
-export function sourceForKey(_key: SourceKey): Source {
+export function sourceForKey(key: SourceKey): Source {
+  if (key === "webtor") return WEBTOR;
   return PRIONIX;
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
   prionix: "Prionix",
+  webtor: "WebTor",
 };

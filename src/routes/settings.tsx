@@ -460,12 +460,22 @@ function SettingsPage() {
         </Section>
 
         {/* Sources */}
-        <Section title="Sources" desc="Prionix is the streaming provider.">
-          <Row label="Prionix" hint="Third-party iframe embed used for playback.">
-            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
-              Ready
-            </span>
+        <Section title="Sources" desc="Pick the default streaming source. CineSrc is recommended; WebTor streams torrents in-browser.">
+          <Row label="Default source" hint="CineSrc embeds a third-party player. WebTor finds and streams torrents directly.">
+            <Select
+              value={s.embedProvider}
+              onChange={(v) => set({ embedProvider: v as Settings["embedProvider"] })}
+              options={[
+                { value: "vidsrc", label: "CineSrc (recommended)" },
+                { value: "webtor", label: "WebTor (torrent streaming)" },
+              ]}
+            />
           </Row>
+          {s.embedProvider === "webtor" && (
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300/80">
+              WebTor streams torrents via webtor.io — playback depends on torrent availability and seeders. Not all titles will be available.
+            </div>
+          )}
         </Section>
 
         {/* Theme picker */}

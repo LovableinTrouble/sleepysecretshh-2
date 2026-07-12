@@ -65,7 +65,7 @@ export const aiSearchTitles = createServerFn({ method: "POST" })
       const { text } = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
         system:
-          "You recommend movies and TV shows. Given a user's query (mood, genre, actor, theme, description, or vibe), respond with ONLY a JSON array of 8-12 real title strings, most relevant first. No prose, no keys, no markdown — just the raw JSON array.",
+          "You are a movie/TV search assistant. Given a user's query, identify the SINGLE most likely specific movie or TV show they are referring to. Respond with ONLY a JSON array of 1-3 exact title strings (no year, no extra info), most likely first. If the query is vague or describes a mood/genre, return up to 5 specific titles. No prose, no keys, no markdown — just the raw JSON array.",
         prompt: data.query,
       });
       const match = text.match(/\[[\s\S]*\]/);

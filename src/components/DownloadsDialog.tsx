@@ -4,8 +4,18 @@ import { Download, Loader2, Play, Upload, X, Zap } from "lucide-react";
 import type { Media } from "@/lib/catalog";
 import type { DownloadItem } from "@/lib/downloads";
 
-const WEBTOR_SDK_URL = "/vendor/webtor-embed-sdk.min.js";
+/* ============================================================
+ * WebTor Embed SDK — loaded from the official CDN per
+ * https://github.com/webtor-io/embed-sdk-js
+ * The SDK auto-initializes `window.webtor` and exposes a
+ * `push(config)` method that creates an iframe player at
+ * `{baseUrl}/show?id={uuid}&mode=video`, passing the magnet
+ * or torrentUrl via postMessage after the iframe loads.
+ * ============================================================ */
+
+const WEBTOR_SDK_URL = "https://cdn.jsdelivr.net/npm/@webtor/embed-sdk-js/dist/index.min.js";
 let webtorScriptPromise: Promise<void> | null = null;
+
 function loadWebtorSdk(): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
   if ((window as any).__webtorLoaded) return Promise.resolve();
@@ -20,10 +30,17 @@ function loadWebtorSdk(): Promise<void> {
       (window as any).__webtorLoaded = true;
       resolve();
     };
-    s.onerror = () => reject(new Error("Failed to load webtor SDK"));
+    s.onerror = () => reject(new Error("Failed to load WebTor SDK"));
     document.head.appendChild(s);
   });
   return webtorScriptPromise;
+}
+
+/** Generate a unique element ID for the WebTor player mount point. */
+let webtorIdCounter = 0;
+function nextWebtorId(): string {
+  webtorIdCounter += 1;
+  return `sleepy-webtor-${webtorIdCounter}`;
 }
 
 interface DownloadsDialogProps {
@@ -40,10 +57,12 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<DownloadItem[]>([]);
   const [webtorOpen, setWebtorOpen] = useState(false);
+  const [webtorMagnet, setWebtorMagnet] = useState<string | null>(null);
   const [torrentUrl, setTorrentUrl] = useState<string | null>(null);
   const [torrentName, setTorrentName] = useState<string | null>(null);
   const [webtorReady, setWebtorReady] = useState(false);
   const [webtorErr, setWebtorErr] = useState<string | null>(null);
+  const [webtorPlayerId, setWebtorPlayerId] = useState<string>("");
 
   useEffect(() => {
     if (!open) return;
@@ -72,8 +91,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
           subtitles: any[];
           error?: string;
         };
-        if (data.ok)
-          setItems(data.downloads);
+        if (data.ok) setItems(data.downloads);
         else setError(data.error || "No downloads found for this title.");
       } catch (err: any) {
         if (!dead) setError(err?.message || "Failed to load downloads.");
@@ -93,31 +111,53 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
       if (torrentUrl) URL.revokeObjectURL(torrentUrl);
       setTorrentUrl(null);
       setTorrentName(null);
+      setWebtorMagnet(null);
       setWebtorReady(false);
       setWebtorErr(null);
     }
   }, [open, torrentUrl]);
 
-  // When a torrent file is picked, boot the SDK.
+  // When a magnet or torrent file is picked, boot the SDK.
   useEffect(() => {
-    if (!webtorOpen || !torrentUrl) return;
+    if (!webtorOpen || (!webtorMagnet && !torrentUrl)) return;
     let dead = false;
     setWebtorErr(null);
     setWebtorReady(false);
+
+    const playerId = nextWebtorId();
+    setWebtorPlayerId(playerId);
+
     loadWebtorSdk()
       .then(() => {
         if (dead) return;
-        (window as any).webtor = (window as any).webtor || [];
-        (window as any).webtor.push({
-          id: "sleepy-webtor-player",
-          torrentUrl,
-          title: torrentName || media.title,
+        const config: Record<string, any> = {
+          id: playerId,
           width: "100%",
           height: "100%",
           controls: true,
           lang: "en",
-        });
-        setWebtorReady(true);
+          title: torrentName || media.title,
+          on: (e: any) => {
+            if (dead) return;
+            if (e.name === (window as any).webtor?.INITED) {
+              setWebtorReady(true);
+            }
+            if (e.name === (window as any).webtor?.TORRENT_ERROR) {
+              setWebtorErr("Failed to load torrent. The magnet link may be invalid.");
+            }
+          },
+        };
+        if (webtorMagnet) {
+          config.magnet = webtorMagnet;
+        } else if (torrentUrl) {
+          config.torrentUrl = torrentUrl;
+        }
+        (window as any).webtor = (window as any).webtor || [];
+        (window as any).webtor.push(config);
+        // Fallback: mark ready after 8s even if INITED doesn't fire.
+        setTimeout(() => {
+          if (!dead) setWebtorReady(true);
+        }, 8000);
       })
       .catch((e) => {
         if (!dead) setWebtorErr(e?.message || "Failed to load streamer");
@@ -125,7 +165,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     return () => {
       dead = true;
     };
-  }, [webtorOpen, torrentUrl, torrentName, media.title]);
+  }, [webtorOpen, webtorMagnet, torrentUrl, torrentName, media.title]);
 
   const pickTorrent = (file: File) => {
     if (!file.name.toLowerCase().endsWith(".torrent") && file.type !== "application/x-bittorrent") {
@@ -136,6 +176,14 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     const url = URL.createObjectURL(file);
     setTorrentUrl(url);
     setTorrentName(file.name);
+    setWebtorMagnet(null);
+  };
+
+  const streamMagnet = (magnet: string) => {
+    setWebtorMagnet(magnet);
+    setTorrentUrl(null);
+    setTorrentName(null);
+    setWebtorOpen(true);
   };
 
   if (!open) return null;
@@ -146,11 +194,13 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     return `/api/public/download?${params.toString()}`;
   };
   const downloadHref = (item: DownloadItem) => {
+    if (item.url.startsWith("magnet:")) return item.url;
     if (isStream(item)) return item.url;
     return proxied(item.url, item.fileName);
   };
   const isStream = (item: DownloadItem) =>
     item.type === "hls" || (item.type === "file" && !/\.(mp4|mkv|m4v|webm|avi|mov|ts)(\?|$)/i.test(item.url));
+  const isMagnet = (item: DownloadItem) => item.type === "magnet" || item.url.startsWith("magnet:");
 
   return (
     <div
@@ -223,18 +273,19 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
             <ul className="space-y-2">
               {items.map((it) => {
                 const stream = isStream(it);
+                const magnet = isMagnet(it);
                 return (
-                  <li key={it.id}>
+                  <li key={it.id} className="flex gap-2">
                     <a
                       href={downloadHref(it)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 p-4 transition hover:border-white/20 hover:bg-black/60"
+                      className="group flex flex-1 items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 p-4 transition hover:border-white/20 hover:bg-black/60"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-bold uppercase text-white">{it.source}</p>
                         <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
-                          {it.quality} · {stream ? "STREAM" : it.type.toUpperCase()}
+                          {it.quality} · {magnet ? "MAGNET" : stream ? "STREAM" : it.type.toUpperCase()}
                           {it.size ? ` · ${it.size}` : ""}
                         </p>
                       </div>
@@ -242,6 +293,18 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
                         {stream ? <Play className="h-4 w-4" /> : <Download className="h-4 w-4" />}
                       </div>
                     </a>
+                    {magnet && (
+                      <button
+                        type="button"
+                        onClick={() => streamMagnet(it.url)}
+                        className="group flex shrink-0 items-center gap-2 rounded-2xl border border-primary/25 bg-primary/10 px-3 transition hover:border-primary/50 hover:bg-primary/15"
+                        aria-label="Stream via WebTor"
+                        title="Stream via WebTor"
+                      >
+                        <Zap className="h-4 w-4 text-primary" />
+                        <span className="text-[11px] font-bold text-primary">Stream</span>
+                      </button>
+                    )}
                   </li>
                 );
               })}
@@ -269,7 +332,9 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
             <div>
               <p className="text-sm font-bold text-white">Torrent Streamer</p>
               <p className="text-[11px] text-white/50">
-                Drop or pick a .torrent file — powered by webtor.io
+                {webtorMagnet
+                  ? "Streaming magnet via webtor.io"
+                  : "Drop or pick a .torrent file — powered by webtor.io"}
               </p>
             </div>
             <button
@@ -282,7 +347,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
             </button>
           </div>
           <div className="relative flex-1 overflow-hidden bg-black">
-            {!torrentUrl && (
+            {!webtorMagnet && !torrentUrl && (
               <label
                 htmlFor="sleepy-torrent-input"
                 onDragOver={(e) => e.preventDefault()}
@@ -317,9 +382,9 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
                 />
               </label>
             )}
-            {torrentUrl && (
+            {(webtorMagnet || torrentUrl) && (
               <div className="absolute inset-0">
-                <div id="sleepy-webtor-player" className="webtor h-full w-full" />
+                <div id={webtorPlayerId} className="webtor h-full w-full" />
                 {!webtorReady && !webtorErr && (
                   <div className="pointer-events-none absolute inset-0 grid place-items-center text-white/60">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
