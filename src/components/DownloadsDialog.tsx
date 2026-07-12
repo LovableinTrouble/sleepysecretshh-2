@@ -1,8 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
-import { ChevronRight, Download, Loader2, Play, X } from "lucide-react";
+import { Download, Loader2, Play, Upload, X, Zap } from "lucide-react";
 import type { Media } from "@/lib/catalog";
 import type { DownloadItem } from "@/lib/downloads";
+
+const WEBTOR_SDK_URL = "/vendor/webtor-embed-sdk.min.js";
+let webtorScriptPromise: Promise<void> | null = null;
+function loadWebtorSdk(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if ((window as any).__webtorLoaded) return Promise.resolve();
+  if (webtorScriptPromise) return webtorScriptPromise;
+  webtorScriptPromise = new Promise<void>((resolve, reject) => {
+    (window as any).webtor = (window as any).webtor || [];
+    const s = document.createElement("script");
+    s.src = WEBTOR_SDK_URL;
+    s.async = true;
+    s.charset = "utf-8";
+    s.onload = () => {
+      (window as any).__webtorLoaded = true;
+      resolve();
+    };
+    s.onerror = () => reject(new Error("Failed to load webtor SDK"));
+    document.head.appendChild(s);
+  });
+  return webtorScriptPromise;
+}
 
 interface DownloadsDialogProps {
   open: boolean;
@@ -18,6 +40,10 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<DownloadItem[]>([]);
   const [webtorOpen, setWebtorOpen] = useState(false);
+  const [torrentUrl, setTorrentUrl] = useState<string | null>(null);
+  const [torrentName, setTorrentName] = useState<string | null>(null);
+  const [webtorReady, setWebtorReady] = useState(false);
+  const [webtorErr, setWebtorErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -59,6 +85,58 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
       dead = true;
     };
   }, [open, media.id, media.title, media.year, isSeries, season, episode]);
+
+  // Reset streamer when the outer dialog closes.
+  useEffect(() => {
+    if (!open) {
+      setWebtorOpen(false);
+      if (torrentUrl) URL.revokeObjectURL(torrentUrl);
+      setTorrentUrl(null);
+      setTorrentName(null);
+      setWebtorReady(false);
+      setWebtorErr(null);
+    }
+  }, [open, torrentUrl]);
+
+  // When a torrent file is picked, boot the SDK.
+  useEffect(() => {
+    if (!webtorOpen || !torrentUrl) return;
+    let dead = false;
+    setWebtorErr(null);
+    setWebtorReady(false);
+    loadWebtorSdk()
+      .then(() => {
+        if (dead) return;
+        (window as any).webtor = (window as any).webtor || [];
+        (window as any).webtor.push({
+          id: "sleepy-webtor-player",
+          torrentUrl,
+          title: torrentName || media.title,
+          width: "100%",
+          height: "100%",
+          controls: true,
+          lang: "en",
+        });
+        setWebtorReady(true);
+      })
+      .catch((e) => {
+        if (!dead) setWebtorErr(e?.message || "Failed to load streamer");
+      });
+    return () => {
+      dead = true;
+    };
+  }, [webtorOpen, torrentUrl, torrentName, media.title]);
+
+  const pickTorrent = (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".torrent") && file.type !== "application/x-bittorrent") {
+      setWebtorErr("Please choose a .torrent file.");
+      return;
+    }
+    if (torrentUrl) URL.revokeObjectURL(torrentUrl);
+    const url = URL.createObjectURL(file);
+    setTorrentUrl(url);
+    setTorrentName(file.name);
+  };
 
   if (!open) return null;
 
