@@ -1,8 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
-import { ChevronRight, Download, Loader2, Play, X } from "lucide-react";
+import { Download, Loader2, Play, Upload, X, Zap } from "lucide-react";
 import type { Media } from "@/lib/catalog";
 import type { DownloadItem } from "@/lib/downloads";
+
+const WEBTOR_SDK_URL = "/vendor/webtor-embed-sdk.min.js";
+let webtorScriptPromise: Promise<void> | null = null;
+function loadWebtorSdk(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if ((window as any).__webtorLoaded) return Promise.resolve();
+  if (webtorScriptPromise) return webtorScriptPromise;
+  webtorScriptPromise = new Promise<void>((resolve, reject) => {
+    (window as any).webtor = (window as any).webtor || [];
+    const s = document.createElement("script");
+    s.src = WEBTOR_SDK_URL;
+    s.async = true;
+    s.charset = "utf-8";
+    s.onload = () => {
+      (window as any).__webtorLoaded = true;
+      resolve();
+    };
+    s.onerror = () => reject(new Error("Failed to load webtor SDK"));
+    document.head.appendChild(s);
+  });
+  return webtorScriptPromise;
+}
 
 interface DownloadsDialogProps {
   open: boolean;
@@ -18,6 +40,10 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<DownloadItem[]>([]);
   const [webtorOpen, setWebtorOpen] = useState(false);
+  const [torrentUrl, setTorrentUrl] = useState<string | null>(null);
+  const [torrentName, setTorrentName] = useState<string | null>(null);
+  const [webtorReady, setWebtorReady] = useState(false);
+  const [webtorErr, setWebtorErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -59,6 +85,58 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
       dead = true;
     };
   }, [open, media.id, media.title, media.year, isSeries, season, episode]);
+
+  // Reset streamer when the outer dialog closes.
+  useEffect(() => {
+    if (!open) {
+      setWebtorOpen(false);
+      if (torrentUrl) URL.revokeObjectURL(torrentUrl);
+      setTorrentUrl(null);
+      setTorrentName(null);
+      setWebtorReady(false);
+      setWebtorErr(null);
+    }
+  }, [open, torrentUrl]);
+
+  // When a torrent file is picked, boot the SDK.
+  useEffect(() => {
+    if (!webtorOpen || !torrentUrl) return;
+    let dead = false;
+    setWebtorErr(null);
+    setWebtorReady(false);
+    loadWebtorSdk()
+      .then(() => {
+        if (dead) return;
+        (window as any).webtor = (window as any).webtor || [];
+        (window as any).webtor.push({
+          id: "sleepy-webtor-player",
+          torrentUrl,
+          title: torrentName || media.title,
+          width: "100%",
+          height: "100%",
+          controls: true,
+          lang: "en",
+        });
+        setWebtorReady(true);
+      })
+      .catch((e) => {
+        if (!dead) setWebtorErr(e?.message || "Failed to load streamer");
+      });
+    return () => {
+      dead = true;
+    };
+  }, [webtorOpen, torrentUrl, torrentName, media.title]);
+
+  const pickTorrent = (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".torrent") && file.type !== "application/x-bittorrent") {
+      setWebtorErr("Please choose a .torrent file.");
+      return;
+    }
+    if (torrentUrl) URL.revokeObjectURL(torrentUrl);
+    const url = URL.createObjectURL(file);
+    setTorrentUrl(url);
+    setTorrentName(file.name);
+  };
 
   if (!open) return null;
 
@@ -117,17 +195,18 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
           <button
             type="button"
             onClick={() => setWebtorOpen(true)}
-            className="mb-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-transparent p-4 text-left transition hover:border-primary/50 hover:from-primary/25"
+            className="group mb-3 flex w-full items-center gap-3 rounded-2xl border border-primary/25 bg-primary/10 px-4 py-3 text-left transition hover:border-primary/50 hover:bg-primary/15"
           >
-            <div className="min-w-0">
-              <p className="text-sm font-bold uppercase text-white">Torrent Streamer</p>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-white/50">
-                Upload a .torrent — stream instantly via webtor
-              </p>
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/20 text-primary">
+              <Zap className="h-4 w-4" />
             </div>
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/20 text-primary">
-              <ChevronRight className="h-4 w-4" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-white">Stream a .torrent</p>
+              <p className="text-[11px] text-white/50">Instant playback — no download needed</p>
             </div>
+            <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-primary-foreground transition group-hover:brightness-110">
+              Open
+            </span>
           </button>
           {loading && (
             <div className="grid place-items-center py-12 text-white/60">
@@ -202,14 +281,58 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
               <X className="h-4 w-4" />
             </button>
           </div>
-          <iframe
-            src="https://webtor.io/"
-            title="webtor.io streamer"
-            className="h-full w-full flex-1 border-0 bg-black"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowFullScreen
-            referrerPolicy="no-referrer"
-          />
+          <div className="relative flex-1 overflow-hidden bg-black">
+            {!torrentUrl && (
+              <label
+                htmlFor="sleepy-torrent-input"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const f = e.dataTransfer.files?.[0];
+                  if (f) pickTorrent(f);
+                }}
+                className="absolute inset-0 grid cursor-pointer place-items-center px-6"
+              >
+                <div className="flex max-w-md flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-white/15 bg-white/5 px-8 py-12 text-center transition hover:border-primary/40 hover:bg-primary/5">
+                  <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/15 text-primary">
+                    <Upload className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-base font-bold text-white">Drop a .torrent file</p>
+                    <p className="mt-1 text-xs text-white/50">
+                      or click to browse — streamed instantly via webtor
+                    </p>
+                  </div>
+                  {webtorErr && <p className="text-xs text-destructive">{webtorErr}</p>}
+                </div>
+                <input
+                  id="sleepy-torrent-input"
+                  type="file"
+                  accept=".torrent,application/x-bittorrent"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) pickTorrent(f);
+                  }}
+                />
+              </label>
+            )}
+            {torrentUrl && (
+              <div className="absolute inset-0">
+                <div id="sleepy-webtor-player" className="webtor h-full w-full" />
+                {!webtorReady && !webtorErr && (
+                  <div className="pointer-events-none absolute inset-0 grid place-items-center text-white/60">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                )}
+                {webtorErr && (
+                  <div className="absolute inset-0 grid place-items-center px-6 text-center text-sm text-destructive">
+                    {webtorErr}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
