@@ -128,6 +128,13 @@ async function handle(request: Request, method: "GET" | "HEAD"): Promise<Respons
     referer: `${parsed.protocol}//${parsed.hostname}/`,
     origin: `${parsed.protocol}//${parsed.hostname}`,
   };
+  // Some upstreams (notably a few iptv-org-listed streams) refuse any UA
+  // other than the one the broadcaster pinned. Callers can pass overrides
+  // via the `ua` and `ref` query params to override the defaults below.
+  const overrideUa = url.searchParams.get("ua");
+  const overrideReferer = url.searchParams.get("ref");
+  if (overrideUa) fwd["user-agent"] = overrideUa;
+  if (overrideReferer) fwd["referer"] = overrideReferer;
   const range = request.headers.get("range");
   if (range) fwd["range"] = range;
 

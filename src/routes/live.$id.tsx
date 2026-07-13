@@ -24,6 +24,8 @@ export const Route = createFileRoute("/live/$id")({
     name: typeof s.name === "string" ? s.name : undefined,
     logo: typeof s.logo === "string" ? s.logo : undefined,
     group: typeof s.group === "string" ? s.group : undefined,
+    ua: typeof s.ua === "string" ? s.ua : undefined,
+    ref: typeof s.ref === "string" ? s.ref : undefined,
   }),
   component: LivePage,
 });
@@ -55,8 +57,18 @@ function LivePage() {
   // Route every IPTV URL through the server proxy. Most free IPTV CDNs
   // restrict CORS to their own origin (pluto.tv, etc.) — fetching them
   // directly from the browser stalls hls.js forever.
+  // Optional User-Agent / Referer overrides (some iptv-org streams decline
+  // requests without the broadcaster's pinned UA). Pass-through is opt-in.
+  const extraParams: string[] = [];
+  if (search.ua) extraParams.push(`ua=${encodeURIComponent(search.ua)}`);
+  if (search.ref) extraParams.push(`ref=${encodeURIComponent(search.ref)}`);
   const proxiedUrl = channel.url
-    ? `/api/public/iptv-proxy?u=${btoa(channel.url).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")}`
+    ? `/api/public/iptv-proxy?u=${btoa(channel.url)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "")}${
+        extraParams.length ? "&" + extraParams.join("&") : ""
+      }`
     : "";
 
   useEffect(() => {
