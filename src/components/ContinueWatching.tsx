@@ -48,6 +48,8 @@ export function ContinueWatchingRow() {
               ? Math.max(0, Math.floor((it.durationSeconds - it.positionSeconds) / 60))
               : 0;
           const unknownDuration = it.durationSeconds <= 0;
+          const isFebbox = it.source === "cinesrc";
+
           return (
             <div
               key={`${it.mediaId}-${it.mediaType}`}
@@ -78,6 +80,19 @@ export function ContinueWatchingRow() {
                       <Play className="h-5 w-5 fill-current" />
                     </div>
                   </div>
+
+                  {/* FebBox badge */}
+                  {isFebbox && (
+                    <div className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-amber-500/90 px-1.5 py-0.5 backdrop-blur-sm">
+                      <svg viewBox="0 0 12 12" className="h-2.5 w-2.5 fill-amber-950" aria-hidden>
+                        <path d="M6 0l1.5 4.5H12L8.25 7.5l1.5 4.5L6 9l-3.75 3 1.5-4.5L0 4.5h4.5z" />
+                      </svg>
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-amber-950">
+                        FebBox
+                      </span>
+                    </div>
+                  )}
+
                   <div className="absolute inset-x-3 bottom-3">
                     <div className="truncate text-sm font-semibold text-white drop-shadow">
                       {it.title}

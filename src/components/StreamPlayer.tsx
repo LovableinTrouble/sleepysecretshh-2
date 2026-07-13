@@ -49,9 +49,10 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   }, [onClose]);
 
   const settings = getSettings();
-  const febbox = settings.integrations.febboxToken?.trim();
+  const febbox = settings.integrations.febboxToken?.trim() || undefined;
   const source = sourceForKey(settings.preferredSource as any);
   const url = source.build(media, season, episode, febbox);
+  const useFebbox = !!febbox;
 
   const player = (
     <div
@@ -68,7 +69,14 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       }}
     >
       <div className="relative flex-1 bg-black">
-        <EmbedPlayer url={url} useFebbox={!!febbox} media={media} season={season} episode={episode} onClose={onClose} />
+        <EmbedPlayer
+          url={url}
+          useFebbox={useFebbox}
+          media={media}
+          season={season}
+          episode={episode}
+          onClose={onClose}
+        />
       </div>
     </div>
   );
@@ -97,8 +105,9 @@ function EmbedPlayer({
   const epKey = episode ?? null;
 
   const recordProgress = useCallback(
-    (currentTime: number, duration: number, completed: boolean) => {
+    (currentTime: number, duration: number, completed: boolean, src: "cinesrc" | "cinezo") => {
       if (!Number.isFinite(currentTime) || !Number.isFinite(duration)) return;
+      // Throttle: only write every 5 s unless it's a completion
       const entry = {
         mediaId: media.id,
         mediaType: media.type,
@@ -111,77 +120,90 @@ function EmbedPlayer({
         backdrop: media.backdrop ?? null,
         completed,
         updatedAt: Date.now(),
+        source: src,
       };
       saveProgressLocal(entry);
       void syncProgressUp(entry);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [media.id, media.type, media.title, media.poster, media.backdrop, seasonKey, epKey],
   );
 
+  // Throttle ref so timeupdate doesn't spam storage every frame
+  const lastSaveRef = useRef<number>(0);
+
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      // --- CineSrc events (cinesrc.st) ---
+      // ── CineSrc (cinesrc.st) ────────────────────────────────────────────────
       if (event.origin === "https://cinesrc.st") {
-        const d = event.data as { type?: string; currentTime?: number; duration?: number } | undefined;
+        const d = event.data as {
+          type?: string;
+          currentTime?: number;
+          duration?: number;
+        } | null;
         if (!d || typeof d.type !== "string") return;
-        if (d.type === "cinesrc:timeupdate") {
-          if (typeof d.currentTime === "number" && typeof d.duration === "number") {
-            recordProgress(d.currentTime, d.duration, false);
+
+        switch (d.type) {
+          case "cinesrc:timeupdate": {
+            const now = Date.now();
+            if (now - lastSaveRef.current < 5000) return; // throttle to 5 s
+            lastSaveRef.current = now;
+            const ct = typeof d.currentTime === "number" ? d.currentTime : NaN;
+            const dur = typeof d.duration === "number" ? d.duration : NaN;
+            recordProgress(ct, dur, false, "cinesrc");
+            break;
           }
-        } else if (d.type === "cinesrc:ended") {
-          const saved = getLocalProgressFor(media.id, seasonKey, epKey);
-          recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
-        } else if (d.type === "cinesrc:close") {
-          onClose();
+          case "cinesrc:seeked": {
+            const ct = typeof d.currentTime === "number" ? d.currentTime : NaN;
+            const dur = typeof d.duration === "number" ? d.duration : NaN;
+            recordProgress(ct, dur, false, "cinesrc");
+            break;
+          }
+          case "cinesrc:ended": {
+            const saved = getLocalProgressFor(media.id, seasonKey, epKey);
+            recordProgress(
+              saved?.durationSeconds ?? 0,
+              saved?.durationSeconds ?? 0,
+              true,
+              "cinesrc",
+            );
+            break;
+          }
+          case "cinesrc:close":
+            onClose();
+            break;
         }
         return;
       }
 
-      // --- Cinezo WATCH_PROGRESS events (player.cinezo.live) ---
+      // ── Cinezo (player.cinezo.live) — WATCH_PROGRESS ──────────────────────
       if (event.origin === "https://player.cinezo.live") {
-        const d = event.data as { type?: string; data?: { mediaId?: string; currentTime?: number; duration?: number; eventType?: string } } | undefined;
-        if (d?.type === "WATCH_PROGRESS" && d.data) {
-          const { currentTime, duration, eventType } = d.data;
-          if (typeof currentTime === "number" && typeof duration === "number") {
-            const completed = eventType === "ended";
-            recordProgress(currentTime, duration, completed);
-          }
+        const d = event.data as {
+          type?: string;
+          data?: {
+            mediaId?: string | number;
+            currentTime?: number;
+            duration?: number;
+            eventType?: string;
+          };
+        } | null;
+        if (!d || d.type !== "WATCH_PROGRESS" || !d.data) return;
+
+        const { currentTime, duration, eventType } = d.data;
+        const ct = typeof currentTime === "number" ? currentTime : NaN;
+        const dur = typeof duration === "number" ? duration : NaN;
+
+        if (eventType === "timeupdate") {
+          const now = Date.now();
+          if (now - lastSaveRef.current < 5000) return; // throttle to 5 s
+          lastSaveRef.current = now;
+          recordProgress(ct, dur, false, "cinezo");
+        } else if (eventType === "ended") {
+          recordProgress(ct, dur, true, "cinezo");
+        } else if (eventType === "pause" || eventType === "seeked") {
+          recordProgress(ct, dur, false, "cinezo");
         }
         return;
-      }
-
-      // --- Legacy / fallback: any trusted origin ---
-      let isAllowedOrigin: boolean;
-      if (event.origin === "null") {
-        isAllowedOrigin = true;
-      } else {
-        try {
-          const h = new URL(event.origin).hostname.toLowerCase();
-          isAllowedOrigin = h === "cinezo.live" || h.endsWith(".cinezo.live");
-        } catch {
-          isAllowedOrigin = true;
-        }
-      }
-      if (!isAllowedOrigin) return;
-
-      let data: { type?: string; currentTime?: number; duration?: number } | undefined;
-      if (typeof event.data === "string") {
-        try { data = JSON.parse(event.data); } catch { return; }
-      } else {
-        data = event.data;
-      }
-      if (!data || typeof data.type !== "string") return;
-
-      const t = data.type;
-      if (/timeupdate|time-update|progress/i.test(t)) {
-        if (typeof data.currentTime === "number" && typeof data.duration === "number") {
-          recordProgress(data.currentTime, data.duration, false);
-        }
-      } else if (/ended|complete/i.test(t)) {
-        const saved = getLocalProgressFor(media.id, seasonKey, epKey);
-        recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
-      } else if (/close|exit/i.test(t)) {
-        onClose();
       }
     };
 
@@ -200,16 +222,22 @@ function EmbedPlayer({
         allowFullScreen
         referrerPolicy={useFebbox ? "origin" : "no-referrer"}
       />
-      {/* Back button — positioned low enough to clear the in-player server icon row */}
-      <div className="pointer-events-none absolute inset-x-0 top-14 flex items-center px-3">
-        <button
-          onClick={onClose}
-          className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white ring-1 ring-white/15 backdrop-blur hover:bg-black/70"
-          aria-label="Close player"
+
+      {/* Back button — only shown for Cinezo (CineSrc has its own via back=close) */}
+      {!useFebbox && (
+        <div
+          className="pointer-events-none absolute inset-x-0 flex items-start px-3"
+          style={{ top: "56px" }}
         >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-      </div>
+          <button
+            onClick={onClose}
+            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/20 backdrop-blur-sm transition hover:bg-black/80"
+            aria-label="Close player"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

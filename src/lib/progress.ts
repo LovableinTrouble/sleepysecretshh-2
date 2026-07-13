@@ -15,6 +15,8 @@ export interface LocalProgressEntry {
   backdrop?: string | null;
   completed: boolean;
   updatedAt: number;
+  /** Which embed sent this progress event */
+  source?: "cinesrc" | "cinezo";
 }
 
 function readLocal(): LocalProgressEntry[] {
@@ -119,6 +121,7 @@ export interface ContinueItem {
   poster?: string | null;
   backdrop?: string | null;
   updatedAt: number;
+  source?: "cinesrc" | "cinezo";
 }
 
 export function useContinueWatching(): {
@@ -141,6 +144,7 @@ export function useContinueWatching(): {
       poster: e.poster,
       backdrop: e.backdrop,
       updatedAt: e.updatedAt,
+      source: e.source,
     }));
     setItems(local);
     setLoading(false);
@@ -155,6 +159,7 @@ export function useContinueWatching(): {
       window.removeEventListener("sleepy:progress-changed", onChange);
       window.removeEventListener("storage", onChange);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return { items, loading, refresh: compute };
