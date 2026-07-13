@@ -2,8 +2,8 @@ import type { Media } from "./catalog";
 import { getSettings } from "./store";
 
 /**
- * Source registry — CineSrc is the default embed source (third-party iframe
- * embed backed by zxcstream.xyz). WebTor is an alternative that streams
+ * Source registry — Cinezo is the default embed source (player.cinezo.live).
+ * WebTor is an alternative that streams
  * torrents directly in-browser via the webtor.io embed SDK.
  */
 export interface Source {
@@ -19,22 +19,26 @@ export type SourceKey = "prionix" | "webtor";
 
 const PRIONIX: Source = {
   id: "prionix",
-  name: "CineSrc",
+  name: "Cinezo",
   badge: "Embed",
   kind: "embed",
   tier: "primary",
   build: (m, season, episode) => {
     const isShow = m.type !== "movie" && season != null && episode != null;
     const base = isShow
-      ? `https://cinesrc.st/embed/tv/${m.id}?s=${season}&e=${episode}`
-      : `https://cinesrc.st/embed/movie/${m.id}`;
+      ? `https://player.cinezo.live/embed/tv/${m.id}/${season}/${episode}`
+      : `https://player.cinezo.live/embed/movie/${m.id}`;
     const params = new URLSearchParams({
-      color: "#6366f1",
       autoplay: "true",
-      autonext: "true",
-      autoskip: "true",
-      controls: "true",
-      prioritize: "true",
+      poster: "true",
+      chromecast: "true",
+      servericon: "true",
+      setting: "true",
+      pip: "true",
+      download: "true",
+      primarycolor: "6366f1",
+      secondarycolor: "0a0a12",
+      iconcolor: "ffffff",
     });
     try {
       const tok = getSettings().integrations.febboxToken?.trim();
@@ -42,8 +46,7 @@ const PRIONIX: Source = {
     } catch {
       /* no-op */
     }
-    const sep = base.includes("?") ? "&" : "?";
-    return `${base}${sep}${params.toString()}`;
+    return `${base}?${params.toString()}`;
   },
 };
 
@@ -82,6 +85,6 @@ export function sourceForKey(key: SourceKey): Source {
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
-  prionix: "Prionix",
+  prionix: "Cinezo",
   webtor: "WebTor",
 };
