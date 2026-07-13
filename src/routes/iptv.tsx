@@ -17,6 +17,7 @@ import {
   MapPin,
   X,
   SearchX,
+  AlertTriangle,
 } from "lucide-react";
 import { fetchPpvAll, flattenEvents } from "@/lib/sports";
 import {
@@ -648,9 +649,6 @@ function GlobalIptv({
               · {country.code}
             </span>
           </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Public iptv-org feeds for {country.name}. Quality varies — geo-restrictions may apply.
-          </p>
         </div>
         <button
           onClick={onOpenPicker}
@@ -658,6 +656,24 @@ function GlobalIptv({
         >
           <MapPin className="h-4 w-4" /> Change country
         </button>
+      </div>
+
+      {/* Heads-up: best-effort coverage from public feeds. */}
+      <div
+        role="status"
+        className="mb-4 flex items-start gap-2.5 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-3 text-xs text-amber-100 ring-1 ring-amber-500/10"
+      >
+        <AlertTriangle
+          className="mt-0.5 h-4 w-4 shrink-0 text-amber-300"
+          strokeWidth={2.2}
+          aria-hidden="true"
+        />
+        <div className="min-w-0 leading-relaxed">
+          <div className="font-bold text-amber-50">Not all channels will work.</div>
+          These are public broadcaster feeds from iptv-org for {country.name} — some may be
+          geo-restricted to their home country, offline, or low quality. NSFW and DMCA-removed
+          streams are filtered out.
+        </div>
       </div>
 
       <div className="rounded-2xl border border-glass-border bg-card/40 p-2 backdrop-blur">
@@ -839,7 +855,8 @@ function GlobalCountryPicker({
           >
             iptv-org
           </a>
-          . Some streams may be geo-restricted or offline — playback is best-effort.
+          . Not all channels will work — some may be geo-restricted to their home country, offline,
+          or low quality. Pick a country to see what's currently playable there.
         </p>
       </div>
 
