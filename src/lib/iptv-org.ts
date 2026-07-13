@@ -94,30 +94,19 @@ interface RawBlocklistEntry {
 
 // ── Per-endpoint caches ─────────────────────────────────────────────────────
 
+type CacheKey = "countries" | "channels" | "logos" | "streams" | "blocklist";
+
 type CacheEntry<T> = { data: T; fetchedAt: number };
 
-const cache: {
-  countries?: CacheEntry<RawCountry[]>;
-  channels?: CacheEntry<RawChannel[]>;
-  logos?: CacheEntry<RawLogo[]>;
-  streams?: CacheEntry<RawStream[]>;
-  blocklist?: CacheEntry<RawBlocklistEntry[]>;
-} = {};
+const cache = new Map<CacheKey, CacheEntry<unknown>>();
+const inFlight = new Map<CacheKey, Promise<unknown>>();
 
-const inFlight: {
-  countries?: Promise<RawCountry[]>;
-  channels?: Promise<RawChannel[]>;
-  logos?: Promise<RawLogo[]>;
-  streams?: Promise<RawStream[]>;
-  blocklist?: Promise<RawBlocklistEntry[]>;
-} = {};
-
-async function fetchJsonWithCache<T>(name: keyof typeof cache): Promise<T> {
+async function fetchJsonWithCache<T>(name: CacheKey): Promise<T> {
   const now = Date.now();
-  const c = cache[name];
-  if (c && now - c.fetchedAt < TTL_FRESH_MS) return c.data;
+  const c = cache.get(name);
+  if (c && now - c.fetchedAt < TTL_FRESH_MS) return c.data as T;
 
-  const prev = inFlight[name];
+  const prev = inFlight.get(name);
   if (prev) return prev as Promise<T>;
 
   const p = (async () => {
@@ -127,22 +116,22 @@ async function fetchJsonWithCache<T>(name: keyof typeof cache): Promise<T> {
     });
     if (!res.ok) throw new Error(`iptv-org ${name} ${res.status}`);
     const data = (await res.json()) as T;
-    cache[name] = { data, fetchedAt: Date.now() };
+    cache.set(name, { data, fetchedAt: Date.now() });
     return data;
   })();
 
-  inFlight[name] = p as typeof inFlight[typeof name];
+  inFlight.set(name, p);
   try {
     return await p;
   } catch (err) {
     // Serve stale if we have something recent enough.
     if (c && now - c.fetchedAt < TTL_STALE_MS) {
       console.warn(`[iptv-org] ${name} fetch failed, serving stale`, err);
-      return c.data;
+      return c.data as T;
     }
     throw err;
   } finally {
-    delete inFlight[name];
+    inFlight.delete(name);
   }
 }
 
