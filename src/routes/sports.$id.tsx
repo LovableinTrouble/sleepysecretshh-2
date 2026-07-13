@@ -178,9 +178,10 @@ function SportsMatchPage() {
             key={`${active.iframe}-${reload}`}
             src={active.iframe}
             title={event?.name || "Live match"}
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture; popups; popups-to-escape-sandbox; clipboard-read; clipboard-write; web-share"
             allowFullScreen
             loading="eager"
+            referrerPolicy="no-referrer-when-downgrade"
             className="absolute inset-0 h-full w-full border-0 bg-black"
           />
         )}
