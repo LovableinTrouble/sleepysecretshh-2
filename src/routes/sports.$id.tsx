@@ -178,7 +178,7 @@ function SportsMatchPage() {
             key={`${active.iframe}-${reload}`}
             src={active.iframe}
             title={event?.name || "Live match"}
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture; popups; popups-to-escape-sandbox; clipboard-read; clipboard-write; web-share"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-read; clipboard-write; web-share"
             allowFullScreen
             loading="eager"
             referrerPolicy="no-referrer-when-downgrade"
