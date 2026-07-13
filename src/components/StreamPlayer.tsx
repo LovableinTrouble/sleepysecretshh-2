@@ -1,14 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, Loader2, X } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 
 import type { Media } from "@/lib/catalog";
 import { sourceForKey } from "@/lib/sources";
-import type { SourceKey } from "@/lib/sources";
 import { getSettings } from "@/lib/store";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-import type { DownloadItem } from "@/lib/downloads";
 
 interface Props {
   media: Media;
@@ -51,8 +49,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   }, [onClose]);
 
   const settings = getSettings();
-  const sourceKey: SourceKey = settings.embedProvider === "webtor" ? "webtor" : "prionix";
-  const source = sourceForKey(sourceKey);
+  const source = sourceForKey(settings.preferredSource as any);
   const url = source.build(media, season, episode);
 
   const player = (
@@ -70,11 +67,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       }}
     >
       <div className="relative flex-1 bg-black">
-        {source.kind === "webtor" ? (
-          <WebTorStreamPlayer media={media} season={season} episode={episode} onClose={onClose} query={url} />
-        ) : (
-          <CineSrcEmbed url={url} media={media} season={season} episode={episode} onClose={onClose} />
-        )}
+        <CineSrcEmbed url={url} media={media} season={season} episode={episode} onClose={onClose} />
       </div>
     </div>
   );
@@ -82,10 +75,6 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   if (typeof document === "undefined") return player;
   return createPortal(player, document.body);
 }
-
-/* ============================================================
- * CineSrc iframe embed + postMessage API (backed by zxcstream.xyz)
- * ============================================================ */
 
 type EmbedMessage = {
   type: string;
@@ -207,251 +196,6 @@ function CineSrcEmbed({
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
- * WebTor Stream Player — searches for magnet links via the
- * downloads API, then streams via the webtor.io embed SDK.
- * Based on https://github.com/webtor-io/embed-sdk-js
- * ============================================================ */
-
-const WEBTOR_SDK_URL = "https://cdn.jsdelivr.net/npm/@webtor/embed-sdk-js/dist/index.min.js";
-let webtorScriptPromise: Promise<void> | null = null;
-
-function loadWebtorSdk(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-  if ((window as any).__webtorLoaded) return Promise.resolve();
-  if (webtorScriptPromise) return webtorScriptPromise;
-  webtorScriptPromise = new Promise<void>((resolve, reject) => {
-    (window as any).webtor = (window as any).webtor || [];
-    const s = document.createElement("script");
-    s.src = WEBTOR_SDK_URL;
-    s.async = true;
-    s.charset = "utf-8";
-    s.onload = () => {
-      (window as any).__webtorLoaded = true;
-      resolve();
-    };
-    s.onerror = () => reject(new Error("Failed to load WebTor SDK"));
-    document.head.appendChild(s);
-  });
-  return webtorScriptPromise;
-}
-
-let webtorIdCounter = 0;
-function nextWebtorId(): string {
-  webtorIdCounter += 1;
-  return `sleepy-webtor-${webtorIdCounter}`;
-}
-
-function WebTorStreamPlayer({
-  media,
-  season,
-  episode,
-  onClose,
-  query,
-}: {
-  media: Media;
-  season?: number;
-  episode?: number;
-  onClose: () => void;
-  query: string;
-}) {
-  const [phase, setPhase] = useState<"searching" | "found" | "error">("searching");
-  const [magnets, setMagnets] = useState<DownloadItem[]>([]);
-  const [activeMagnet, setActiveMagnet] = useState<string | null>(null);
-  const [webtorReady, setWebtorReady] = useState(false);
-  const [webtorErr, setWebtorErr] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const seasonKey = season ?? null;
-  const epKey = episode ?? null;
-
-  // Step 1: search for magnet links via the downloads API.
-  useEffect(() => {
-    let dead = false;
-    setPhase("searching");
-    setMagnets([]);
-    (async () => {
-      try {
-        const params = new URLSearchParams({
-          tmdbId: String(media.id),
-          title: media.title,
-          type: media.type !== "movie" ? "show" : "movie",
-        });
-        if (media.year) params.set("year", media.year);
-        if (media.type !== "movie") {
-          params.set("season", String(season ?? 1));
-          params.set("episode", String(episode ?? 1));
-        }
-        const res = await fetch(`/api/downloads?${params.toString()}`);
-        if (dead) return;
-        const data = await res.json();
-        if (dead) return;
-        const allDownloads: DownloadItem[] = data.downloads || [];
-        // Prefer magnet links, but fall back to .torrent URLs for WebTor.
-        const magnetItems = allDownloads.filter(
-          (d: DownloadItem) => d.type === "magnet" || d.url.startsWith("magnet:"),
-        );
-        const torrentItems = allDownloads.filter(
-          (d: DownloadItem) => d.type === "torrent" || /\.torrent($|\?)/i.test(d.url),
-        );
-        const streamable = magnetItems.length > 0 ? magnetItems : torrentItems;
-        if (streamable.length > 0) {
-          setMagnets(streamable);
-          setActiveMagnet(streamable[0].url);
-          setPhase("found");
-        } else {
-          setPhase("error");
-        }
-      } catch {
-        if (!dead) setPhase("error");
-      }
-    })();
-    return () => {
-      dead = true;
-    };
-  }, [media.id, media.title, media.year, media.type, season, episode]);
-
-  // Step 2: when a magnet is selected, boot the WebTor SDK player.
-  useEffect(() => {
-    if (!activeMagnet || !containerRef.current) return;
-    let dead = false;
-    setWebtorErr(null);
-    setWebtorReady(false);
-    const mountEl = containerRef.current;
-    // Clear any previous SDK-inserted iframe when switching magnets
-    mountEl.innerHTML = "";
-
-    // Create a unique ID for this player instance. The SDK uses this to
-    // find the mount element via getElementById and appends an iframe to it.
-    const playerId = nextWebtorId();
-    mountEl.id = playerId;
-
-    loadWebtorSdk()
-      .then(() => {
-        if (dead || !containerRef.current) return;
-        const config: Record<string, any> = {
-          id: playerId,
-          width: "100%",
-          height: "100%",
-          controls: true,
-          lang: "en",
-          title: media.title,
-          on: (e: any) => {
-            if (dead) return;
-            const n = String(e?.name || "");
-            if (n === "inited" || n === "player status") {
-              setWebtorReady(true);
-              try { e.player?.play?.(); } catch { /* ignore */ }
-            }
-            if (n === "torrent error") {
-              setWebtorErr("Failed to load torrent. Try another source.");
-            }
-          },
-        };
-        if (activeMagnet.startsWith("magnet:")) {
-          config.magnet = activeMagnet;
-        } else {
-          config.torrentUrl = activeMagnet;
-        }
-        (window as any).webtor = (window as any).webtor || [];
-        (window as any).webtor.push(config);
-
-        // Force the SDK-created iframe to fill the container.
-        // The SDK sets width/height attributes and an auto-resizer adjusts
-        // height, but we need to override with CSS for full-screen layout.
-        setTimeout(() => {
-          if (dead) return;
-          const iframe = mountEl.querySelector("iframe");
-          if (iframe) {
-            iframe.style.width = "100%";
-            iframe.style.height = "100%";
-            iframe.style.minHeight = "100%";
-            iframe.style.display = "block";
-            iframe.style.border = "0";
-          }
-        }, 500);
-        setTimeout(() => {
-          if (!dead) setWebtorReady(true);
-        }, 8000);
-      })
-      .catch((e) => {
-        if (!dead) setWebtorErr(e?.message || "Failed to load streamer");
-      });
-    return () => {
-      dead = true;
-    };
-  }, [activeMagnet, media.title]);
-
-  return (
-    <div className="relative h-full w-full bg-black">
-      {phase === "searching" && (
-        <div className="absolute inset-0 grid place-items-center text-white/60">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-sm">Searching for torrents…</p>
-          </div>
-        </div>
-      )}
-      {phase === "error" && (
-        <div className="absolute inset-0 grid place-items-center px-6 text-center">
-          <div className="max-w-md">
-            <p className="text-base font-bold text-white">No torrents found</p>
-            <p className="mt-2 text-sm text-white/50">
-              No magnet links were found for "{query}". Try switching back to CineSrc in Settings.
-            </p>
-            <button
-              onClick={onClose}
-              className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-      {phase === "found" && activeMagnet && (
-        <div className="absolute inset-0 grid place-items-center overflow-hidden">
-          <div ref={containerRef} className="h-full w-full [&_iframe]:!h-full [&_iframe]:!w-full [&_iframe]:!border-0 [&_iframe]:!block" />
-          {!webtorReady && !webtorErr && (
-            <div className="pointer-events-none absolute inset-0 grid place-items-center text-white/60">
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            </div>
-          )}
-          {webtorErr && (
-            <div className="absolute inset-0 grid place-items-center px-6 text-center text-sm text-destructive">
-              {webtorErr}
-            </div>
-          )}
-        </div>
-      )}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
-        <button
-          onClick={onClose}
-          className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white ring-1 ring-white/15 backdrop-blur hover:bg-black/70"
-          aria-label="Close player"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        {magnets.length > 1 && (
-          <div className="pointer-events-auto flex items-center gap-2">
-            {magnets.slice(0, 5).map((m, i) => (
-              <button
-                key={m.id}
-                onClick={() => setActiveMagnet(m.url)}
-                className={`rounded-full px-3 py-1 text-[11px] font-bold transition ${
-                  m.url === activeMagnet
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-black/50 text-white/60 ring-1 ring-white/15 hover:bg-black/70"
-                }`}
-              >
-                {m.quality || `S${i + 1}`}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
