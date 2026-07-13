@@ -42,7 +42,7 @@ function SportsPage() {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"live" | "upcoming">("live");
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ["ppv", "all"],
     queryFn: fetchPpvAll,
     staleTime: 60_000,
@@ -50,6 +50,8 @@ function SportsPage() {
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
+  // treat as still loading while we're fetching and have no data yet
+  const stillLoading = (isLoading || isFetching) && !data;
 
   const all = useMemo(() => (data ? flattenEvents(data) : []), [data]);
   const upcoming = useMemo(() => (data ? flattenUpcoming(data, 72) : []), [data]);
@@ -157,7 +159,13 @@ function SportsPage() {
       </header>
 
       <main className="mx-auto mt-6 max-w-7xl px-6 md:px-10">
-        {isLoading && !all.length && (
+        {/* Top loading bar */}
+        {stillLoading && (
+          <div className="fixed left-0 top-0 z-[9999] h-0.5 w-full overflow-hidden">
+            <div className="h-full animate-[loading-bar_1.4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
+          </div>
+        )}
+        {stillLoading && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="h-44 animate-pulse rounded-2xl bg-card/40" />
@@ -180,7 +188,7 @@ function SportsPage() {
             )}
           </div>
         )}
-        {!isLoading && !error && source.length === 0 && (
+        {!stillLoading && !error && source.length === 0 && (
           <div className="grid place-items-center rounded-2xl border border-glass-border bg-card/30 px-6 py-16 text-center">
             <RadioTower className="h-9 w-9 text-muted-foreground" />
             <p className="mt-3 text-sm font-semibold text-foreground">
@@ -195,7 +203,7 @@ function SportsPage() {
             </p>
           </div>
         )}
-        {!isLoading && !!source.length && visible.length === 0 && (
+        {!stillLoading && !!source.length && visible.length === 0 && (
           <div className="py-20 text-center text-sm text-muted-foreground">
             No live matches match your filters.
           </div>

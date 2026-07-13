@@ -1,5 +1,4 @@
 import type { Media } from "./catalog";
-import { getSettings } from "./store";
 
 export interface Source {
   id: string;
@@ -7,10 +6,55 @@ export interface Source {
   badge?: string;
   kind: "embed";
   tier: "primary" | "alt";
-  build: (m: Media, season?: number, episode?: number) => string;
+  /** febbox is forwarded when provided and non-empty */
+  build: (m: Media, season?: number, episode?: number, febbox?: string) => string;
 }
 
 export type SourceKey = "prionix";
+
+/** Build a Cinezo URL (no FebBox). */
+function buildCinezo(m: Media, season?: number, episode?: number): string {
+  const isShow = m.type !== "movie" && season != null && episode != null;
+  const base = isShow
+    ? `https://player.cinezo.live/embed/tv/${m.id}/${season}/${episode}`
+    : `https://player.cinezo.live/embed/movie/${m.id}`;
+  const params = new URLSearchParams({
+    autoplay: "true",
+    poster: "true",
+    chromecast: "true",
+    servericon: "true",
+    setting: "true",
+    pip: "true",
+    primarycolor: "6366f1",
+    secondarycolor: "0a0a12",
+    iconcolor: "ffffff",
+  });
+  return `${base}?${params.toString()}`;
+}
+
+/**
+ * Build a CineSrc URL when FebBox is active.
+ * Stripped to essentials only — no branding params that identify the embed.
+ */
+function buildCineSrc(m: Media, season?: number, episode?: number, febbox?: string): string {
+  const isShow = m.type !== "movie" && season != null && episode != null;
+  const base = isShow
+    ? `https://cinesrc.st/embed/tv/${m.id}`
+    : `https://cinesrc.st/embed/movie/${m.id}`;
+  const params = new URLSearchParams();
+  if (isShow) {
+    params.set("s", String(season));
+    params.set("e", String(episode));
+  }
+  params.set("autoplay", "true");
+  params.set("color", "%236366f1");
+  params.set("autonext", "true");
+  params.set("autoskip", "false");
+  params.set("controls", "true");
+  params.set("back", "close");
+  if (febbox) params.set("febbox", febbox);
+  return `${base}?${params.toString()}`;
+}
 
 const PRIONIX: Source = {
   id: "prionix",
@@ -18,29 +62,10 @@ const PRIONIX: Source = {
   badge: "Embed",
   kind: "embed",
   tier: "primary",
-  build: (m, season, episode) => {
-    const isShow = m.type !== "movie" && season != null && episode != null;
-    const base = isShow
-      ? `https://player.cinezo.live/embed/tv/${m.id}/${season}/${episode}`
-      : `https://player.cinezo.live/embed/movie/${m.id}`;
-    const params = new URLSearchParams({
-      autoplay: "true",
-      poster: "true",
-      chromecast: "true",
-      servericon: "true",
-      setting: "true",
-      pip: "true",
-      primarycolor: "6366f1",
-      secondarycolor: "0a0a12",
-      iconcolor: "ffffff",
-    });
-    try {
-      const tok = getSettings().integrations.febboxToken?.trim();
-      if (tok) params.set("febbox", tok);
-    } catch {
-      /* no-op */
-    }
-    return `${base}?${params.toString()}`;
+  build: (m, season, episode, febbox) => {
+    return febbox
+      ? buildCineSrc(m, season, episode, febbox)
+      : buildCinezo(m, season, episode);
   },
 };
 
