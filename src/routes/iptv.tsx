@@ -965,9 +965,9 @@ function GlobalCountryPickerDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
+          <DialogTitle className="flex items-center gap-2 text-lg pr-8">
             <Globe className="h-4 w-4 text-primary" /> Change country
           </DialogTitle>
           <DialogDescription>
