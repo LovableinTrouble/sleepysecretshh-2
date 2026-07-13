@@ -419,7 +419,7 @@ function SettingsPage() {
             immediately without hunting through the integrations section. */}
         <Section
           title="Febbox cookie"
-          desc="Unlocks premium sources inside the CineSrc player. Paste your Febbox UI token."
+          desc="Unlocks premium sources inside the Cinezo player. Paste your Febbox UI token."
         >
           <IntegrationCard
             name="Febbox"
@@ -460,13 +460,13 @@ function SettingsPage() {
         </Section>
 
         {/* Sources */}
-        <Section title="Sources" desc="Pick the default streaming source. CineSrc is recommended; WebTor streams torrents in-browser.">
-          <Row label="Default source" hint="CineSrc embeds a third-party player. WebTor finds and streams torrents directly.">
+        <Section title="Sources" desc="Pick the default streaming source. Cinezo is recommended; WebTor streams torrents in-browser.">
+          <Row label="Default source" hint="Cinezo embeds the player.cinezo.live player. WebTor silently scrapes magnet links and streams them in-browser.">
             <Select
               value={s.embedProvider}
               onChange={(v) => set({ embedProvider: v as Settings["embedProvider"] })}
               options={[
-                { value: "vidsrc", label: "CineSrc (recommended)" },
+                { value: "vidsrc", label: "Cinezo (recommended)" },
                 { value: "webtor", label: "WebTor (torrent streaming)" },
               ]}
             />
