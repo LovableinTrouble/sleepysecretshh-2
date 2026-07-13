@@ -218,7 +218,7 @@ function CineSrcEmbed({
  * Based on https://github.com/webtor-io/embed-sdk-js
  * ============================================================ */
 
-const WEBTOR_SDK_URL = "/vendor/webtor-embed-sdk.min.js";
+const WEBTOR_SDK_URL = "https://cdn.jsdelivr.net/npm/@webtor/embed-sdk-js/dist/index.min.js";
 let webtorScriptPromise: Promise<void> | null = null;
 
 function loadWebtorSdk(): Promise<void> {
@@ -239,6 +239,12 @@ function loadWebtorSdk(): Promise<void> {
     document.head.appendChild(s);
   });
   return webtorScriptPromise;
+}
+
+let webtorIdCounter = 0;
+function nextWebtorId(): string {
+  webtorIdCounter += 1;
+  return `sleepy-webtor-${webtorIdCounter}`;
 }
 
 function WebTorStreamPlayer({
@@ -315,15 +321,20 @@ function WebTorStreamPlayer({
     let dead = false;
     setWebtorErr(null);
     setWebtorReady(false);
-    const el = containerRef.current;
+    const mountEl = containerRef.current;
     // Clear any previous SDK-inserted iframe when switching magnets
-    el.innerHTML = "";
+    mountEl.innerHTML = "";
+
+    // Create a unique ID for this player instance. The SDK uses this to
+    // find the mount element via getElementById and appends an iframe to it.
+    const playerId = nextWebtorId();
+    mountEl.id = playerId;
 
     loadWebtorSdk()
       .then(() => {
         if (dead || !containerRef.current) return;
         const config: Record<string, any> = {
-          el,
+          id: playerId,
           width: "100%",
           height: "100%",
           controls: true,
@@ -348,6 +359,21 @@ function WebTorStreamPlayer({
         }
         (window as any).webtor = (window as any).webtor || [];
         (window as any).webtor.push(config);
+
+        // Force the SDK-created iframe to fill the container.
+        // The SDK sets width/height attributes and an auto-resizer adjusts
+        // height, but we need to override with CSS for full-screen layout.
+        setTimeout(() => {
+          if (dead) return;
+          const iframe = mountEl.querySelector("iframe");
+          if (iframe) {
+            iframe.style.width = "100%";
+            iframe.style.height = "100%";
+            iframe.style.minHeight = "100%";
+            iframe.style.display = "block";
+            iframe.style.border = "0";
+          }
+        }, 500);
         setTimeout(() => {
           if (!dead) setWebtorReady(true);
         }, 8000);
@@ -387,8 +413,8 @@ function WebTorStreamPlayer({
         </div>
       )}
       {phase === "found" && activeMagnet && (
-        <div className="absolute inset-0">
-          <div ref={containerRef} className="h-full w-full" />
+        <div className="absolute inset-0 grid place-items-center overflow-hidden">
+          <div ref={containerRef} className="h-full w-full [&_iframe]:!h-full [&_iframe]:!w-full [&_iframe]:!border-0 [&_iframe]:!block" />
           {!webtorReady && !webtorErr && (
             <div className="pointer-events-none absolute inset-0 grid place-items-center text-white/60">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />

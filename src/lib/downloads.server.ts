@@ -247,15 +247,25 @@ function parseDlhub(html: string, requestedTitle: string): DownloadItem[] {
     const smallMatch = context.match(/<span class="small">([\s\S]*?)<\/span>/i);
     const size = smallMatch ? stripTags(smallMatch[1]) : "";
 
-    // Prefer magnet link, then torrent URL, then direct q URL.
+    // Emit both magnet AND .torrent URL as separate items so the user
+    // can download the .torrent file OR stream via WebTor.
     const magnet = attr(form, "magnet");
     const torrentUrl = attr(form, "torrent_url");
     const q = attr(form, "q");
     const direct = /^https?:\/\//i.test(q) ? q : "";
-    const url = magnet || direct || torrentUrl;
 
-    const item = toItem(url, "DLHub", name, quality, size);
-    if (item) items.push(item);
+    if (torrentUrl) {
+      const item = toItem(torrentUrl, "DLHub", name, quality, size);
+      if (item) items.push(item);
+    }
+    if (magnet) {
+      const item = toItem(magnet, "DLHub", `${name} (magnet)`, quality, size);
+      if (item) items.push(item);
+    }
+    if (direct && direct !== torrentUrl) {
+      const item = toItem(direct, "DLHub", name, quality, size);
+      if (item) items.push(item);
+    }
   }
 
   return items;
