@@ -87,7 +87,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
  * CineSrc iframe embed + postMessage API (backed by zxcstream.xyz)
  * ============================================================ */
 
-type CineSrcMessage = {
+type EmbedMessage = {
   type: string;
   currentTime?: number;
   duration?: number;
@@ -150,14 +150,16 @@ function CineSrcEmbed({
       } else {
         try {
           const originHost = new URL(event.origin).hostname.toLowerCase();
-          isAllowedOrigin = originHost === "cinesrc.st" || originHost.endsWith(".cinesrc.st");
+          isAllowedOrigin =
+            originHost === "cinezo.live" ||
+            originHost.endsWith(".cinezo.live");
         } catch {
           isAllowedOrigin = true;
         }
       }
       if (!isAllowedOrigin) return;
 
-      let data: CineSrcMessage | undefined;
+      let data: EmbedMessage | undefined;
       if (typeof event.data === "string") {
         try {
           data = JSON.parse(event.data);
@@ -165,32 +167,20 @@ function CineSrcEmbed({
           return;
         }
       } else {
-        data = event.data as CineSrcMessage | undefined;
+        data = event.data as EmbedMessage | undefined;
       }
       if (!data || typeof (data as { type?: any }).type !== "string") return;
 
       const t = data.type;
-      switch (t) {
-        case "cinesrc:ready":
-        case "cinesrc:play":
-        case "cinesrc:pause":
-        case "cinesrc:seeking":
-        case "cinesrc:seeked":
-          break;
-        case "cinesrc:timeupdate": {
-          if (typeof data.currentTime === "number" && typeof data.duration === "number") {
-            recordProgress(data.currentTime, data.duration, false);
-          }
-          break;
+      if (/timeupdate|time-update|progress/i.test(t)) {
+        if (typeof data.currentTime === "number" && typeof data.duration === "number") {
+          recordProgress(data.currentTime, data.duration, false);
         }
-        case "cinesrc:ended": {
-          const saved = getLocalProgressFor(media.id, seasonKey, epKey);
-          recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
-          break;
-        }
-        case "cinesrc:close":
-          onClose();
-          break;
+      } else if (/ended|complete/i.test(t)) {
+        const saved = getLocalProgressFor(media.id, seasonKey, epKey);
+        recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
+      } else if (/close|exit/i.test(t)) {
+        onClose();
       }
     };
     window.addEventListener("message", onMessage);
