@@ -176,31 +176,42 @@ function EmbedPlayer({
         return;
       }
 
-      // ── Cinezo (player.cinezo.live) — WATCH_PROGRESS ──────────────────────
-      if (event.origin === "https://player.cinezo.live") {
+      // ── Cinezo (player.cinezo.live) — PLAYER_EVENT ────────────────────────
+      // Actual structure from the Cinezo bundle:
+      //   parent.postMessage({ type: "PLAYER_EVENT", data: {
+      //     event: "timeupdate"|"play"|"pause"|"seeked"|"ended",
+      //     currentTime, duration, tmdbId, mediaType, season, episode
+      //   } }, "*")
+      if (
+        event.origin === "https://player.cinezo.live" ||
+        event.origin === "https://cinezo.live"
+      ) {
         const d = event.data as {
           type?: string;
           data?: {
-            mediaId?: string | number;
+            event?: string;
             currentTime?: number;
             duration?: number;
-            eventType?: string;
+            tmdbId?: number;
+            mediaType?: string;
+            season?: number;
+            episode?: number;
           };
         } | null;
-        if (!d || d.type !== "WATCH_PROGRESS" || !d.data) return;
+        if (!d || d.type !== "PLAYER_EVENT" || !d.data) return;
 
-        const { currentTime, duration, eventType } = d.data;
+        const { currentTime, duration, event: evt } = d.data;
         const ct = typeof currentTime === "number" ? currentTime : NaN;
         const dur = typeof duration === "number" ? duration : NaN;
 
-        if (eventType === "timeupdate") {
+        if (evt === "timeupdate") {
           const now = Date.now();
-          if (now - lastSaveRef.current < 5000) return; // throttle to 5 s
+          if (now - lastSaveRef.current < 5000) return;
           lastSaveRef.current = now;
           recordProgress(ct, dur, false, "cinezo");
-        } else if (eventType === "ended") {
+        } else if (evt === "ended") {
           recordProgress(ct, dur, true, "cinezo");
-        } else if (eventType === "pause" || eventType === "seeked") {
+        } else if (evt === "pause" || evt === "seeked") {
           recordProgress(ct, dur, false, "cinezo");
         }
         return;
@@ -221,6 +232,8 @@ function EmbedPlayer({
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
         referrerPolicy={useFebbox ? "origin" : "no-referrer"}
+        // Sandbox CineSrc to block popups — no allow-popups means window.open is blocked
+        sandbox={useFebbox ? "allow-scripts allow-same-origin allow-presentation" : undefined}
       />
 
       {/* Back button — only shown for Cinezo (CineSrc has its own via back=close) */}
