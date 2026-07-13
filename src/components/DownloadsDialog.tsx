@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, Loader2, Play, Upload, X, Zap } from "lucide-react";
 import type { Media } from "@/lib/catalog";
 import type { DownloadItem } from "@/lib/downloads";
@@ -55,7 +55,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
   const [torrentName, setTorrentName] = useState<string | null>(null);
   const [webtorReady, setWebtorReady] = useState(false);
   const [webtorErr, setWebtorErr] = useState<string | null>(null);
-  const [webtorPlayerId, setWebtorPlayerId] = useState<string>("");
+  const webtorContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -113,18 +113,18 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
   // When a magnet or torrent file is picked, boot the SDK.
   useEffect(() => {
     if (!webtorOpen || (!webtorMagnet && !torrentUrl)) return;
+    const el = webtorContainerRef.current;
+    if (!el) return;
     let dead = false;
     setWebtorErr(null);
     setWebtorReady(false);
-
-    const playerId = nextWebtorId();
-    setWebtorPlayerId(playerId);
+    el.innerHTML = "";
 
     loadWebtorSdk()
       .then(() => {
-        if (dead) return;
+        if (dead || !webtorContainerRef.current) return;
         const config: Record<string, any> = {
-          id: playerId,
+          el: webtorContainerRef.current,
           width: "100%",
           height: "100%",
           controls: true,
@@ -132,22 +132,17 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
           title: torrentName || media.title,
           on: (e: any) => {
             if (dead) return;
-            if (e.name === (window as any).webtor?.INITED) {
-              setWebtorReady(true);
-            }
-            if (e.name === (window as any).webtor?.TORRENT_ERROR) {
+            const n = String(e?.name || "");
+            if (n === "inited" || n === "player status") setWebtorReady(true);
+            if (n === "torrent error") {
               setWebtorErr("Failed to load torrent. The magnet link may be invalid.");
             }
           },
         };
-        if (webtorMagnet) {
-          config.magnet = webtorMagnet;
-        } else if (torrentUrl) {
-          config.torrentUrl = torrentUrl;
-        }
+        if (webtorMagnet) config.magnet = webtorMagnet;
+        else if (torrentUrl) config.torrentUrl = torrentUrl;
         (window as any).webtor = (window as any).webtor || [];
         (window as any).webtor.push(config);
-        // Fallback: mark ready after 8s even if INITED doesn't fire.
         setTimeout(() => {
           if (!dead) setWebtorReady(true);
         }, 8000);
@@ -394,7 +389,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
             )}
             {(webtorMagnet || torrentUrl) && (
               <div className="absolute inset-0">
-                <div id={webtorPlayerId} className="webtor h-full w-full" />
+                <div ref={webtorContainerRef} className="webtor h-full w-full" />
                 {!webtorReady && !webtorErr && (
                   <div className="pointer-events-none absolute inset-0 grid place-items-center text-white/60">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
