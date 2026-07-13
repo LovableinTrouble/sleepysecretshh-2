@@ -42,7 +42,7 @@ export interface Settings {
     chromecast: boolean;
     plexSync: boolean;
     enable4k: boolean;
-    /** Febbox token for premium source access via CineSrc embed. */
+    /** Febbox token for premium source access via Cinezo embed. */
     febboxToken: string;
     /** p-stream-style proxy region for CDN routing (auto = detect by IP). */
     pstreamRegion:
