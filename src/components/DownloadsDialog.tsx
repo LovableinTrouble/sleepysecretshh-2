@@ -13,7 +13,7 @@ import type { DownloadItem } from "@/lib/downloads";
  * or torrentUrl via postMessage after the iframe loads.
  * ============================================================ */
 
-const WEBTOR_SDK_URL = "https://cdn.jsdelivr.net/npm/@webtor/embed-sdk-js/dist/index.min.js";
+const WEBTOR_SDK_URL = "/vendor/webtor-embed-sdk.min.js";
 let webtorScriptPromise: Promise<void> | null = null;
 
 function loadWebtorSdk(): Promise<void> {
@@ -34,13 +34,6 @@ function loadWebtorSdk(): Promise<void> {
     document.head.appendChild(s);
   });
   return webtorScriptPromise;
-}
-
-/** Generate a unique element ID for the WebTor player mount point. */
-let webtorIdCounter = 0;
-function nextWebtorId(): string {
-  webtorIdCounter += 1;
-  return `sleepy-webtor-${webtorIdCounter}`;
 }
 
 interface DownloadsDialogProps {
