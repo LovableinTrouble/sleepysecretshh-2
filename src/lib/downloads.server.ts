@@ -96,7 +96,7 @@ async function providerVyla(input: Input): Promise<DownloadItem[] | null> {
           input.title,
           String(d?.quality || "Auto"),
           d?.size ? String(d.size) : undefined,
-          d?.format ? String(d.format) : undefined,
+          d?.format ? String(d.format) : d?.type ? String(d.type) : undefined,
         ),
       )
       .filter(Boolean) as DownloadItem[];

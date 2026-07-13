@@ -30,7 +30,6 @@ const PRIONIX: Source = {
       servericon: "true",
       setting: "true",
       pip: "true",
-      download: "true",
       primarycolor: "6366f1",
       secondarycolor: "0a0a12",
       iconcolor: "ffffff",
