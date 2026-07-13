@@ -25,6 +25,7 @@ function buildCinezo(m: Media, season?: number, episode?: number): string {
     servericon: "true",
     setting: "true",
     pip: "true",
+    episodelist: "true",
     primarycolor: "6366f1",
     secondarycolor: "0a0a12",
     iconcolor: "ffffff",

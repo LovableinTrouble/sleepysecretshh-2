@@ -105,16 +105,29 @@ function EmbedPlayer({
   const epKey = episode ?? null;
 
   const recordProgress = useCallback(
-    (currentTime: number, duration: number, completed: boolean, src: "cinesrc" | "cinezo") => {
-      if (!Number.isFinite(currentTime) || !Number.isFinite(duration)) return;
-      // Throttle: only write every 5 s unless it's a completion
+    (
+      currentTime: number,
+      duration: number,
+      completed: boolean,
+      src: "cinesrc" | "cinezo",
+      overrideSeason?: number | null,
+      overrideEpisode?: number | null,
+    ) => {
+      if (!Number.isFinite(currentTime)) return;
+      const dur = Number.isFinite(duration) ? duration : 0;
+      // Ignore timeupdate events that fire before metadata loads (duration=0)
+      // unless we already have a saved duration from a prior event.
+      if (dur <= 0 && !completed) {
+        const saved = getLocalProgressFor(media.id, overrideSeason ?? seasonKey, overrideEpisode ?? epKey);
+        if (!saved?.durationSeconds) return;
+      }
       const entry = {
         mediaId: media.id,
         mediaType: media.type,
-        season: seasonKey,
-        episode: epKey,
+        season: overrideSeason ?? seasonKey,
+        episode: overrideEpisode ?? epKey,
         positionSeconds: Math.max(0, Math.floor(currentTime)),
-        durationSeconds: Math.max(0, Math.floor(duration)),
+        durationSeconds: Math.max(0, Math.floor(dur)),
         title: media.title,
         poster: media.poster ?? null,
         backdrop: media.backdrop ?? null,
@@ -200,19 +213,22 @@ function EmbedPlayer({
         } | null;
         if (!d || d.type !== "PLAYER_EVENT" || !d.data) return;
 
-        const { currentTime, duration, event: evt } = d.data;
+        const { currentTime, duration, event: evt, season, episode } = d.data;
         const ct = typeof currentTime === "number" ? currentTime : NaN;
         const dur = typeof duration === "number" ? duration : NaN;
+        // Use season/episode from the event for TV shows (handles internal ep navigation)
+        const epSeason = typeof season === "number" ? season : null;
+        const epEpisode = typeof episode === "number" ? episode : null;
 
         if (evt === "timeupdate") {
           const now = Date.now();
           if (now - lastSaveRef.current < 5000) return;
           lastSaveRef.current = now;
-          recordProgress(ct, dur, false, "cinezo");
+          recordProgress(ct, dur, false, "cinezo", epSeason, epEpisode);
         } else if (evt === "ended") {
-          recordProgress(ct, dur, true, "cinezo");
+          recordProgress(ct, dur, true, "cinezo", epSeason, epEpisode);
         } else if (evt === "pause" || evt === "seeked") {
-          recordProgress(ct, dur, false, "cinezo");
+          recordProgress(ct, dur, false, "cinezo", epSeason, epEpisode);
         }
         return;
       }
