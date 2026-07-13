@@ -84,7 +84,15 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
           subtitles: any[];
           error?: string;
         };
-        if (data.ok) setItems(data.downloads);
+        if (data.ok) {
+          // Downloads list is torrent-only per user preference.
+          // Magnet links are used silently by the WebTor source.
+          const torrents = data.downloads.filter(
+            (d) => d.type === "torrent" || /\.torrent($|\?)/i.test(d.url),
+          );
+          setItems(torrents);
+          if (torrents.length === 0) setError("No .torrent files found for this title.");
+        }
         else setError(data.error || "No downloads found for this title.");
       } catch (err: any) {
         if (!dead) setError(err?.message || "Failed to load downloads.");
