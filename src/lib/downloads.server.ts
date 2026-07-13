@@ -183,13 +183,21 @@ async function providerYts(input: Input): Promise<ProviderHit | null> {
         const torrentUrl = t.url || "";
         const hash = t.hash || "";
         const name = `${movie.title} ${quality}`;
-        // Generate a magnet link from the info hash so WebTor can stream it.
-        const magnet = hash ? makeMagnet(hash, name) : "";
-        const url = magnet || torrentUrl;
-        if (!url || seen.has(url)) continue;
-        seen.add(url);
-        const item = toItem(url, "YTS", name, quality, size);
-        if (item) downloads.push(item);
+        // Emit .torrent file (user-visible download) …
+        if (torrentUrl && !seen.has(torrentUrl)) {
+          seen.add(torrentUrl);
+          const item = toItem(torrentUrl, "YTS", name, quality, size);
+          if (item) downloads.push(item);
+        }
+        // … and a magnet (used silently by WebTor source).
+        if (hash) {
+          const magnet = makeMagnet(hash, name);
+          if (!seen.has(magnet)) {
+            seen.add(magnet);
+            const item = toItem(magnet, "YTS", name, quality, size);
+            if (item) downloads.push(item);
+          }
+        }
       }
     }
 

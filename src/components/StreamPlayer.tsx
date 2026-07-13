@@ -87,7 +87,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
  * CineSrc iframe embed + postMessage API (backed by zxcstream.xyz)
  * ============================================================ */
 
-type CineSrcMessage = {
+type EmbedMessage = {
   type: string;
   currentTime?: number;
   duration?: number;
@@ -150,14 +150,16 @@ function CineSrcEmbed({
       } else {
         try {
           const originHost = new URL(event.origin).hostname.toLowerCase();
-          isAllowedOrigin = originHost === "cinesrc.st" || originHost.endsWith(".cinesrc.st");
+          isAllowedOrigin =
+            originHost === "cinezo.live" ||
+            originHost.endsWith(".cinezo.live");
         } catch {
           isAllowedOrigin = true;
         }
       }
       if (!isAllowedOrigin) return;
 
-      let data: CineSrcMessage | undefined;
+      let data: EmbedMessage | undefined;
       if (typeof event.data === "string") {
         try {
           data = JSON.parse(event.data);
@@ -165,32 +167,20 @@ function CineSrcEmbed({
           return;
         }
       } else {
-        data = event.data as CineSrcMessage | undefined;
+        data = event.data as EmbedMessage | undefined;
       }
       if (!data || typeof (data as { type?: any }).type !== "string") return;
 
       const t = data.type;
-      switch (t) {
-        case "cinesrc:ready":
-        case "cinesrc:play":
-        case "cinesrc:pause":
-        case "cinesrc:seeking":
-        case "cinesrc:seeked":
-          break;
-        case "cinesrc:timeupdate": {
-          if (typeof data.currentTime === "number" && typeof data.duration === "number") {
-            recordProgress(data.currentTime, data.duration, false);
-          }
-          break;
+      if (/timeupdate|time-update|progress/i.test(t)) {
+        if (typeof data.currentTime === "number" && typeof data.duration === "number") {
+          recordProgress(data.currentTime, data.duration, false);
         }
-        case "cinesrc:ended": {
-          const saved = getLocalProgressFor(media.id, seasonKey, epKey);
-          recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
-          break;
-        }
-        case "cinesrc:close":
-          onClose();
-          break;
+      } else if (/ended|complete/i.test(t)) {
+        const saved = getLocalProgressFor(media.id, seasonKey, epKey);
+        recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
+      } else if (/close|exit/i.test(t)) {
+        onClose();
       }
     };
     window.addEventListener("message", onMessage);
@@ -228,7 +218,7 @@ function CineSrcEmbed({
  * Based on https://github.com/webtor-io/embed-sdk-js
  * ============================================================ */
 
-const WEBTOR_SDK_URL = "https://cdn.jsdelivr.net/npm/@webtor/embed-sdk-js/dist/index.min.js";
+const WEBTOR_SDK_URL = "/vendor/webtor-embed-sdk.min.js";
 let webtorScriptPromise: Promise<void> | null = null;
 
 function loadWebtorSdk(): Promise<void> {
@@ -251,12 +241,6 @@ function loadWebtorSdk(): Promise<void> {
   return webtorScriptPromise;
 }
 
-let webtorIdCounter = 0;
-function nextWebtorId(): string {
-  webtorIdCounter += 1;
-  return `sleepy-webtor-player-${webtorIdCounter}`;
-}
-
 function WebTorStreamPlayer({
   media,
   season,
@@ -273,7 +257,6 @@ function WebTorStreamPlayer({
   const [phase, setPhase] = useState<"searching" | "found" | "error">("searching");
   const [magnets, setMagnets] = useState<DownloadItem[]>([]);
   const [activeMagnet, setActiveMagnet] = useState<string | null>(null);
-  const [webtorPlayerId, setWebtorPlayerId] = useState("");
   const [webtorReady, setWebtorReady] = useState(false);
   const [webtorErr, setWebtorErr] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -328,18 +311,19 @@ function WebTorStreamPlayer({
 
   // Step 2: when a magnet is selected, boot the WebTor SDK player.
   useEffect(() => {
-    if (!activeMagnet) return;
+    if (!activeMagnet || !containerRef.current) return;
     let dead = false;
     setWebtorErr(null);
     setWebtorReady(false);
-    const playerId = nextWebtorId();
-    setWebtorPlayerId(playerId);
+    const el = containerRef.current;
+    // Clear any previous SDK-inserted iframe when switching magnets
+    el.innerHTML = "";
 
     loadWebtorSdk()
       .then(() => {
-        if (dead) return;
+        if (dead || !containerRef.current) return;
         const config: Record<string, any> = {
-          id: playerId,
+          el,
           width: "100%",
           height: "100%",
           controls: true,
@@ -347,11 +331,12 @@ function WebTorStreamPlayer({
           title: media.title,
           on: (e: any) => {
             if (dead) return;
-            if (e.name === (window as any).webtor?.INITED) {
+            const n = String(e?.name || "");
+            if (n === "inited" || n === "player status") {
               setWebtorReady(true);
-              e.player?.play?.();
+              try { e.player?.play?.(); } catch { /* ignore */ }
             }
-            if (e.name === (window as any).webtor?.TORRENT_ERROR) {
+            if (n === "torrent error") {
               setWebtorErr("Failed to load torrent. Try another source.");
             }
           },
@@ -403,7 +388,7 @@ function WebTorStreamPlayer({
       )}
       {phase === "found" && activeMagnet && (
         <div className="absolute inset-0">
-          <div id={webtorPlayerId} className="h-full w-full" />
+          <div ref={containerRef} className="h-full w-full" />
           {!webtorReady && !webtorErr && (
             <div className="pointer-events-none absolute inset-0 grid place-items-center text-white/60">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
