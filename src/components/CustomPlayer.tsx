@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Hls from "hls.js";
 import {
   Play, Pause, Volume2, VolumeX, Volume1,
   Maximize, Minimize, PictureInPicture, Download as DownloadIcon,
@@ -52,7 +51,7 @@ export function CustomPlayer({
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
+  const hlsRef = useRef<any>(null);
 
   const [currentIdx, setCurrentIdx] = useState(0);
   const currentQuality: StreamQuality | undefined = source.qualities[currentIdx];
@@ -94,30 +93,40 @@ export function CustomPlayer({
     const url = currentQuality.url;
     const isHls = currentQuality.format === "hls" || url.toLowerCase().includes(".m3u8");
 
-    if (isHls && Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 60 });
-      hlsRef.current = hls;
-      hls.loadSource(url);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setHlsLevels(hls.levels.map((l, i) => ({ height: l.height, index: i })));
-        if (startAt > 0) video.currentTime = startAt;
-        if (autoplay) video.play().catch(() => {});
-      });
-      hls.on(Hls.Events.LEVEL_SWITCHED, (_e, d) => setHlsLevel(d.level));
-      hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (data.fatal) {
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-          else setError("Playback error. Try switching quality or source.");
+    let cancelled = false;
+
+    if (isHls) {
+      import("hls.js").then(({ default: Hls }) => {
+        if (cancelled || !Hls.isSupported()) {
+          if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
+          return;
         }
+        const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 60 });
+        hlsRef.current = hls;
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setHlsLevels(hls.levels.map((l: any, i: number) => ({ height: l.height, index: i })));
+          if (startAt > 0) video.currentTime = startAt;
+          if (autoplay) video.play().catch(() => {});
+        });
+        hls.on(Hls.Events.LEVEL_SWITCHED, (_e: any, d: any) => setHlsLevel(d.level));
+        hls.on(Hls.Events.ERROR, (_e: any, data: any) => {
+          if (data.fatal) {
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+            else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+            else setError("Playback error. Try switching quality or source.");
+          }
+        });
+      }).catch(() => {
+        if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
       });
     } else {
       video.src = url;
       if (startAt > 0) video.currentTime = startAt;
       if (autoplay) video.play().catch(() => {});
     }
-    return () => { hlsRef.current?.destroy(); hlsRef.current = null; };
+    return () => { cancelled = true; hlsRef.current?.destroy(); hlsRef.current = null; };
   }, [currentIdx, currentQuality, autoplay, startAt]);
 
   useEffect(() => { if (hlsRef.current) hlsRef.current.currentLevel = hlsLevel; }, [hlsLevel]);

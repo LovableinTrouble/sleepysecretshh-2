@@ -4,7 +4,6 @@
  * Each source returns { url, allUrls, headers, subtitles }.
  * Sources run in parallel; first valid HLS wins for the primary source.
  */
-import CryptoJS from "crypto-js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -675,5 +674,3 @@ export async function resolveAllSources(input: ResolveInput): Promise<ResolveRes
   return { sources, primary: sources[0]?.id };
 }
 
-// Remove unused import warning - CryptoJS kept for potential FebBox use
-void CryptoJS;

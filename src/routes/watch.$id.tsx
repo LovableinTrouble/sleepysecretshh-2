@@ -23,6 +23,9 @@ function WatchPage() {
   const navigate = useNavigate();
   const [media, setMedia] = useState<Media | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     const numeric = Number(id);
@@ -63,6 +66,16 @@ function WatchPage() {
               Go back
             </button>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!mounted) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black text-white">
+        <div className="text-center">
+          <div className="text-xs uppercase tracking-[0.4em] text-white/40">Preparing player</div>
         </div>
       </div>
     );
