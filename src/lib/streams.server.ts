@@ -1,19 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Stream aggregator — resolves TMDB IDs to real HLS/MP4 URLs.
- *
- * Primary direct source: Cineby/speedracelight API
- *   1. GET  {origin}/seed?mediaId={tmdbId}           → { seed, ttlMs }
- *   2. GET  {origin}/{server}/sources-with-title
- *        ?title=...&mediaType=...&tmdbId=...&enc=2&seed=...  → encrypted base64
- *   3. Decrypt with custom XOR-PRNG cipher (seed as key, tmdbId as nonce)
- *   4. Returns { sources: [{url, quality, type}], subtitles: [...] }
- *
- * Subtitles: sub.1x2.space API
- *   GET /api/movie/{tmdbId}          → [{label, language, url}]
- *   GET /api/tv/{tmdbId}/{s}/{e}     → [{label, language, url}]
- *
- * Fallback: 16+ embed sources.
+ * Stream aggregator using Vyla's scraper logic.
+ * Each source returns { url, allUrls, headers, subtitles }.
+ * Sources run in parallel; first valid HLS wins for the primary source.
  */
 import CryptoJS from "crypto-js";
 
@@ -24,6 +13,7 @@ export interface StreamQuality {
   label: string;
   quality: string;
   format: "hls" | "mp4" | "mkv" | "unknown";
+  headers?: Record<string, string>;
   size?: string;
   resolution?: number;
 }
@@ -40,7 +30,6 @@ export interface DirectSource {
   badge: string;
   qualities: StreamQuality[];
   subtitles: StreamSubtitle[];
-  fileName?: string;
 }
 export interface EmbedSource {
   kind: "embed";
@@ -56,158 +45,84 @@ export interface ResolveInput {
   type: "movie" | "show";
   season?: number;
   episode?: number;
-  febboxCookie?: string;
 }
 export interface ResolveResult {
   sources: ResolvedSource[];
   primary?: string;
 }
 
-// ─── Cineby cipher ────────────────────────────────────────────────────────────
+// ─── Shared helpers (ported from Vyla) ────────────────────────────────────────
 
-const CINEBY_API = "https://api.speedracelight.com";
-const CINEBY_UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-const U = [
-  1116352408, 1899447441, 3049323471, 3921009573, 961987163, 1508970993,
-  2453635748, 2870763221, 3624381080, 310598401, 607225278, 1426881987,
-  1925078388, 2162078206, 2614888103, 3248222580,
-];
-const MAGIC = [109, 118, 109, 49]; // "mvm1"
-
-function fmix32(e: number): number {
-  e = e >>> 0;
-  e ^= e >>> 16;
-  e = Math.imul(e, 2246822507) >>> 0;
-  e ^= e >>> 13;
-  e = Math.imul(e, 3266489909) >>> 0;
-  e ^= e >>> 16;
-  return e >>> 0;
+async function fetchJson(url: string, options?: any): Promise<any> {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+async function fetchText(url: string, options?: any): Promise<string> {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
 }
 
-function rotl(e: number, t: number): number {
-  e = e >>> 0;
-  t = t & 31;
-  if (t === 0) return e;
-  return ((e << t) | (e >>> (32 - t))) >>> 0;
+// ─── TMDB info cache ──────────────────────────────────────────────────────────
+
+const TMDB_KEY = "8265bd1679663a7ea12ac168da84d2e8";
+const tmdbInfoCache = new Map<string, { val: any; ts: number; ttl: number }>();
+
+function cacheGet(cache: Map<string, { val: any; ts: number; ttl: number }>, key: string) {
+  const entry = cache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.ts >= entry.ttl) { cache.delete(key); return undefined; }
+  return entry.val;
+}
+function cacheSet(cache: Map<string, { val: any; ts: number; ttl: number }>, key: string, val: any, ttl: number) {
+  cache.set(key, { val, ts: Date.now(), ttl });
 }
 
-function fnv1a(s: string): number {
-  let t = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    t = (Math.imul(t ^ s.charCodeAt(i), 16777619)) >>> 0;
-  }
-  return fmix32(t);
+async function getTmdbInfo(tmdbId: string, mediaType: string, season?: number) {
+  const key = `${tmdbId}-${mediaType}-${season || ""}`;
+  const cached = cacheGet(tmdbInfoCache, key);
+  if (cached !== undefined) return cached;
+  try {
+    const [mainRes, seasonRes] = await Promise.all([
+      fetch(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${TMDB_KEY}&append_to_response=external_ids`, { signal: AbortSignal.timeout(5000) }),
+      season && mediaType === "tv" ? fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${season}?api_key=${TMDB_KEY}`, { signal: AbortSignal.timeout(5000) }) : Promise.resolve(null),
+    ]);
+    let mainData: any = null, seasonData: any = null;
+    if (mainRes.ok) mainData = await mainRes.json();
+    if (seasonRes && seasonRes.ok) seasonData = await seasonRes.json();
+    const genres = mainData?.genres || [];
+    const isAnime = genres.some((g: any) => g.id === 16) && ((mainData?.origin_country || []).includes("JP") || mainData?.original_language === "ja");
+    const titles: string[] = [];
+    if (seasonData?.name) titles.push(seasonData.name);
+    const t = mainData?.title || mainData?.name || "";
+    const ot = mainData?.original_title || mainData?.original_name || "";
+    if (t) titles.push(t);
+    if (ot && ot !== t) titles.push(ot);
+    const dateStr = seasonData?.air_date || mainData?.release_date || mainData?.first_air_date || "";
+    const result = {
+      isAnime, titles: [...new Set(titles.filter(Boolean))],
+      year: dateStr ? parseInt(dateStr.slice(0, 4), 10) : null,
+      imdbId: mainData?.imdb_id || mainData?.external_ids?.imdb_id || null,
+    };
+    cacheSet(tmdbInfoCache, key, result, 600000);
+    return result;
+  } catch { return { isAnime: false, titles: [] as string[], year: null, imdbId: null }; }
 }
-
-function buildState(seedStr: string, tmdbIdNum: number): { R: Map<number, number>; acc: number } {
-  const R = new Map<number, number>();
-  let n = fmix32(fnv1a(seedStr) ^ fmix32((tmdbIdNum ^ 2654435769) >>> 0));
-  for (let e = 0; e < 8; e++) {
-    // All e*(e+1) are even, so is_even_pr is always true
-    const t = n % 61;
-    n = rotl((n + 2654435769) >>> 0, 7 + (7 & e));
-    R.set(t, (n ^ fmix32(n)) >>> 0);
-    n = fmix32((n + t) >>> 0);
-  }
-  const acc = fmix32(2779096485 ^ n) >>> 0;
-  return { R, acc };
-}
-
-function prngNext(state: { R: Map<number, number>; acc: number }, counter: number): number {
-  const { R, acc: a } = state;
-  const i = a % 61;
-  const slotAssigned = R.has(i);
-  const u = slotAssigned ? 0xffffffff : 0;
-  const l = (R.get(i) ?? 0) >>> 0;
-  const val = (l ^ (Math.imul(2654435769, counter + 1) >>> 0)) >>> 0;
-
-  let c: number;
-  if (slotAssigned) {
-    c = ((a ^ val) | (a & val)) >>> 0; // u = 0xffffffff → a | val
-  } else {
-    c = (a ^ val) >>> 0; // u = 0
-  }
-
-  c = (rotl((c + a) >>> 0, 31 & i) ^ rotl(a, 31 & (Math.imul(i, 7) & 31))) >>> 0;
-  const newAcc = fmix32((c + 2654435769) >>> 0);
-  R.set(i, newAcc);
-  state.acc = newAcc;
-  return newAcc;
-}
-
-function decodeBase64Url(b64: string): Uint8Array {
-  const t = b64.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = t + "=".repeat((4 - (t.length % 4)) % 4);
-  const binary = atob(padded);
-  const arr = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
-  return arr;
-}
-
-function decryptResponse(encrypted: string, seedStr: string, tmdbIdNum: number): string {
-  const data = decodeBase64Url(encrypted);
-  const state = buildState(seedStr, tmdbIdNum);
-
-  const keystream = new Uint8Array(data.length);
-  let a = 0;
-  let e = 0;
-  while (e < data.length) {
-    const val = prngNext(state, a++);
-    keystream[e++] = val & 255;
-    if (e < data.length) keystream[e++] = (val >>> 8) & 255;
-    if (e < data.length) keystream[e++] = (val >>> 16) & 255;
-    if (e < data.length) keystream[e++] = (val >>> 24) & 255;
-  }
-
-  for (let i = 0; i < data.length; i++) data[i] ^= keystream[i];
-
-  for (let i = 0; i < MAGIC.length; i++) {
-    if (data[i] !== MAGIC[i]) throw new Error("Cineby decrypt: magic mismatch");
-  }
-
-  return new TextDecoder("utf-8").decode(data.subarray(MAGIC.length));
-}
-
-// ─── Cineby seed cache ────────────────────────────────────────────────────────
-
-const seedCache = new Map<string, { seed: string; expiresAt: number }>();
-
-async function getSeed(tmdbId: string): Promise<string> {
-  const now = Date.now();
-  const cached = seedCache.get(tmdbId);
-  if (cached && cached.expiresAt - 5000 > now) return cached.seed;
-
-  const res = await fetch(`${CINEBY_API}/seed?mediaId=${tmdbId}`, {
-    headers: {
-      "User-Agent": CINEBY_UA,
-      Referer: "https://www.cineby.at/",
-      Origin: "https://www.cineby.at",
-    },
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) throw new Error(`Cineby seed: ${res.status}`);
-  const d = await res.json();
-  const ttl = d.ttlMs ?? 30000;
-  seedCache.set(tmdbId, { seed: d.seed, expiresAt: now + ttl });
-  return d.seed as string;
-}
-
-// ─── Cineby source resolver ───────────────────────────────────────────────────
-
-const CINEBY_SERVERS = ["neon2", "jett", "cdn", "hdmovie", "lamovie", "ym"];
 
 function inferFormat(url: string, type?: string): StreamQuality["format"] {
   const t = (type || "").toLowerCase();
   if (t === "hls" || t === "m3u8") return "hls";
-  if (t === "dash") return "mp4";
   if (t === "mp4") return "mp4";
+  if (t === "dash" || t === "mkv") return "unknown";
   const l = url.toLowerCase();
   if (l.includes(".m3u8")) return "hls";
   if (l.includes(".mp4")) return "mp4";
   if (l.includes(".mkv")) return "mkv";
-  if (l.includes(".mpd")) return "mp4";
+  if (l.includes(".mpd")) return "unknown";
   return "unknown";
 }
 
@@ -216,435 +131,426 @@ function parseResolution(label: string): number {
   return m ? parseInt(m[1], 10) : 0;
 }
 
-async function resolveCineby(input: ResolveInput): Promise<DirectSource | null> {
-  try {
-    const seed = await getSeed(input.tmdbId);
-    const isShow = input.type !== "movie";
-    const params = new URLSearchParams({
-      title: input.title,
-      mediaType: isShow ? "tv" : "movie",
-      tmdbId: input.tmdbId,
-      enc: "2",
-      seed,
-    });
-    if (isShow) {
-      params.set("season", String(input.season ?? 1));
-      params.set("episode", String(input.episode ?? 1));
-    }
+// ─── Source: VidSrc (vsembed.ru) ──────────────────────────────────────────────
 
-    // Try multiple servers, pick the first that returns HLS sources
+async function srcVidsrc(id: string, s?: number, e?: number): Promise<StreamQuality[]> {
+  const BASE_URL = "https://vsembed.ru";
+  const HEADERS = { "User-Agent": UA, Referer: `${BASE_URL}/` };
+  const PLAYER_DOMAINS: Record<string, string> = {
+    "{v1}": "neonhorizonworkshops.com", "{v2}": "wanderlynest.com",
+    "{v3}": "orchidpixelgardens.com", "{v4}": "cloudnestra.com",
+  };
+  const PROXY_HEADERS = { "User-Agent": UA, Referer: "https://cloudnestra.com/", Origin: "https://cloudnestra.com", Accept: "*/*" };
+
+  function extractM3u8(html: string): string[] | null {
+    const idx = html.indexOf("file:");
+    if (idx === -1) return null;
+    const start = html.indexOf('"', idx) + 1;
+    const end = html.indexOf('"', start);
+    const fileField = html.slice(start, end);
+    const urls: string[] = [];
+    for (const template of fileField.split(/\s+or\s+/i)) {
+      let url = template;
+      for (const [p, d] of Object.entries(PLAYER_DOMAINS)) url = url.replace(p, d);
+      if (!url.includes("{") && !url.includes("}")) urls.push(url);
+    }
+    return urls.length ? urls : null;
+  }
+
+  try {
+    const html1 = await fetchText(
+      s ? `${BASE_URL}/embed/tv?tmdb=${id}&season=${s}&episode=${e}` : `${BASE_URL}/embed/movie?tmdb=${id}`,
+      { headers: HEADERS, signal: AbortSignal.timeout(7000) },
+    );
+    let rcpUrl = html1.match(/<iframe[^>]+src=["']([^"']+)["'][^>]*>/i)?.[1];
+    if (!rcpUrl) return [];
+    if (rcpUrl.startsWith("//")) rcpUrl = "https:" + rcpUrl;
+    const html2 = await fetchText(rcpUrl, { headers: { Referer: `${BASE_URL}/` }, signal: AbortSignal.timeout(7000) });
+    const prorcpMatch = html2.match(/src:\s*['"]([^'"]*\/prorcp\/[^'"]+)['"]/i)?.[1];
+    const playerUrl = prorcpMatch
+      ? (prorcpMatch.startsWith("http") ? prorcpMatch : rcpUrl.slice(0, rcpUrl.indexOf("/", rcpUrl.indexOf("//") + 2)) + prorcpMatch)
+      : rcpUrl.replace("/rcp/", "/prorcp/");
+    const html3 = await fetchText(playerUrl, { headers: { Referer: rcpUrl }, signal: AbortSignal.timeout(7000) });
+    let urls = extractM3u8(html3);
+    if (!urls) {
+      const apiSrc = html3.match(/src=["']([^"']*\/e\/[^"']+)["']/i)?.[1]
+        ?? html3.match(/src=["']([^"']*\/embed[^"']+)["']/i)?.[1]
+        ?? html3.match(/<iframe[^>]+src=["']([^"']+)["'][^>]*>/i)?.[1];
+      if (!apiSrc) return [];
+      const html4 = await fetchText(new URL(apiSrc, playerUrl).href, { headers: { Referer: playerUrl }, signal: AbortSignal.timeout(7000) });
+      urls = extractM3u8(html4);
+    }
+    return urls?.map((u) => ({ url: u, label: "Auto", quality: "Auto", format: "hls" as const, headers: PROXY_HEADERS })) ?? [];
+  } catch { return []; }
+}
+
+// ─── Source: VidLink ──────────────────────────────────────────────────────────
+
+async function srcVidlink(id: string, s?: number, e?: number): Promise<StreamQuality[]> {
+  const BASE = "https://vidlink.pro";
+  const HEADERS = { "User-Agent": UA, Origin: BASE, Referer: `${BASE}/` };
+  try {
+    const encData = await fetchJson(`https://enc-dec.app/api/enc-vidlink?text=${id}`, { signal: AbortSignal.timeout(6000) });
+    if (encData?.status !== 200 || !encData?.result) return [];
+    const data = await fetchJson(
+      s ? `${BASE}/api/b/tv/${encData.result}/${s}/${e || 1}` : `${BASE}/api/b/movie/${encData.result}`,
+      { headers: HEADERS, signal: AbortSignal.timeout(10000) },
+    );
+    const stream = data?.stream;
+    if (!stream) return [];
+    if (stream.type === "file" && stream.qualities) {
+      for (const q of ["1080", "720", "480", "360"]) {
+        if (stream.qualities[q]?.url) return [{ url: stream.qualities[q].url, label: `${q}p`, quality: q, format: "mp4" as const }];
+      }
+      const first = stream.qualities[Object.keys(stream.qualities)[0]];
+      return first?.url ? [{ url: first.url, label: "Auto", quality: "Auto", format: "mp4" as const }] : [];
+    }
+    if (stream.playlist) return [{ url: stream.playlist, label: "Auto", quality: "Auto", format: "hls" as const }];
+    return [];
+  } catch { return []; }
+}
+
+// ─── Source: VidFast ──────────────────────────────────────────────────────────
+
+async function srcVidfast(id: string, s?: number, e?: number): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
+  const API_BASE = "https://enc-dec.app/api";
+  const DOMAIN = "https://vidfast.vc";
+  const HEADERS = { "User-Agent": UA, Referer: `${DOMAIN}/`, "X-Requested-With": "XMLHttpRequest" };
+  try {
+    const embedUrl = s != null && e != null ? `${DOMAIN}/tv/${id}/${s}/${e}/` : `${DOMAIN}/movie/${id}/`;
+    const html = await fetchText(embedUrl, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(7000) });
+    const match = html.match(/\\"en\\":\\"(.*?)\\"/) || html.match(/"en":"(.*?)"/);
+    if (!match?.[1]) return { qualities: [], subtitles: [] };
+    const encData = await fetchJson(`${API_BASE}/enc-vidfast?text=${encodeURIComponent(match[1])}`, { signal: AbortSignal.timeout(6000) });
+    if (encData.status !== 200 || !encData.result) return { qualities: [], subtitles: [] };
+    const { servers: serversUrl, stream: streamUrl, token } = encData.result;
+    const reqHeaders = { ...HEADERS, "X-CSRF-Token": token };
+    const serversEncrypted = await fetchText(serversUrl, { method: "POST", headers: reqHeaders, signal: AbortSignal.timeout(8000) });
+    const decServersData = await fetchJson(`${API_BASE}/dec-vidfast`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: serversEncrypted }), signal: AbortSignal.timeout(8000) });
+    if (decServersData.status !== 200 || !decServersData.result) return { qualities: [], subtitles: [] };
     const results = await Promise.allSettled(
-      CINEBY_SERVERS.map(async (server) => {
-        const url = `${CINEBY_API}/${server}/sources-with-title?${params}`;
-        const res = await fetch(url, {
-          headers: {
-            "User-Agent": CINEBY_UA,
-            Referer: "https://www.cineby.at/",
-            Origin: "https://www.cineby.at",
-          },
-          signal: AbortSignal.timeout(12000),
-        });
-        if (!res.ok) throw new Error(`${server}: ${res.status}`);
-        const encrypted = await res.text();
-        const decrypted = decryptResponse(encrypted, seed, parseInt(input.tmdbId, 10));
-        const parsed = JSON.parse(decrypted);
-        return { server, parsed };
+      decServersData.result.map(async (srv: any) => {
+        const streamEncrypted = await fetchText(`${streamUrl}/${srv.data}`, { method: "POST", headers: reqHeaders, signal: AbortSignal.timeout(8000) });
+        const decStreamData = await fetchJson(`${API_BASE}/dec-vidfast`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: streamEncrypted }), signal: AbortSignal.timeout(8000) });
+        if (decStreamData.status !== 200 || !decStreamData.result?.url) throw new Error();
+        const subs: StreamSubtitle[] = (decStreamData.result.captions || []).map((c: any) => ({
+          url: c.file, language: c.label || "en", label: String(c.label || "EN").toUpperCase(), type: "vtt" as const,
+        }));
+        return { url: decStreamData.result.url, label: `VidFast ${srv.name || ""}`.trim(), quality: "Auto", format: inferFormat(decStreamData.result.url), subtitles: subs };
       }),
     );
+    const qualities: StreamQuality[] = [];
+    const subtitles: StreamSubtitle[] = [];
+    for (const r of results) {
+      if (r.status === "fulfilled") { qualities.push(r.value); if (r.value.subtitles) subtitles.push(...r.value.subtitles); }
+    }
+    return { qualities, subtitles };
+  } catch { return { qualities: [], subtitles: [] }; }
+}
+
+// ─── Source: VidEasy (Wings/Cineby API with enc-dec bridge) ───────────────────
+
+async function srcVideasy(id: string, s?: number, e?: number): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
+  const WINGS_BASE = "https://api.wingsdatabase.com";
+  const HEADERS = { Accept: "*/*", Origin: "https://player.videasy.to", Referer: "https://player.videasy.to/", "User-Agent": UA };
+  const SERVERS = [
+    { id: "jett", name: "Jett" }, { id: "cdn", name: "Yoru" }, { id: "tejo", name: "Tejo" },
+    { id: "neon2", name: "Neon" }, { id: "ym", name: "Sage" }, { id: "m4uhd", name: "Breach" },
+    { id: "hdmovie", name: "Vyse" }, { id: "lamovie", name: "Omen" },
+  ];
+  try {
+    const isTv = s != null && e != null;
+    const info = await getTmdbInfo(id, isTv ? "tv" : "movie", s);
+    if (!info?.titles?.length) return { qualities: [], subtitles: [] };
+    const seedData = await fetchJson(`${WINGS_BASE}/seed?mediaId=${id}`, { headers: HEADERS, signal: AbortSignal.timeout(5000) });
+    const seed = seedData?.seed;
+    if (!seed) return { qualities: [], subtitles: [] };
+    const encTitle = encodeURIComponent(encodeURIComponent(info.titles[0]));
+
+    const settled = await Promise.allSettled(SERVERS.map(async (srv) => {
+      if (srv.id === "cdn" && isTv) throw new Error();
+      let url = `${WINGS_BASE}/${srv.id}/sources-with-title?title=${encTitle}&mediaType=${isTv ? "tv" : "movie"}&year=${info.year || ""}&tmdbId=${id}&imdbId=${info.imdbId || "tt0000000"}&enc=2&seed=${seed}`;
+      if (isTv) url += `&episodeId=${e}&seasonId=${s}`;
+      const encText = await fetchText(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+      const decJson = await fetchJson("https://enc-dec.app/api/dec-videasy", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: encText, id: String(id), seed }), signal: AbortSignal.timeout(10000),
+      });
+      if (decJson.status !== 200 || !decJson.result) throw new Error();
+      let sourcesArray: any[] = [];
+      let subsArray: StreamSubtitle[] = [];
+      if (Array.isArray(decJson.result)) sourcesArray = decJson.result;
+      else if (decJson.result.sources) {
+        sourcesArray = decJson.result.sources;
+        if (decJson.result.subtitles) subsArray = decJson.result.subtitles.map((sub: any) => ({
+          url: sub.url || sub.file, language: sub.language || sub.lang || sub.label || "en",
+          label: String(sub.label || sub.language || "EN").toUpperCase(), type: "vtt" as const,
+        })).filter((sub: any) => sub.url);
+      } else sourcesArray = [decJson.result];
+      return sourcesArray.map((res: any) => {
+        const streamUrl = res.url || res.file || res.link || res.playlist || res.stream;
+        return streamUrl ? { url: streamUrl, label: `VidEasy ${srv.name}`, quality: res.quality || "Auto", format: inferFormat(streamUrl), subtitles: subsArray } : null;
+      }).filter(Boolean);
+    }));
 
     const qualities: StreamQuality[] = [];
+    const subtitles: StreamSubtitle[] = [];
+    for (const r of settled) {
+      if (r.status === "fulfilled" && r.value) {
+        for (const q of r.value) { qualities.push(q); if (q.subtitles) subtitles.push(...q.subtitles); }
+      }
+    }
+    return { qualities, subtitles };
+  } catch { return { qualities: [], subtitles: [] }; }
+}
+
+// ─── Source: VidCore ──────────────────────────────────────────────────────────
+
+async function srcVidcore(id: string, s?: number, e?: number): Promise<StreamQuality[]> {
+  const API_BASE = "https://enc-dec.app/api";
+  const HEADERS = { "User-Agent": UA, Referer: "https://vidcore.net/", "X-Requested-With": "XMLHttpRequest" };
+  try {
+    const html = await fetchText(s != null ? `https://vidcore.net/tv/${id}/${s}/${e}/` : `https://vidcore.net/movie/${id}/`, { headers: HEADERS, signal: AbortSignal.timeout(7000) });
+    const match = html.match(/\\"en\\":\\"(.*?)\\"/) || html.match(/"en":"(.*?)"/);
+    if (!match?.[1]) return [];
+    const encData = await fetchJson(`${API_BASE}/enc-vidcore?text=${encodeURIComponent(match[1])}`, { signal: AbortSignal.timeout(6000) });
+    if (!encData?.result) return [];
+    const { servers: serversUrl, stream: streamUrl, token } = encData.result;
+    const reqHeaders = { ...HEADERS, "X-CSRF-Token": token };
+    const serversEncrypted = await fetchText(serversUrl, { method: "POST", headers: reqHeaders, signal: AbortSignal.timeout(8000) });
+    const decData = await fetchJson(`${API_BASE}/dec-vidcore`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: serversEncrypted }), signal: AbortSignal.timeout(8000) });
+    if (!decData?.result) return [];
+    const results = await Promise.allSettled(decData.result.map(async (srv: any) => {
+      const streamEncrypted = await fetchText(`${streamUrl}/${srv.data}`, { method: "POST", headers: reqHeaders, signal: AbortSignal.timeout(8000) });
+      const decStreamData = await fetchJson(`${API_BASE}/dec-vidcore`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: streamEncrypted }), signal: AbortSignal.timeout(8000) });
+      const url = decStreamData?.result?.url;
+      if (!url) throw new Error();
+      return { url, label: `VidCore ${srv.name || ""}`.trim(), quality: "Auto", format: inferFormat(url) };
+    }));
+    const qualities: StreamQuality[] = [];
+    for (const r of results) if (r.status === "fulfilled") qualities.push(r.value);
+    return qualities;
+  } catch { return []; }
+}
+
+// ─── Source: LookMovie ────────────────────────────────────────────────────────
+
+async function srcLookmovie(id: string, s?: number, e?: number): Promise<StreamQuality[]> {
+  const LM_DOMAINS = ["https://www.lookmovie2.to", "https://lookmovie2.to", "https://lookmovie.foundation"];
+  const HEADERS_BASE = { "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9" };
+  try {
+    const isTV = s != null && e != null;
+    const typeStr = isTV ? "shows" : "movies";
+    const tmdbData = await fetchJson(`${"https://api.themoviedb.org/3"}/${isTV ? "tv" : "movie"}/${id}?api_key=${TMDB_KEY}`, { signal: AbortSignal.timeout(3000) });
+    const title = tmdbData?.title || tmdbData?.name;
+    const year = (tmdbData?.first_air_date || tmdbData?.release_date || "").slice(0, 4);
+    if (!title) return [];
+    let match: any = null, base = "";
+    for (const b of LM_DOMAINS) {
+      try {
+        const data = await fetchJson(`${b}/api/v1/${typeStr}/do-search/?q=${encodeURIComponent(title)}`, { headers: { ...HEADERS_BASE, Accept: "application/json", Referer: `${b}/`, "X-Requested-With": "XMLHttpRequest" }, signal: AbortSignal.timeout(4000) });
+        const results = data?.result;
+        if (results?.length) {
+          match = results.find((r: any) => String(r.year) === String(year)) ?? results.find((r: any) => r.title?.toLowerCase() === title.toLowerCase()) ?? results[0];
+          if (match) { base = b; break; }
+        }
+      } catch {}
+    }
+    if (!match?.slug) return [];
+    const html = await fetchText(`${base}/${typeStr}/play/${match.slug}`, { headers: { ...HEADERS_BASE, Accept: "text/html", Referer: `${base}/` }, signal: AbortSignal.timeout(8000) });
+    const storageMatch = html.match(/window\[['"](?:movie|show)_storage['"]\]\s*=\s*\{([^}]+)\}/s);
+    if (!storageMatch) return [];
+    const hashMatch = storageMatch[1].match(/hash\s*:\s*['"]([^'"]+)['"]/);
+    const expiresMatch = storageMatch[1].match(/expires\s*:\s*(\d+)/);
+    if (!hashMatch || !expiresMatch) return [];
+    const streamId = isTV
+      ? (html.match(new RegExp(`data-season=["']${s}["'][^>]*?data-episode=["']${e}["'][^>]*?data-id=["'](\\d+)["']`, "i"))?.[1])
+      : (match.id_movie || html.match(/['"]?id_movie['"]?\s*[:=]\s*['"]?(\d+)['"]?/i)?.[1]);
+    if (!streamId) return [];
+    const data = await fetchJson(`${base}/api/v1/security/${isTV ? "episode" : "movie"}-access?id_${isTV ? "episode" : "movie"}=${streamId}&hash=${hashMatch[1]}&expires=${expiresMatch[1]}`, { headers: { ...HEADERS_BASE, Accept: "application/json", Referer: `${base}/`, "X-Requested-With": "XMLHttpRequest" }, signal: AbortSignal.timeout(8000) });
+    const streams = data?.streams ?? data?.result?.streams ?? data?.data?.streams ?? data;
+    const allUrls = Object.entries(streams || {}).filter(([, v]) => typeof v === "string" && (v as string).includes(".m3u8")).map(([quality, url]) => ({ url: url as string, label: quality, quality, format: "hls" as const }));
+    return allUrls;
+  } catch { return []; }
+}
+
+// ─── Source: KissKH ───────────────────────────────────────────────────────────
+
+async function srcKisskh(id: string, s?: number, e?: number): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
+  const ENC_API = "https://enc-dec.app/api";
+  const BASE = "https://kisskh.do";
+  const HEADERS = { "User-Agent": UA, Accept: "application/json" };
+  function cleanTitle(t: string) { return t ? t.toLowerCase().replace(/\(\d{4}\)/g, "").replace(/[^a-z0-9]/g, "") : ""; }
+  try {
+    const info = await getTmdbInfo(id, s ? "tv" : "movie", s);
+    if (!info) return { qualities: [], subtitles: [] };
+    let drama: any = null, bestScore = -1;
+    for (const title of (info.titles.length > 1 ? [...info.titles].reverse() : info.titles)) {
+      const results = await fetchJson(`${BASE}/api/DramaList/Search?q=${encodeURIComponent(title)}`, { headers: HEADERS, signal: AbortSignal.timeout(6000) }).catch(() => []);
+      const targetClean = cleanTitle(title);
+      for (const item of results || []) {
+        const parts = (item.title || "").split(/\s*-\s*/).map(cleanTitle);
+        let score = 0;
+        if (parts.some((p: string) => p === targetClean)) score += 5;
+        else if (parts.some((p: string) => p.includes(targetClean) || targetClean.includes(p))) score += 3;
+        else continue;
+        if (score > bestScore) { bestScore = score; drama = item; }
+      }
+      if (drama && bestScore >= 5) break;
+    }
+    if (!drama) return { qualities: [], subtitles: [] };
+    const detail = await fetchJson(`${BASE}/api/DramaList/Drama/${drama.id}`, { headers: HEADERS, signal: AbortSignal.timeout(8000) });
+    const episodeId = detail?.episodes?.find((ep: any) => Math.floor(ep.number) === Number(e || 1))?.id;
+    if (!episodeId) return { qualities: [], subtitles: [] };
+    const vidKeyData = await fetchJson(`${ENC_API}/enc-kisskh?text=${episodeId}&type=vid`, { signal: AbortSignal.timeout(6000) });
+    const vidKey = vidKeyData?.status === 200 ? vidKeyData.result : null;
+    if (!vidKey) return { qualities: [], subtitles: [] };
+    const videoData = await fetchJson(`${BASE}/api/DramaList/Episode/${episodeId}.png?err=false&ts=&time=&kkey=${vidKey}`, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+    if (!videoData?.Video) return { qualities: [], subtitles: [] };
+    const subtitles: StreamSubtitle[] = [];
+    const subKeyData = await fetchJson(`${ENC_API}/enc-kisskh?text=${episodeId}&type=sub`, { signal: AbortSignal.timeout(6000) });
+    if (subKeyData?.status === 200 && subKeyData.result) {
+      try {
+        const subList = await fetchJson(`${BASE}/api/Sub/${episodeId}?kkey=${subKeyData.result}`, { headers: HEADERS, signal: AbortSignal.timeout(8000) });
+        if (Array.isArray(subList)) subtitles.push(...subList.map((sub: any) => ({
+          url: sub.src, language: sub.land || "en", label: String(sub.label || sub.land || "EN").toUpperCase(), type: "vtt" as const,
+        })));
+      } catch {}
+    }
+    return { qualities: [{ url: videoData.Video, label: "KissKH", quality: "Auto", format: inferFormat(videoData.Video) }], subtitles };
+  } catch { return { qualities: [], subtitles: [] }; }
+}
+
+// ─── Source: VidBolt (Flaxmovies + VidRock) ───────────────────────────────────
+
+async function srcVidbolt(id: string, s?: number, e?: number): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
+  const BASE_URL = "https://vidbolt.xyz";
+  const HEADERS = { "User-Agent": UA, Referer: `${BASE_URL}/`, Origin: BASE_URL, Accept: "*/*" };
+
+  function extractStreamData(obj: any, results: any[] = []): any[] {
+    if (!obj) return results;
+    if (Array.isArray(obj)) { for (const item of obj) extractStreamData(item, results); }
+    else if (typeof obj === "object") {
+      const url = obj.url || obj.file || obj.link || obj.src;
+      if (typeof url === "string" && url.startsWith("http") && (url.includes(".m3u8") || url.includes(".mp4") || url.includes(".mkv") || url.includes("proxy/file"))) {
+        results.push({ url, quality: obj.quality || obj.label || obj.resolution || "Auto" });
+      }
+      for (const v of Object.values(obj)) { if (typeof v === "object" && v !== null) extractStreamData(v, results); }
+    }
+    return results;
+  }
+
+  try {
+    const isTv = s != null && e != null;
+    const info = await getTmdbInfo(id, isTv ? "tv" : "movie");
+    if (!info?.imdbId) return { qualities: [], subtitles: [] };
+    const title = encodeURIComponent(info.titles[0] || "");
+    const year = info.year || "";
+    const imdbId = info.imdbId.replace("tt", "");
+    let path = `/scrape/Flaxmovies/${isTv ? "tv" : "movie"}/tt${imdbId}?tmdbId=${id}&title=${title}&year=${year}`;
+    if (isTv) path += `&season=${s}&episode=${e}`;
+    const data = await fetchJson(`${BASE_URL}/api/proxy?path=${encodeURIComponent(path)}`, { headers: HEADERS, signal: AbortSignal.timeout(10000) }).catch(() => null);
+    const streams = data ? extractStreamData(data) : [];
     const seen = new Set<string>();
-
-    for (const result of results) {
-      if (result.status !== "fulfilled") continue;
-      const { parsed } = result.value;
-      const sources: any[] = Array.isArray(parsed?.sources) ? parsed.sources : [];
-      for (const s of sources) {
-        const url = String(s?.url || "").trim();
-        if (!url || seen.has(url)) continue;
-        // Skip DASH streams (our player uses HLS.js, not dash.js)
-        if (String(s?.type || "").toLowerCase() === "dash") continue;
-        seen.add(url);
-        const label = String(s?.quality || "Auto");
-        qualities.push({
-          url,
-          label,
-          quality: label,
-          format: inferFormat(url, s?.type),
-          resolution: parseResolution(label),
-        });
-      }
+    const qualities: StreamQuality[] = [];
+    for (const stream of streams) {
+      if (seen.has(stream.url)) continue;
+      seen.add(stream.url);
+      qualities.push({ url: stream.url, label: `VidBolt ${stream.quality}`, quality: stream.quality, format: inferFormat(stream.url) });
     }
-
-    if (!qualities.length) return null;
-
-    // Sort: HLS first, then by resolution descending
-    qualities.sort((a, b) => {
-      if (a.format === "hls" && b.format !== "hls") return -1;
-      if (a.format !== "hls" && b.format === "hls") return 1;
-      return (b.resolution || 0) - (a.resolution || 0);
-    });
-
-    // Fetch subtitles
-    const subtitles = await fetchSubtitles(input);
-
-    return {
-      kind: "direct",
-      id: "alpha",
-      name: "Alpha Stream",
-      badge: "HLS Direct",
-      qualities,
-      subtitles,
-    };
-  } catch (err) {
-    console.error("[resolveCineby]", err);
-    return null;
-  }
+    return { qualities, subtitles: [] };
+  } catch { return { qualities: [], subtitles: [] }; }
 }
 
-// ─── Subtitle fetcher (sub.1x2.space) ─────────────────────────────────────────
+// ─── Source: OpStream ─────────────────────────────────────────────────────────
 
-async function fetchSubtitles(input: ResolveInput): Promise<StreamSubtitle[]> {
+async function srcOpstream(id: string, s?: number, e?: number): Promise<StreamQuality[]> {
+  const BASE_URL = "https://opstream.fun";
+  const HEADERS = { "User-Agent": UA, Accept: "application/x-ndjson; charset=utf-8", Referer: `${BASE_URL}/`, Origin: BASE_URL };
   try {
-    const isShow = input.type !== "movie";
-    const subUrl = isShow
-      ? `https://sub.1x2.space/api/tv/${input.tmdbId}/${input.season ?? 1}/${input.episode ?? 1}`
-      : `https://sub.1x2.space/api/movie/${input.tmdbId}`;
-
-    const res = await fetch(subUrl, {
-      headers: { "User-Agent": CINEBY_UA },
-      signal: AbortSignal.timeout(8000),
-    });
+    const isTv = s != null && e != null;
+    const info = await getTmdbInfo(id, isTv ? "tv" : "movie");
+    if (!info?.titles?.length || !info.imdbId) return [];
+    const params = new URLSearchParams({ type: isTv ? "tv" : "movie", tmdbId: id, title: info.titles[0], year: info.year || "", imdbId: info.imdbId, dash: "1", progress: "1" });
+    if (isTv) { params.append("season", String(s)); params.append("episode", String(e)); }
+    const res = await fetch(`${BASE_URL}/api/resolve?${params}`, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
     if (!res.ok) return [];
-    const list = await res.json();
-    if (!Array.isArray(list)) return [];
-
-    const subs: StreamSubtitle[] = [];
-    for (const item of list) {
-      const url = String(item?.url || "").trim();
-      if (!url || item?.status === "failed") continue;
-      const fullUrl = url.startsWith("http") ? url : `https://sub.1x2.space${url}`;
-      const lang = String(item?.language || item?.label || "en").toLowerCase();
-      subs.push({
-        url: fullUrl,
-        language: lang,
-        label: String(item?.label || lang).toUpperCase(),
-        type: "vtt",
-      });
+    const text = await res.text();
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        const json = JSON.parse(trimmed);
+        if (json.t === "done" && json.data?.url) {
+          let finalUrl = json.data.url;
+          if (finalUrl.includes("?u=")) {
+            const uParam = new URL(finalUrl, BASE_URL).searchParams.get("u");
+            if (uParam) finalUrl = atob(uParam);
+          } else if (!finalUrl.startsWith("http")) finalUrl = `${BASE_URL}${finalUrl}`;
+          return [{ url: finalUrl, label: "OpStream", quality: "Auto", format: inferFormat(finalUrl, json.data.kind) }];
+        }
+      } catch { continue; }
     }
-    return subs;
-  } catch {
     return [];
-  }
-}
-
-// ─── TMDB → IMDB lookup ───────────────────────────────────────────────────────
-
-const TMDB_KEY = "8265bd1679663a7ea12ac168da84d2e8";
-const imdbCache = new Map<string, string>();
-
-async function tmdbToImdb(tmdbId: string, type: "movie" | "show"): Promise<string | null> {
-  const cacheKey = `${type}:${tmdbId}`;
-  if (imdbCache.has(cacheKey)) return imdbCache.get(cacheKey)!;
-  const path = type === "movie" ? "movie" : "tv";
-  try {
-    const r = await fetch(
-      `https://api.themoviedb.org/3/${path}/${tmdbId}/external_ids?api_key=${TMDB_KEY}`,
-      { signal: AbortSignal.timeout(6000) },
-    );
-    if (!r.ok) return null;
-    const d = await r.json();
-    const imdb = d?.imdb_id as string | undefined;
-    if (imdb) { imdbCache.set(cacheKey, imdb); return imdb; }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-// ─── Showbox / FebBox (secondary direct source) ───────────────────────────────
-
-const SB = {
-  BASE: "https://mbpapi.shegu.net/api/api_client/index/",
-  APP_KEY: "moviebox",
-  IV: "wEiphTn!",
-  KEY: "123d6cedf626dy54233aa1w6",
-  DEFAULTS: {
-    childmode: "0", app_version: "11.5", lang: "en",
-    platform: "android", channel: "Website", appid: "27",
-    version: "129", medium: "Website",
-  },
-};
-const FB = "https://www.febbox.com";
-const FB_UA = CINEBY_UA;
-const SHARE_HOSTS = [
-  "https://www.showbox.media", "https://showbox.media",
-  "https://www.boxmovie.media", "https://boxmovie.media",
-  "https://showbox.run",
-];
-
-function rndHex(n: number) {
-  const c = "0123456789abcdef";
-  let r = "";
-  for (let i = 0; i < n; i++) r += c[Math.floor(Math.random() * 16)];
-  return r;
-}
-function toB64(v: string) {
-  if (typeof btoa === "function") return btoa(unescape(encodeURIComponent(v)));
-  const b = new TextEncoder().encode(v);
-  let s = "";
-  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
-  return btoa(s);
-}
-function sbEncrypt(d: string) {
-  return CryptoJS.TripleDES.encrypt(d, CryptoJS.enc.Utf8.parse(SB.KEY), {
-    iv: CryptoJS.enc.Utf8.parse(SB.IV),
-  }).toString();
-}
-function sbVerify(enc: string) {
-  return CryptoJS.MD5(CryptoJS.MD5(SB.APP_KEY).toString() + SB.KEY + enc).toString();
-}
-
-async function sbRequest(module: string, params: Record<string, any> = {}): Promise<any> {
-  const payload = {
-    ...SB.DEFAULTS,
-    expired_date: Math.floor(Date.now() / 1000 + 60 * 60 * 12),
-    module, ...params,
-  };
-  const enc = sbEncrypt(JSON.stringify(payload));
-  const body = JSON.stringify({
-    app_key: CryptoJS.MD5(SB.APP_KEY).toString(),
-    verify: sbVerify(enc), encrypt_data: enc,
-  });
-  const form = new URLSearchParams({
-    data: toB64(body), appid: SB.DEFAULTS.appid,
-    platform: SB.DEFAULTS.platform, version: SB.DEFAULTS.version,
-    medium: SB.DEFAULTS.medium,
-  });
-  const r = await fetch(SB.BASE, {
-    method: "POST",
-    headers: {
-      Platform: SB.DEFAULTS.platform,
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": "okhttp/3.2.0",
-    },
-    body: `${form.toString()}&token${rndHex(32)}`,
-    signal: AbortSignal.timeout(12000),
-  });
-  if (!r.ok) throw new Error(`sbRequest ${module}: ${r.status}`);
-  return r.json();
-}
-
-async function sbSearch(title: string, type: "movie" | "tv"): Promise<any[]> {
-  try {
-    const d = await sbRequest("Search5", { page: 1, type, keyword: title, pagelimit: 20 });
-    return Array.isArray(d?.data) ? d.data : [];
   } catch { return []; }
 }
 
-async function getShareKey(id: number, type: 1 | 2): Promise<string | null> {
-  for (const host of SHARE_HOSTS) {
-    try {
-      const r = await fetch(`${host}/index/share_link?id=${id}&type=${type}`, {
-        headers: { "User-Agent": "okhttp/3.2.0" },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!r.ok) continue;
-      const d = await r.json();
-      const link = d?.data?.link as string | undefined;
-      if (link) return link.split("/").pop() || null;
-    } catch { /* try next */ }
-  }
-  return null;
-}
+// ─── Source: PurStream ────────────────────────────────────────────────────────
 
-function parseCookieHeader(ui?: string): string | undefined {
-  const v = (ui || "").trim();
-  if (!v) return undefined;
-  if (v.toLowerCase().startsWith("cookie:")) return v.slice(7).trim();
-  if (v.includes("=")) return v;
-  return `ui=${v}`;
-}
-
-async function guestSession(shareKey: string, uiCookie?: string): Promise<string | undefined> {
-  const base = parseCookieHeader(uiCookie);
+async function srcPurstream(id: string, s?: number, e?: number): Promise<StreamQuality[]> {
+  const API_BASE = "https://api.purstream.club/api/v1";
+  const DOMAIN = "https://purstream.club";
+  const HEADERS = { "User-Agent": UA, Accept: "application/json, text/plain, */*", Referer: `${DOMAIN}/`, Origin: DOMAIN, "X-Requested-With": "XMLHttpRequest" };
   try {
-    const r = await fetch(`${FB}/share/${shareKey}`, {
-      headers: { "user-agent": FB_UA, accept: "text/html,application/xhtml+xml,*/*;q=0.8" },
-      signal: AbortSignal.timeout(12000),
-    });
-    const anyH = r.headers as any;
-    const setCookies: string[] =
-      typeof anyH.getSetCookie === "function"
-        ? (anyH.getSetCookie() as string[])
-        : (r.headers.get("set-cookie") ? [r.headers.get("set-cookie")!] : []);
-    const sess = setCookies.map((v) => v.match(/PHPSESSID=([^;\s,]+)/i)?.[1]).find(Boolean);
-    if (!sess) return base;
-    return base ? `${base}; PHPSESSID=${sess}` : `PHPSESSID=${sess}`;
-  } catch { return base; }
-}
-
-interface FBFile { fid: number; file_name: string; file_size: number; is_dir: 0 | 1 }
-
-async function fbFileList(shareKey: string, parentId: number, cookie?: string): Promise<FBFile[]> {
-  const headers: Record<string, string> = {
-    "user-agent": FB_UA, "x-requested-with": "XMLHttpRequest",
-    referer: `${FB}/share/${shareKey}`,
-  };
-  if (cookie) headers.cookie = cookie;
-  try {
-    const r = await fetch(
-      `${FB}/file/file_share_list?share_key=${shareKey}&pwd=&parent_id=${parentId}&is_html=0`,
-      { headers, signal: AbortSignal.timeout(12000) },
-    );
-    if (!r.ok) return [];
-    const d = await r.json();
-    return Array.isArray(d?.data?.file_list) ? d.data.file_list : [];
+    const isTv = s != null;
+    const info = await getTmdbInfo(id, isTv ? "tv" : "movie");
+    if (!info?.titles?.length) return [];
+    const searchData = await fetchJson(`${API_BASE}/search-bar/search/${encodeURIComponent(info.titles[0])}`, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+    const items = searchData?.data?.items?.movies?.items || [];
+    const type = isTv ? "tv" : "movie";
+    const lowerTitle = info.titles[0].toLowerCase();
+    let match = items.find((item: any) => item.type === type && item.title?.toLowerCase() === lowerTitle && (!info.year || item.release_date?.startsWith(String(info.year))));
+    if (!match) match = items.find((item: any) => item.type === type);
+    if (!match?.id) return [];
+    const streamUrl = isTv ? `${API_BASE}/stream/${match.id}/episode?season=${s}&episode=${e}` : `${API_BASE}/stream/${match.id}`;
+    const json = await fetchJson(streamUrl, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+    const sources = json?.data?.items?.sources;
+    if (json?.type !== "success" || !Array.isArray(sources) || !sources.length) return [];
+    const chosen = sources.find((src: any) => src.stream_url);
+    if (!chosen?.stream_url) return [];
+    return [{ url: chosen.stream_url, label: `PurStream ${chosen.source_name || ""}`.trim(), quality: chosen.source_name || "Auto", format: inferFormat(chosen.stream_url, chosen.format) }];
   } catch { return []; }
 }
 
-async function fbLinks(
-  shareKey: string, fid: number, cookie?: string,
-): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
-  const headers: Record<string, string> = {
-    "user-agent": FB_UA, "x-requested-with": "XMLHttpRequest",
-    referer: `${FB}/share/${shareKey}`,
-  };
-  if (cookie) headers.cookie = cookie;
+// ─── Subtitle fetcher (sub.vdrk.site) ─────────────────────────────────────────
 
-  const qualities: StreamQuality[] = [];
-  const subtitles: StreamSubtitle[] = [];
-  const seen = new Set<string>();
+const SUBTITLE_BASES = ["https://sub.vdrk.site/v1", "https://sub.vdrk.site/v2"];
 
-  const fetchJ = async (url: string) => {
-    try {
-      const r = await fetch(url, { headers, signal: AbortSignal.timeout(12000) });
-      if (!r.ok) return null;
-      const t = await r.text();
-      try { return JSON.parse(t); } catch { return { html: t }; }
-    } catch { return null; }
-  };
+async function fetchSubtitles(id: string, s?: number, e?: number): Promise<StreamSubtitle[]> {
+  const paths = s != null && e != null
+    ? [{ base: SUBTITLE_BASES[0], path: `/tv/${id}/${s}/${e}` }, { base: SUBTITLE_BASES[1], path: `/tv/${id}/${s}/${e}` }]
+    : [{ base: SUBTITLE_BASES[0], path: `/movie/${id}` }, { base: SUBTITLE_BASES[1], path: `/movie/${id}` }];
 
-  const pickUrl = (item: any): string => {
-    const cands = [item?.hls_url, item?.play_url, item?.stream_url, item?.url, item?.download_url, item?.file_url, item?.src];
-    for (const c of cands) {
-      const v = String(c || "").trim();
-      if (v && /^https?:/i.test(v) && v.toLowerCase().includes(".m3u8")) return v;
-    }
-    for (const c of cands) {
-      const v = String(c || "").trim();
-      if (v && /^https?:/i.test(v)) return v;
-    }
-    return "";
-  };
-
-  const collectQualities = (data: any) => {
-    const fe = Array.isArray(data?.data) ? data.data[0] : (data?.data || data || {});
-    const rawList = fe.quality_list || fe.transcode_list || data.list || {};
-    const items: any[] = Array.isArray(rawList) ? rawList : Object.values(rawList);
-    for (const q of items) {
-      const url = pickUrl(q) || String(fe?.download_url || "").trim();
-      if (!url || seen.has(url)) continue;
-      seen.add(url);
-      const label = String(q?.quality || q?.label || "Auto");
-      qualities.push({ url, label, quality: label, format: inferFormat(url), size: q?.file_size ? String(q.file_size) : undefined, resolution: parseResolution(label) });
-    }
-    if (fe?.download_url) {
-      const u = String(fe.download_url).trim();
-      if (u && !seen.has(u)) {
-        seen.add(u);
-        qualities.push({ url: u, label: "Original", quality: "ORG", format: inferFormat(u), size: fe.file_size ? String(fe.file_size) : undefined, resolution: 0 });
-      }
-    }
-  };
-
-  const [d1, d2, d3] = await Promise.all([
-    fetchJ(`${FB}/file/file_download?fid=${fid}&share_key=${encodeURIComponent(shareKey)}&is_hls=1&is_html=0`),
-    fetchJ(`${FB}/console/video_quality_list?fid=${fid}&share_id=${shareKey}&is_hls=1&is_html=0`),
-    fetchJ(`${FB}/file/hls_playlist?fid=${fid}&share_key=${shareKey}`),
-  ]);
-  if (d1) collectQualities(d1);
-  if (d2) {
-    if ((d2 as any).html) {
-      const re = /class="file_quality"[^>]*data-url="([^"]*)"[^>]*data-quality="([^"]*)"/g;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec((d2 as any).html)) !== null) {
-        if (seen.has(m[1])) continue;
-        seen.add(m[1]);
-        qualities.push({ url: m[1], label: m[2], quality: m[2], format: inferFormat(m[1]), resolution: parseResolution(m[2]) });
-      }
-    } else { collectQualities(d2); }
-  }
-  if (d3 && !(d3 as any).html) collectQualities(d3);
-
-  qualities.sort((a, b) => {
-    if (a.format === "hls" && b.format !== "hls") return -1;
-    if (a.format !== "hls" && b.format === "hls") return 1;
-    return (b.resolution || 0) - (a.resolution || 0);
-  });
-  return { qualities, subtitles };
-}
-
-async function resolveShowboxFebbox(input: ResolveInput): Promise<DirectSource | null> {
   try {
-    const type = input.type === "movie" ? "movie" : "tv";
-    const results = await sbSearch(input.title, type);
-    if (!results.length) return null;
-
-    const norm = input.title.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const best = results.find((r: any) => {
-      const t = (r.title || r.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-      return t === norm;
-    }) || results[0];
-
-    const shareKey = await getShareKey(Number(best.id), type === "movie" ? 1 : 2);
-    if (!shareKey) return null;
-
-    const cookie = await guestSession(shareKey, input.febboxCookie);
-    let files = await fbFileList(shareKey, 0, cookie);
-    if (!files.length) return null;
-
-    let target: FBFile | undefined;
-    if (type === "movie") {
-      target = files.filter((f) => !f.is_dir).sort((a, b) => b.file_size - a.file_size)[0];
-    } else {
-      const s = input.season ?? 1;
-      const e = input.episode ?? 1;
-      const seasonDir = files.find((f) => {
-        if (!f.is_dir) return false;
-        const n = f.file_name.toLowerCase();
-        return n.includes(`season ${s}`) || n.includes(`s${String(s).padStart(2, "0")}`) || n.includes(`season${s}`) || n === `s${s}`;
-      });
-      if (seasonDir) files = await fbFileList(shareKey, seasonDir.fid, cookie);
-      const pad = String(e).padStart(2, "0");
-      target = files.find((f) => {
-        if (f.is_dir) return false;
-        const n = f.file_name.toLowerCase();
-        return n.includes(`e${pad}`) || n.includes(`episode ${e}`) || n.includes(`ep${pad}`) || n.includes(`.e${pad}.`) || n.includes(`x${pad}`);
-      });
-      if (!target) {
-        const vids = files.filter((f) => !f.is_dir).sort((a, b) => a.file_name.localeCompare(b.file_name));
-        target = vids[e - 1] ?? vids[0];
-      }
-    }
-    if (!target) return null;
-
-    const { qualities, subtitles } = await fbLinks(shareKey, target.fid, cookie);
-    if (!qualities.length) return null;
-
-    return {
-      kind: "direct",
-      id: "febbox",
-      name: "FebBox",
-      badge: input.febboxCookie ? "Premium" : "Free",
-      qualities,
-      subtitles,
-      fileName: target.file_name,
-    };
-  } catch (err) {
-    console.error("[resolveShowboxFebbox]", err);
-    return null;
-  }
+    const results = await Promise.all(paths.map(async ({ base, path }) => {
+      try {
+        const res = await fetch(`${base}${path}`, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(5000) });
+        if (!res.ok) return [];
+        const data = await res.json();
+        if (base.includes("/v2")) {
+          return (Array.isArray(data) ? data : []).map((x: any) => ({
+            url: x.file || x.url, language: String(x.label || "en").toLowerCase(), label: String(x.label || "EN").toUpperCase(), type: "vtt" as const,
+          }));
+        }
+        return (Array.isArray(data) ? data : []).map((x: any) => ({
+          url: x.file || x.url, language: String(x.label || "en").toLowerCase(), label: String(x.label || "EN").toUpperCase(), type: "vtt" as const,
+        }));
+      } catch { return []; }
+    }));
+    const all = results.flat();
+    const seen = new Set<string>();
+    return all.filter((s) => { if (seen.has(s.url)) return false; seen.add(s.url); return true; });
+  } catch { return []; }
 }
 
 // ─── Embed source builders ─────────────────────────────────────────────────────
@@ -653,65 +559,31 @@ function mkEmbed(id: string, name: string, badge: string, url: string): EmbedSou
   return { kind: "embed", id, name, badge, url };
 }
 
-function buildEmbeds(i: ResolveInput, imdbId: string | null): EmbedSource[] {
+function buildEmbeds(i: ResolveInput): EmbedSource[] {
   const isShow = i.type !== "movie";
   const tv = (base: string) => `${base}/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}`;
   const sources: EmbedSource[] = [];
 
-  // Nebula (Cinezo)
-  {
-    const base = isShow
-      ? `https://player.cinezo.live/embed/tv/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}`
-      : `https://player.cinezo.live/embed/movie/${i.tmdbId}`;
-    const p = new URLSearchParams({
-      autoplay: "true", poster: "true", pip: "true", episodelist: "true",
-      primarycolor: "6366f1", secondarycolor: "0a0a12", iconcolor: "ffffff", setting: "true",
-    });
-    sources.push(mkEmbed("nebula", "Nebula", "Cinezo", `${base}?${p}`));
-  }
-  // Pulse (VidSrc CC)
-  sources.push(mkEmbed("pulse", "Pulse", "VidSrc CC",
-    isShow ? `https://vidsrc.cc/v2/embed/tv/${tv("")}?autoPlay=true` : `https://vidsrc.cc/v2/embed/movie/${i.tmdbId}?autoPlay=true`));
-  // Vortex (Vidfast)
-  sources.push(mkEmbed("vortex", "Vortex", "Vidfast",
-    isShow ? `https://vidfast.pro/tv/${tv("")}?autoPlay=true&nextButton=true&autoNext=true&title=true&poster=true` : `https://vidfast.pro/movie/${i.tmdbId}?autoPlay=true&title=true&poster=true`));
-  // Photon (Vidlink)
-  sources.push(mkEmbed("photon", "Photon", "Vidlink",
+  sources.push(mkEmbed("nebula", "Nebula", "Cinezo",
+    isShow ? `https://player.cinezo.live/embed/tv/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}` : `https://player.cinezo.live/embed/movie/${i.tmdbId}`));
+  sources.push(mkEmbed("photon2", "Photon", "Vidlink",
     isShow ? `https://vidlink.pro/tv/${tv("")}?primaryColor=6366f1&autoplay=true&nextbutton=true` : `https://vidlink.pro/movie/${i.tmdbId}?primaryColor=6366f1&autoplay=true`));
-  // Quasar (Videasy)
-  sources.push(mkEmbed("quasar", "Quasar", "Videasy",
-    isShow ? `https://player.videasy.net/tv/${tv("")}?color=6366f1&autoPlay=true&nextEpisode=true&episodeSelector=true` : `https://player.videasy.net/movie/${i.tmdbId}?color=6366f1&autoPlay=true`));
-  // Zenith (AutoEmbed)
+  sources.push(mkEmbed("quasar2", "Quasar", "Videasy",
+    isShow ? `https://player.videasy.net/tv/${tv("")}?color=6366f1&autoPlay=true` : `https://player.videasy.net/movie/${i.tmdbId}?color=6366f1&autoPlay=true`));
   sources.push(mkEmbed("zenith", "Zenith", "AutoEmbed",
     isShow ? `https://player.autoembed.cc/embed/tv/${tv("")}` : `https://player.autoembed.cc/embed/movie/${i.tmdbId}`));
-  // Orion (2Embed)
   sources.push(mkEmbed("orion", "Orion", "2Embed",
     isShow ? `https://www.2embed.cc/embedtv/${i.tmdbId}&s=${i.season ?? 1}&e=${i.episode ?? 1}` : `https://www.2embed.cc/embed/${i.tmdbId}`));
-  // Nova (VidSrc.to)
   sources.push(mkEmbed("nova", "Nova", "VidSrc",
     isShow ? `https://vidsrc.to/embed/tv/${tv("")}` : `https://vidsrc.to/embed/movie/${i.tmdbId}`));
-  // Solaris (embed.su)
   sources.push(mkEmbed("solaris", "Solaris", "EmbedSu",
     isShow ? `https://embed.su/embed/tv/${tv("")}` : `https://embed.su/embed/movie/${i.tmdbId}`));
-  // Prism (SuperEmbed)
   sources.push(mkEmbed("prism", "Prism", "SuperEmbed",
     isShow ? `https://multiembed.mov/directstream.php?video_id=${i.tmdbId}&tmdb=1&s=${i.season ?? 1}&e=${i.episode ?? 1}` : `https://multiembed.mov/directstream.php?video_id=${i.tmdbId}&tmdb=1`));
-  // Helix (VidBinge)
   sources.push(mkEmbed("helix", "Helix", "VidBinge",
     isShow ? `https://vidbinge.dev/embed/tv/${tv("")}` : `https://vidbinge.dev/embed/movie/${i.tmdbId}`));
-  // Apex (SmashyStream)
   sources.push(mkEmbed("apex", "Apex", "SmashyStream",
     isShow ? `https://player.smashy.stream/tv/${i.tmdbId}?s=${i.season ?? 1}&e=${i.episode ?? 1}` : `https://player.smashy.stream/movie/${i.tmdbId}`));
-  // Flare (RiveStream)
-  sources.push(mkEmbed("flare", "Flare", "RiveStream",
-    isShow ? `https://rivestream.live/watch?type=tv&id=${i.tmdbId}&season=${i.season ?? 1}&episode=${i.episode ?? 1}&autoPlay=true` : `https://rivestream.live/watch?type=movie&id=${i.tmdbId}&autoPlay=true`));
-  // IMDB-based sources (only if we have the IMDB ID)
-  if (imdbId) {
-    sources.push(mkEmbed("aurora", "Aurora", "MoviesAPI",
-      isShow ? `https://moviesapi.club/tv/${imdbId}-${i.season ?? 1}-${i.episode ?? 1}` : `https://moviesapi.club/movie/${imdbId}`));
-    sources.push(mkEmbed("cipher", "Cipher", "VidSrc XYZ",
-      isShow ? `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${i.season ?? 1}&episode=${i.episode ?? 1}` : `https://vidsrc.xyz/embed/movie?imdb=${imdbId}`));
-  }
 
   return sources;
 }
@@ -719,24 +591,89 @@ function buildEmbeds(i: ResolveInput, imdbId: string | null): EmbedSource[] {
 // ─── Main resolver ─────────────────────────────────────────────────────────────
 
 export async function resolveAllSources(input: ResolveInput): Promise<ResolveResult> {
-  // Run Cineby, Showbox/FebBox, and IMDB lookup in parallel
-  const [cinebyResult, showboxResult, imdbResult] = await Promise.allSettled([
-    resolveCineby(input),
-    resolveShowboxFebbox(input),
-    tmdbToImdb(input.tmdbId, input.type),
+  const id = input.tmdbId;
+  const s = input.type === "show" ? input.season : undefined;
+  const e = input.type === "show" ? input.episode : undefined;
+
+  // Run all scrapers in parallel
+  const [vidsrc, vidlink, vidfast, videasy, vidcore, lookmovie, kisskh, vidbolt, opstream, purstream, subs] = await Promise.allSettled([
+    srcVidsrc(id, s, e),
+    srcVidlink(id, s, e),
+    srcVidfast(id, s, e),
+    srcVideasy(id, s, e),
+    srcVidcore(id, s, e),
+    srcLookmovie(id, s, e),
+    srcKisskh(id, s, e),
+    srcVidbolt(id, s, e),
+    srcOpstream(id, s, e),
+    srcPurstream(id, s, e),
+    fetchSubtitles(id, s, e),
   ]);
 
-  const cineby = cinebyResult.status === "fulfilled" ? cinebyResult.value : null;
-  const showbox = showboxResult.status === "fulfilled" ? showboxResult.value : null;
-  const imdb = imdbResult.status === "fulfilled" ? imdbResult.value : null;
+  const unwrap = <T,>(r: PromiseSettledResult<T>): T | null => r.status === "fulfilled" ? r.value : null;
 
-  const embeds = buildEmbeds(input, imdb);
+  // Merge all direct sources into a single Alpha Stream with multiple qualities
+  const allQualities: StreamQuality[] = [];
+  const allSubtitles: StreamSubtitle[] = [];
 
-  // Build source list: direct sources first, then embeds
+  const sourcesToMerge: { name: string; result: StreamQuality[] | { qualities: StreamQuality[]; subtitles: StreamSubtitle[] } | null }[] = [
+    { name: "VidSrc", result: unwrap(vidsrc) },
+    { name: "VidLink", result: unwrap(vidlink) },
+    { name: "VidFast", result: unwrap(vidfast) },
+    { name: "VidEasy", result: unwrap(videasy) },
+    { name: "VidCore", result: unwrap(vidcore) },
+    { name: "LookMovie", result: unwrap(lookmovie) },
+    { name: "KissKH", result: unwrap(kisskh) },
+    { name: "VidBolt", result: unwrap(vidbolt) },
+    { name: "OpStream", result: unwrap(opstream) },
+    { name: "PurStream", result: unwrap(purstream) },
+  ];
+
+  for (const src of sourcesToMerge) {
+    if (!src.result) continue;
+    const qualities = Array.isArray(src.result) ? src.result : src.result.qualities;
+    const subtitles = Array.isArray(src.result) ? [] : src.result.subtitles;
+    for (const q of qualities) {
+      if (!q.url || allQualities.some((existing) => existing.url === q.url)) continue;
+      allQualities.push(q);
+    }
+    if (subtitles) allSubtitles.push(...subtitles);
+  }
+
+  // Add standalone subtitles
+  const standaloneSubs = unwrap(subs);
+  if (standaloneSubs) allSubtitles.push(...standaloneSubs);
+
+  // Deduplicate subtitles
+  const seenSubs = new Set<string>();
+  const dedupedSubs = allSubtitles.filter((s) => { if (seenSubs.has(s.url)) return false; seenSubs.add(s.url); return true; });
+
+  // Sort: HLS first, then by resolution
+  allQualities.sort((a, b) => {
+    if (a.format === "hls" && b.format !== "hls") return -1;
+    if (a.format !== "hls" && b.format === "hls") return 1;
+    return (b.resolution || 0) - (a.resolution || 0);
+  });
+
+  // Build final source list
   const sources: ResolvedSource[] = [];
-  if (cineby) sources.push(cineby);
-  if (showbox) sources.push(showbox);
-  sources.push(...embeds);
+
+  if (allQualities.length) {
+    sources.push({
+      kind: "direct",
+      id: "alpha",
+      name: "Alpha Stream",
+      badge: `${allQualities.length} sources`,
+      qualities: allQualities,
+      subtitles: dedupedSubs,
+    });
+  }
+
+  // Add embed sources as fallback
+  sources.push(...buildEmbeds(input));
 
   return { sources, primary: sources[0]?.id };
 }
+
+// Remove unused import warning - CryptoJS kept for potential FebBox use
+void CryptoJS;

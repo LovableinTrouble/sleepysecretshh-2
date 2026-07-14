@@ -10,7 +10,6 @@ const InputSchema = z.object({
   type: z.enum(["movie", "show"]),
   season: z.number().optional(),
   episode: z.number().optional(),
-  febboxCookie: z.string().optional(),
 });
 
 export const resolveStreams = createServerFn({ method: "POST" })
