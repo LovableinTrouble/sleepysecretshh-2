@@ -121,7 +121,7 @@ export interface ContinueItem {
   poster?: string | null;
   backdrop?: string | null;
   updatedAt: number;
-  source?: "cinesrc" | "cinezo";
+  source?: string;
 }
 
 export function useContinueWatching(): {
