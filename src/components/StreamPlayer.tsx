@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Loader2, X } from "lucide-react";
 
 import type { Media } from "@/lib/catalog";
-import { sourceForKey } from "@/lib/sources";
 import { getSettings } from "@/lib/store";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
+import { resolveStreams, type ResolvedSource, type DirectSource } from "@/lib/streams";
+import { CustomPlayer } from "./CustomPlayer";
 
 interface Props {
   media: Media;
@@ -50,9 +51,39 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   const settings = getSettings();
   const febbox = settings.integrations.febboxToken?.trim() || undefined;
-  const source = sourceForKey(settings.preferredSource as any);
-  const url = source.build(media, season, episode, febbox);
-  const useFebbox = !!febbox;
+
+  const [sources, setSources] = useState<ResolvedSource[] | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  useEffect(() => {
+    let dead = false;
+    setSources(null);
+    setError(null);
+    resolveStreams({
+      data: {
+        tmdbId: String(media.id),
+        title: media.title,
+        type: media.type === "movie" ? "movie" : "show",
+        season,
+        episode,
+        febboxCookie: febbox,
+      },
+    })
+      .then((res) => {
+        if (dead) return;
+        setSources(res.sources);
+        setActiveId(res.primary ?? res.sources[0]?.id ?? null);
+      })
+      .catch((e) => !dead && setError(e?.message || "Failed to resolve sources"));
+    return () => { dead = true; };
+  }, [media.id, media.title, media.type, season, episode, febbox]);
+
+  const active: ResolvedSource | undefined = useMemo(
+    () => sources?.find((s) => s.id === activeId),
+    [sources, activeId],
+  );
 
   const player = (
     <div
@@ -69,14 +100,44 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       }}
     >
       <div className="relative flex-1 bg-black">
-        <EmbedPlayer
-          url={url}
-          useFebbox={useFebbox}
-          media={media}
-          season={season}
-          episode={episode}
-          onClose={onClose}
-        />
+        {!sources && !error && (
+          <div className="grid h-full w-full place-items-center text-white/70">
+            <div className="text-center">
+              <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
+              <p className="mt-3 text-xs uppercase tracking-widest text-white/40">Scanning sources…</p>
+            </div>
+          </div>
+        )}
+        {error && (
+          <div className="grid h-full w-full place-items-center text-white/70">
+            <div className="text-center">
+              <p className="text-sm">{error}</p>
+              <button onClick={onClose} className="mt-4 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground">Close</button>
+            </div>
+          </div>
+        )}
+        {active?.kind === "direct" && (
+          <CustomPlayer
+            source={active}
+            title={media.title}
+            season={season}
+            episode={episode}
+            onClose={onClose}
+            onSelectSource={() => setPickerOpen(true)}
+            onProgress={(t, d, ended) => recordProgress(media, season, episode, t, d, ended, active)}
+          />
+        )}
+        {active?.kind === "embed" && (
+          <EmbedFrame source={active} media={media} onClose={onClose} onSelectSource={() => setPickerOpen(true)} />
+        )}
+        {pickerOpen && sources && (
+          <SourcePicker
+            sources={sources}
+            active={activeId}
+            onPick={(id) => { setActiveId(id); setPickerOpen(false); }}
+            onClose={() => setPickerOpen(false)}
+          />
+        )}
       </div>
     </div>
   );
@@ -85,188 +146,119 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   return createPortal(player, document.body);
 }
 
-function EmbedPlayer({
-  url,
-  useFebbox,
-  media,
-  season,
-  episode,
-  onClose,
+function recordProgress(
+  media: Media,
+  season: number | undefined,
+  episode: number | undefined,
+  currentTime: number,
+  duration: number,
+  completed: boolean,
+  source: ResolvedSource,
+) {
+  if (!Number.isFinite(currentTime)) return;
+  const dur = Number.isFinite(duration) ? duration : 0;
+  if (dur <= 0 && !completed) {
+    const saved = getLocalProgressFor(media.id, season ?? null, episode ?? null);
+    if (!saved?.durationSeconds) return;
+  }
+  const entry = {
+    mediaId: media.id,
+    mediaType: media.type,
+    season: season ?? null,
+    episode: episode ?? null,
+    positionSeconds: Math.max(0, Math.floor(currentTime)),
+    durationSeconds: Math.max(0, Math.floor(dur)),
+    title: media.title,
+    poster: media.poster ?? null,
+    backdrop: media.backdrop ?? null,
+    completed,
+    updatedAt: Date.now(),
+    source: source.id,
+  };
+  saveProgressLocal(entry);
+  void syncProgressUp(entry);
+}
+
+function EmbedFrame({
+  source, media, onClose, onSelectSource,
 }: {
-  url: string;
-  useFebbox: boolean;
+  source: Extract<ResolvedSource, { kind: "embed" }>;
   media: Media;
-  season?: number;
-  episode?: number;
   onClose: () => void;
+  onSelectSource: () => void;
 }) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const seasonKey = season ?? null;
-  const epKey = episode ?? null;
-
-  const recordProgress = useCallback(
-    (
-      currentTime: number,
-      duration: number,
-      completed: boolean,
-      src: "cinesrc" | "cinezo",
-      overrideSeason?: number | null,
-      overrideEpisode?: number | null,
-    ) => {
-      if (!Number.isFinite(currentTime)) return;
-      const dur = Number.isFinite(duration) ? duration : 0;
-      // Ignore timeupdate events that fire before metadata loads (duration=0)
-      // unless we already have a saved duration from a prior event.
-      if (dur <= 0 && !completed) {
-        const saved = getLocalProgressFor(media.id, overrideSeason ?? seasonKey, overrideEpisode ?? epKey);
-        if (!saved?.durationSeconds) return;
-      }
-      const entry = {
-        mediaId: media.id,
-        mediaType: media.type,
-        season: overrideSeason ?? seasonKey,
-        episode: overrideEpisode ?? epKey,
-        positionSeconds: Math.max(0, Math.floor(currentTime)),
-        durationSeconds: Math.max(0, Math.floor(dur)),
-        title: media.title,
-        poster: media.poster ?? null,
-        backdrop: media.backdrop ?? null,
-        completed,
-        updatedAt: Date.now(),
-        source: src,
-      };
-      saveProgressLocal(entry);
-      void syncProgressUp(entry);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [media.id, media.type, media.title, media.poster, media.backdrop, seasonKey, epKey],
-  );
-
-  // Throttle ref so timeupdate doesn't spam storage every frame
-  const lastSaveRef = useRef<number>(0);
-
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      // ── CineSrc (cinesrc.st) ────────────────────────────────────────────────
-      if (event.origin === "https://cinesrc.st") {
-        const d = event.data as {
-          type?: string;
-          currentTime?: number;
-          duration?: number;
-        } | null;
-        if (!d || typeof d.type !== "string") return;
-
-        switch (d.type) {
-          case "cinesrc:timeupdate": {
-            const now = Date.now();
-            if (now - lastSaveRef.current < 5000) return; // throttle to 5 s
-            lastSaveRef.current = now;
-            const ct = typeof d.currentTime === "number" ? d.currentTime : NaN;
-            const dur = typeof d.duration === "number" ? d.duration : NaN;
-            recordProgress(ct, dur, false, "cinesrc");
-            break;
-          }
-          case "cinesrc:seeked": {
-            const ct = typeof d.currentTime === "number" ? d.currentTime : NaN;
-            const dur = typeof d.duration === "number" ? d.duration : NaN;
-            recordProgress(ct, dur, false, "cinesrc");
-            break;
-          }
-          case "cinesrc:ended": {
-            const saved = getLocalProgressFor(media.id, seasonKey, epKey);
-            recordProgress(
-              saved?.durationSeconds ?? 0,
-              saved?.durationSeconds ?? 0,
-              true,
-              "cinesrc",
-            );
-            break;
-          }
-          case "cinesrc:close":
-            onClose();
-            break;
-        }
-        return;
-      }
-
-      // ── Cinezo (player.cinezo.live) — PLAYER_EVENT ────────────────────────
-      // Actual structure from the Cinezo bundle:
-      //   parent.postMessage({ type: "PLAYER_EVENT", data: {
-      //     event: "timeupdate"|"play"|"pause"|"seeked"|"ended",
-      //     currentTime, duration, tmdbId, mediaType, season, episode
-      //   } }, "*")
-      if (
-        event.origin === "https://player.cinezo.live" ||
-        event.origin === "https://cinezo.live"
-      ) {
-        const d = event.data as {
-          type?: string;
-          data?: {
-            event?: string;
-            currentTime?: number;
-            duration?: number;
-            tmdbId?: number;
-            mediaType?: string;
-            season?: number;
-            episode?: number;
-          };
-        } | null;
-        if (!d || d.type !== "PLAYER_EVENT" || !d.data) return;
-
-        const { currentTime, duration, event: evt, season, episode } = d.data;
-        const ct = typeof currentTime === "number" ? currentTime : NaN;
-        const dur = typeof duration === "number" ? duration : NaN;
-        // Use season/episode from the event for TV shows (handles internal ep navigation)
-        const epSeason = typeof season === "number" ? season : null;
-        const epEpisode = typeof episode === "number" ? episode : null;
-
-        if (evt === "timeupdate") {
-          const now = Date.now();
-          if (now - lastSaveRef.current < 5000) return;
-          lastSaveRef.current = now;
-          recordProgress(ct, dur, false, "cinezo", epSeason, epEpisode);
-        } else if (evt === "ended") {
-          recordProgress(ct, dur, true, "cinezo", epSeason, epEpisode);
-        } else if (evt === "pause" || evt === "seeked") {
-          recordProgress(ct, dur, false, "cinezo", epSeason, epEpisode);
-        }
-        return;
-      }
-    };
-
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [media.id, seasonKey, epKey, recordProgress, onClose]);
-
   return (
     <div className="relative h-full w-full bg-black">
       <iframe
-        ref={iframeRef}
-        src={url}
+        src={source.url}
         title={media.title}
         className="h-full w-full border-0"
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
-        referrerPolicy={useFebbox ? "origin" : "no-referrer"}
-        // Sandbox CineSrc to block popups — no allow-popups means window.open is blocked
-        sandbox={useFebbox ? "allow-scripts allow-same-origin allow-presentation" : undefined}
+        referrerPolicy="no-referrer"
       />
-
-      {/* Back button — only shown for Cinezo (CineSrc has its own via back=close) */}
-      {!useFebbox && (
-        <div
-          className="pointer-events-none absolute inset-x-0 flex items-start px-3"
-          style={{ top: "56px" }}
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
+        <button
+          onClick={onClose}
+          className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full bg-black/60 text-white ring-1 ring-white/20 backdrop-blur-md hover:bg-black/80"
+          aria-label="Back"
         >
-          <button
-            onClick={onClose}
-            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/20 backdrop-blur-sm transition hover:bg-black/80"
-            aria-label="Close player"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <button
+          onClick={onSelectSource}
+          className="pointer-events-auto rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur-md hover:bg-black/80"
+        >
+          {source.name} · {source.badge}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SourcePicker({
+  sources, active, onPick, onClose,
+}: {
+  sources: ResolvedSource[];
+  active: string | null;
+  onPick: (id: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="absolute inset-0 z-30 grid place-items-center bg-black/70 backdrop-blur-md animate-fade-in" onClick={onClose}>
+      <div className="w-[min(92vw,480px)] rounded-2xl border border-white/10 bg-card/95 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-bold text-white">Select source</p>
+          <button onClick={onClose} className="text-white/50 hover:text-white"><X className="h-4 w-4" /></button>
         </div>
-      )}
+        <ul className="max-h-[60vh] space-y-1.5 overflow-y-auto">
+          {sources.map((s) => {
+            const q = s.kind === "direct" ? (s as DirectSource).qualities[0] : null;
+            return (
+              <li key={s.id}>
+                <button
+                  onClick={() => onPick(s.id)}
+                  className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                    active === s.id ? "border-primary bg-primary/15" : "border-white/10 bg-white/5 hover:bg-white/10"
+                  }`}
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-white">{s.name}</p>
+                    <p className="text-[10px] uppercase tracking-widest text-white/50">
+                      {s.kind === "direct" ? "Direct HLS" : "Embed"} · {s.badge}
+                    </p>
+                  </div>
+                  {q && (
+                    <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
+                      {q.label} · {q.format.toUpperCase()}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
 }
