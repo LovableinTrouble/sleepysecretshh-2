@@ -16,7 +16,7 @@ export interface LocalProgressEntry {
   completed: boolean;
   updatedAt: number;
   /** Which embed sent this progress event */
-  source?: "cinesrc" | "cinezo";
+  source?: string;
 }
 
 function readLocal(): LocalProgressEntry[] {
