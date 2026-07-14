@@ -141,9 +141,9 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
                         <FileVideo className="h-4 w-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-bold uppercase text-white">{it.source}</p>
+                        <p className="truncate text-sm font-bold text-white">{media.title}</p>
                         <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
-                          {it.quality} · {typeIcon(it.type)}
+                          {it.quality} · {typeIcon(it.type)} · {it.source}
                           {it.size ? ` · ${it.size}` : ""}
                         </p>
                       </div>
