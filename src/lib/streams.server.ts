@@ -55,6 +55,10 @@ export interface ResolveResult {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+function withTimeout(ms: number): AbortSignal | undefined {
+  try { return withTimeout(ms); } catch { return undefined; }
+}
+
 async function fetchJson(url: string, options?: any): Promise<any> {
   const res = await fetch(url, options);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -87,8 +91,8 @@ async function getTmdbInfo(tmdbId: string, mediaType: string, season?: number) {
   if (cached !== undefined) return cached;
   try {
     const [mainRes, seasonRes] = await Promise.all([
-      fetch(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${TMDB_KEY}&append_to_response=external_ids`, { signal: AbortSignal.timeout(5000) }),
-      season && mediaType === "tv" ? fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${season}?api_key=${TMDB_KEY}`, { signal: AbortSignal.timeout(5000) }) : Promise.resolve(null),
+      fetch(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${TMDB_KEY}&append_to_response=external_ids`, { signal: withTimeout(5000) }),
+      season && mediaType === "tv" ? fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${season}?api_key=${TMDB_KEY}`, { signal: withTimeout(5000) }) : Promise.resolve(null),
     ]);
     let mainData: any = null, seasonData: any = null;
     if (mainRes.ok) mainData = await mainRes.json();
@@ -159,24 +163,24 @@ async function srcVidsrc(id: string, s?: number, e?: number): Promise<StreamQual
   try {
     const html1 = await fetchText(
       s ? `${BASE_URL}/embed/tv?tmdb=${id}&season=${s}&episode=${e}` : `${BASE_URL}/embed/movie?tmdb=${id}`,
-      { headers: HEADERS, signal: AbortSignal.timeout(7000) },
+      { headers: HEADERS, signal: withTimeout(7000) },
     );
     let rcpUrl = html1.match(/<iframe[^>]+src=["']([^"']+)["'][^>]*>/i)?.[1];
     if (!rcpUrl) return [];
     if (rcpUrl.startsWith("//")) rcpUrl = "https:" + rcpUrl;
-    const html2 = await fetchText(rcpUrl, { headers: { Referer: `${BASE_URL}/` }, signal: AbortSignal.timeout(7000) });
+    const html2 = await fetchText(rcpUrl, { headers: { Referer: `${BASE_URL}/` }, signal: withTimeout(7000) });
     const prorcpMatch = html2.match(/src:\s*['"]([^'"]*\/prorcp\/[^'"]+)['"]/i)?.[1];
     const playerUrl = prorcpMatch
       ? (prorcpMatch.startsWith("http") ? prorcpMatch : rcpUrl.slice(0, rcpUrl.indexOf("/", rcpUrl.indexOf("//") + 2)) + prorcpMatch)
       : rcpUrl.replace("/rcp/", "/prorcp/");
-    const html3 = await fetchText(playerUrl, { headers: { Referer: rcpUrl }, signal: AbortSignal.timeout(7000) });
+    const html3 = await fetchText(playerUrl, { headers: { Referer: rcpUrl }, signal: withTimeout(7000) });
     let urls = extractM3u8(html3);
     if (!urls) {
       const apiSrc = html3.match(/src=["']([^"']*\/e\/[^"']+)["']/i)?.[1]
         ?? html3.match(/src=["']([^"']*\/embed[^"']+)["']/i)?.[1]
         ?? html3.match(/<iframe[^>]+src=["']([^"']+)["'][^>]*>/i)?.[1];
       if (!apiSrc) return [];
-      const html4 = await fetchText(new URL(apiSrc, playerUrl).href, { headers: { Referer: playerUrl }, signal: AbortSignal.timeout(7000) });
+      const html4 = await fetchText(new URL(apiSrc, playerUrl).href, { headers: { Referer: playerUrl }, signal: withTimeout(7000) });
       urls = extractM3u8(html4);
     }
     return urls?.map((u) => ({ url: u, label: "Auto", quality: "Auto", format: "hls" as const, headers: PROXY_HEADERS })) ?? [];
@@ -189,11 +193,11 @@ async function srcVidlink(id: string, s?: number, e?: number): Promise<StreamQua
   const BASE = "https://vidlink.pro";
   const HEADERS = { "User-Agent": UA, Origin: BASE, Referer: `${BASE}/` };
   try {
-    const encData = await fetchJson(`https://enc-dec.app/api/enc-vidlink?text=${id}`, { signal: AbortSignal.timeout(6000) });
+    const encData = await fetchJson(`https://enc-dec.app/api/enc-vidlink?text=${id}`, { signal: withTimeout(6000) });
     if (encData?.status !== 200 || !encData?.result) return [];
     const data = await fetchJson(
       s ? `${BASE}/api/b/tv/${encData.result}/${s}/${e || 1}` : `${BASE}/api/b/movie/${encData.result}`,
-      { headers: HEADERS, signal: AbortSignal.timeout(10000) },
+      { headers: HEADERS, signal: withTimeout(6000) },
     );
     const stream = data?.stream;
     if (!stream) return [];
@@ -217,20 +221,20 @@ async function srcVidfast(id: string, s?: number, e?: number): Promise<{ qualiti
   const HEADERS = { "User-Agent": UA, Referer: `${DOMAIN}/`, "X-Requested-With": "XMLHttpRequest" };
   try {
     const embedUrl = s != null && e != null ? `${DOMAIN}/tv/${id}/${s}/${e}/` : `${DOMAIN}/movie/${id}/`;
-    const html = await fetchText(embedUrl, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(7000) });
+    const html = await fetchText(embedUrl, { headers: { "User-Agent": UA }, signal: withTimeout(7000) });
     const match = html.match(/\\"en\\":\\"(.*?)\\"/) || html.match(/"en":"(.*?)"/);
     if (!match?.[1]) return { qualities: [], subtitles: [] };
-    const encData = await fetchJson(`${API_BASE}/enc-vidfast?text=${encodeURIComponent(match[1])}`, { signal: AbortSignal.timeout(6000) });
+    const encData = await fetchJson(`${API_BASE}/enc-vidfast?text=${encodeURIComponent(match[1])}`, { signal: withTimeout(6000) });
     if (encData.status !== 200 || !encData.result) return { qualities: [], subtitles: [] };
     const { servers: serversUrl, stream: streamUrl, token } = encData.result;
     const reqHeaders = { ...HEADERS, "X-CSRF-Token": token };
-    const serversEncrypted = await fetchText(serversUrl, { method: "POST", headers: reqHeaders, signal: AbortSignal.timeout(8000) });
-    const decServersData = await fetchJson(`${API_BASE}/dec-vidfast`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: serversEncrypted }), signal: AbortSignal.timeout(8000) });
+    const serversEncrypted = await fetchText(serversUrl, { method: "POST", headers: reqHeaders, signal: withTimeout(8000) });
+    const decServersData = await fetchJson(`${API_BASE}/dec-vidfast`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: serversEncrypted }), signal: withTimeout(8000) });
     if (decServersData.status !== 200 || !decServersData.result) return { qualities: [], subtitles: [] };
     const results = await Promise.allSettled(
       decServersData.result.map(async (srv: any) => {
-        const streamEncrypted = await fetchText(`${streamUrl}/${srv.data}`, { method: "POST", headers: reqHeaders, signal: AbortSignal.timeout(8000) });
-        const decStreamData = await fetchJson(`${API_BASE}/dec-vidfast`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: streamEncrypted }), signal: AbortSignal.timeout(8000) });
+        const streamEncrypted = await fetchText(`${streamUrl}/${srv.data}`, { method: "POST", headers: reqHeaders, signal: withTimeout(8000) });
+        const decStreamData = await fetchJson(`${API_BASE}/dec-vidfast`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: streamEncrypted }), signal: withTimeout(8000) });
         if (decStreamData.status !== 200 || !decStreamData.result?.url) throw new Error();
         const subs: StreamSubtitle[] = (decStreamData.result.captions || []).map((c: any) => ({
           url: c.file, language: c.label || "en", label: String(c.label || "EN").toUpperCase(), type: "vtt" as const,
@@ -261,7 +265,7 @@ async function srcVideasy(id: string, s?: number, e?: number): Promise<{ qualiti
     const isTv = s != null && e != null;
     const info = await getTmdbInfo(id, isTv ? "tv" : "movie", s);
     if (!info?.titles?.length) return { qualities: [], subtitles: [] };
-    const seedData = await fetchJson(`${WINGS_BASE}/seed?mediaId=${id}`, { headers: HEADERS, signal: AbortSignal.timeout(5000) });
+    const seedData = await fetchJson(`${WINGS_BASE}/seed?mediaId=${id}`, { headers: HEADERS, signal: withTimeout(5000) });
     const seed = seedData?.seed;
     if (!seed) return { qualities: [], subtitles: [] };
     const encTitle = encodeURIComponent(encodeURIComponent(info.titles[0]));
@@ -270,10 +274,10 @@ async function srcVideasy(id: string, s?: number, e?: number): Promise<{ qualiti
       if (srv.id === "cdn" && isTv) throw new Error();
       let url = `${WINGS_BASE}/${srv.id}/sources-with-title?title=${encTitle}&mediaType=${isTv ? "tv" : "movie"}&year=${info.year || ""}&tmdbId=${id}&imdbId=${info.imdbId || "tt0000000"}&enc=2&seed=${seed}`;
       if (isTv) url += `&episodeId=${e}&seasonId=${s}`;
-      const encText = await fetchText(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+      const encText = await fetchText(url, { headers: HEADERS, signal: withTimeout(6000) });
       const decJson = await fetchJson("https://enc-dec.app/api/dec-videasy", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: encText, id: String(id), seed }), signal: AbortSignal.timeout(10000),
+        body: JSON.stringify({ text: encText, id: String(id), seed }), signal: withTimeout(6000),
       });
       if (decJson.status !== 200 || !decJson.result) throw new Error();
       let sourcesArray: any[] = [];
@@ -309,19 +313,19 @@ async function srcVidcore(id: string, s?: number, e?: number): Promise<StreamQua
   const API_BASE = "https://enc-dec.app/api";
   const HEADERS = { "User-Agent": UA, Referer: "https://vidcore.net/", "X-Requested-With": "XMLHttpRequest" };
   try {
-    const html = await fetchText(s != null ? `https://vidcore.net/tv/${id}/${s}/${e}/` : `https://vidcore.net/movie/${id}/`, { headers: HEADERS, signal: AbortSignal.timeout(7000) });
+    const html = await fetchText(s != null ? `https://vidcore.net/tv/${id}/${s}/${e}/` : `https://vidcore.net/movie/${id}/`, { headers: HEADERS, signal: withTimeout(7000) });
     const match = html.match(/\\"en\\":\\"(.*?)\\"/) || html.match(/"en":"(.*?)"/);
     if (!match?.[1]) return [];
-    const encData = await fetchJson(`${API_BASE}/enc-vidcore?text=${encodeURIComponent(match[1])}`, { signal: AbortSignal.timeout(6000) });
+    const encData = await fetchJson(`${API_BASE}/enc-vidcore?text=${encodeURIComponent(match[1])}`, { signal: withTimeout(6000) });
     if (!encData?.result) return [];
     const { servers: serversUrl, stream: streamUrl, token } = encData.result;
     const reqHeaders = { ...HEADERS, "X-CSRF-Token": token };
-    const serversEncrypted = await fetchText(serversUrl, { method: "POST", headers: reqHeaders, signal: AbortSignal.timeout(8000) });
-    const decData = await fetchJson(`${API_BASE}/dec-vidcore`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: serversEncrypted }), signal: AbortSignal.timeout(8000) });
+    const serversEncrypted = await fetchText(serversUrl, { method: "POST", headers: reqHeaders, signal: withTimeout(8000) });
+    const decData = await fetchJson(`${API_BASE}/dec-vidcore`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: serversEncrypted }), signal: withTimeout(8000) });
     if (!decData?.result) return [];
     const results = await Promise.allSettled(decData.result.map(async (srv: any) => {
-      const streamEncrypted = await fetchText(`${streamUrl}/${srv.data}`, { method: "POST", headers: reqHeaders, signal: AbortSignal.timeout(8000) });
-      const decStreamData = await fetchJson(`${API_BASE}/dec-vidcore`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: streamEncrypted }), signal: AbortSignal.timeout(8000) });
+      const streamEncrypted = await fetchText(`${streamUrl}/${srv.data}`, { method: "POST", headers: reqHeaders, signal: withTimeout(8000) });
+      const decStreamData = await fetchJson(`${API_BASE}/dec-vidcore`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: streamEncrypted }), signal: withTimeout(8000) });
       const url = decStreamData?.result?.url;
       if (!url) throw new Error();
       return { url, label: `VidCore ${srv.name || ""}`.trim(), quality: "Auto", format: inferFormat(url) };
@@ -340,14 +344,14 @@ async function srcLookmovie(id: string, s?: number, e?: number): Promise<StreamQ
   try {
     const isTV = s != null && e != null;
     const typeStr = isTV ? "shows" : "movies";
-    const tmdbData = await fetchJson(`${"https://api.themoviedb.org/3"}/${isTV ? "tv" : "movie"}/${id}?api_key=${TMDB_KEY}`, { signal: AbortSignal.timeout(3000) });
+    const tmdbData = await fetchJson(`${"https://api.themoviedb.org/3"}/${isTV ? "tv" : "movie"}/${id}?api_key=${TMDB_KEY}`, { signal: withTimeout(3000) });
     const title = tmdbData?.title || tmdbData?.name;
     const year = (tmdbData?.first_air_date || tmdbData?.release_date || "").slice(0, 4);
     if (!title) return [];
     let match: any = null, base = "";
     for (const b of LM_DOMAINS) {
       try {
-        const data = await fetchJson(`${b}/api/v1/${typeStr}/do-search/?q=${encodeURIComponent(title)}`, { headers: { ...HEADERS_BASE, Accept: "application/json", Referer: `${b}/`, "X-Requested-With": "XMLHttpRequest" }, signal: AbortSignal.timeout(4000) });
+        const data = await fetchJson(`${b}/api/v1/${typeStr}/do-search/?q=${encodeURIComponent(title)}`, { headers: { ...HEADERS_BASE, Accept: "application/json", Referer: `${b}/`, "X-Requested-With": "XMLHttpRequest" }, signal: withTimeout(4000) });
         const results = data?.result;
         if (results?.length) {
           match = results.find((r: any) => String(r.year) === String(year)) ?? results.find((r: any) => r.title?.toLowerCase() === title.toLowerCase()) ?? results[0];
@@ -356,7 +360,7 @@ async function srcLookmovie(id: string, s?: number, e?: number): Promise<StreamQ
       } catch {}
     }
     if (!match?.slug) return [];
-    const html = await fetchText(`${base}/${typeStr}/play/${match.slug}`, { headers: { ...HEADERS_BASE, Accept: "text/html", Referer: `${base}/` }, signal: AbortSignal.timeout(8000) });
+    const html = await fetchText(`${base}/${typeStr}/play/${match.slug}`, { headers: { ...HEADERS_BASE, Accept: "text/html", Referer: `${base}/` }, signal: withTimeout(8000) });
     const storageMatch = html.match(/window\[['"](?:movie|show)_storage['"]\]\s*=\s*\{([^}]+)\}/s);
     if (!storageMatch) return [];
     const hashMatch = storageMatch[1].match(/hash\s*:\s*['"]([^'"]+)['"]/);
@@ -366,7 +370,7 @@ async function srcLookmovie(id: string, s?: number, e?: number): Promise<StreamQ
       ? (html.match(new RegExp(`data-season=["']${s}["'][^>]*?data-episode=["']${e}["'][^>]*?data-id=["'](\\d+)["']`, "i"))?.[1])
       : (match.id_movie || html.match(/['"]?id_movie['"]?\s*[:=]\s*['"]?(\d+)['"]?/i)?.[1]);
     if (!streamId) return [];
-    const data = await fetchJson(`${base}/api/v1/security/${isTV ? "episode" : "movie"}-access?id_${isTV ? "episode" : "movie"}=${streamId}&hash=${hashMatch[1]}&expires=${expiresMatch[1]}`, { headers: { ...HEADERS_BASE, Accept: "application/json", Referer: `${base}/`, "X-Requested-With": "XMLHttpRequest" }, signal: AbortSignal.timeout(8000) });
+    const data = await fetchJson(`${base}/api/v1/security/${isTV ? "episode" : "movie"}-access?id_${isTV ? "episode" : "movie"}=${streamId}&hash=${hashMatch[1]}&expires=${expiresMatch[1]}`, { headers: { ...HEADERS_BASE, Accept: "application/json", Referer: `${base}/`, "X-Requested-With": "XMLHttpRequest" }, signal: withTimeout(8000) });
     const streams = data?.streams ?? data?.result?.streams ?? data?.data?.streams ?? data;
     const allUrls = Object.entries(streams || {}).filter(([, v]) => typeof v === "string" && (v as string).includes(".m3u8")).map(([quality, url]) => ({ url: url as string, label: quality, quality, format: "hls" as const }));
     return allUrls;
@@ -385,7 +389,7 @@ async function srcKisskh(id: string, s?: number, e?: number): Promise<{ qualitie
     if (!info) return { qualities: [], subtitles: [] };
     let drama: any = null, bestScore = -1;
     for (const title of (info.titles.length > 1 ? [...info.titles].reverse() : info.titles)) {
-      const results = await fetchJson(`${BASE}/api/DramaList/Search?q=${encodeURIComponent(title)}`, { headers: HEADERS, signal: AbortSignal.timeout(6000) }).catch(() => []);
+      const results = await fetchJson(`${BASE}/api/DramaList/Search?q=${encodeURIComponent(title)}`, { headers: HEADERS, signal: withTimeout(6000) }).catch(() => []);
       const targetClean = cleanTitle(title);
       for (const item of results || []) {
         const parts = (item.title || "").split(/\s*-\s*/).map(cleanTitle);
@@ -398,19 +402,19 @@ async function srcKisskh(id: string, s?: number, e?: number): Promise<{ qualitie
       if (drama && bestScore >= 5) break;
     }
     if (!drama) return { qualities: [], subtitles: [] };
-    const detail = await fetchJson(`${BASE}/api/DramaList/Drama/${drama.id}`, { headers: HEADERS, signal: AbortSignal.timeout(8000) });
+    const detail = await fetchJson(`${BASE}/api/DramaList/Drama/${drama.id}`, { headers: HEADERS, signal: withTimeout(8000) });
     const episodeId = detail?.episodes?.find((ep: any) => Math.floor(ep.number) === Number(e || 1))?.id;
     if (!episodeId) return { qualities: [], subtitles: [] };
-    const vidKeyData = await fetchJson(`${ENC_API}/enc-kisskh?text=${episodeId}&type=vid`, { signal: AbortSignal.timeout(6000) });
+    const vidKeyData = await fetchJson(`${ENC_API}/enc-kisskh?text=${episodeId}&type=vid`, { signal: withTimeout(6000) });
     const vidKey = vidKeyData?.status === 200 ? vidKeyData.result : null;
     if (!vidKey) return { qualities: [], subtitles: [] };
-    const videoData = await fetchJson(`${BASE}/api/DramaList/Episode/${episodeId}.png?err=false&ts=&time=&kkey=${vidKey}`, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+    const videoData = await fetchJson(`${BASE}/api/DramaList/Episode/${episodeId}.png?err=false&ts=&time=&kkey=${vidKey}`, { headers: HEADERS, signal: withTimeout(6000) });
     if (!videoData?.Video) return { qualities: [], subtitles: [] };
     const subtitles: StreamSubtitle[] = [];
-    const subKeyData = await fetchJson(`${ENC_API}/enc-kisskh?text=${episodeId}&type=sub`, { signal: AbortSignal.timeout(6000) });
+    const subKeyData = await fetchJson(`${ENC_API}/enc-kisskh?text=${episodeId}&type=sub`, { signal: withTimeout(6000) });
     if (subKeyData?.status === 200 && subKeyData.result) {
       try {
-        const subList = await fetchJson(`${BASE}/api/Sub/${episodeId}?kkey=${subKeyData.result}`, { headers: HEADERS, signal: AbortSignal.timeout(8000) });
+        const subList = await fetchJson(`${BASE}/api/Sub/${episodeId}?kkey=${subKeyData.result}`, { headers: HEADERS, signal: withTimeout(8000) });
         if (Array.isArray(subList)) subtitles.push(...subList.map((sub: any) => ({
           url: sub.src, language: sub.land || "en", label: String(sub.label || sub.land || "EN").toUpperCase(), type: "vtt" as const,
         })));
@@ -448,7 +452,7 @@ async function srcVidbolt(id: string, s?: number, e?: number): Promise<{ qualiti
     const imdbId = info.imdbId.replace("tt", "");
     let path = `/scrape/Flaxmovies/${isTv ? "tv" : "movie"}/tt${imdbId}?tmdbId=${id}&title=${title}&year=${year}`;
     if (isTv) path += `&season=${s}&episode=${e}`;
-    const data = await fetchJson(`${BASE_URL}/api/proxy?path=${encodeURIComponent(path)}`, { headers: HEADERS, signal: AbortSignal.timeout(10000) }).catch(() => null);
+    const data = await fetchJson(`${BASE_URL}/api/proxy?path=${encodeURIComponent(path)}`, { headers: HEADERS, signal: withTimeout(6000) }).catch(() => null);
     const streams = data ? extractStreamData(data) : [];
     const seen = new Set<string>();
     const qualities: StreamQuality[] = [];
@@ -472,7 +476,7 @@ async function srcOpstream(id: string, s?: number, e?: number): Promise<StreamQu
     if (!info?.titles?.length || !info.imdbId) return [];
     const params = new URLSearchParams({ type: isTv ? "tv" : "movie", tmdbId: id, title: info.titles[0], year: info.year || "", imdbId: info.imdbId, dash: "1", progress: "1" });
     if (isTv) { params.append("season", String(s)); params.append("episode", String(e)); }
-    const res = await fetch(`${BASE_URL}/api/resolve?${params}`, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
+    const res = await fetch(`${BASE_URL}/api/resolve?${params}`, { headers: HEADERS, signal: withTimeout(8000) });
     if (!res.ok) return [];
     const text = await res.text();
     for (const line of text.split("\n")) {
@@ -504,7 +508,7 @@ async function srcPurstream(id: string, s?: number, e?: number): Promise<StreamQ
     const isTv = s != null;
     const info = await getTmdbInfo(id, isTv ? "tv" : "movie");
     if (!info?.titles?.length) return [];
-    const searchData = await fetchJson(`${API_BASE}/search-bar/search/${encodeURIComponent(info.titles[0])}`, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+    const searchData = await fetchJson(`${API_BASE}/search-bar/search/${encodeURIComponent(info.titles[0])}`, { headers: HEADERS, signal: withTimeout(6000) });
     const items = searchData?.data?.items?.movies?.items || [];
     const type = isTv ? "tv" : "movie";
     const lowerTitle = info.titles[0].toLowerCase();
@@ -512,7 +516,7 @@ async function srcPurstream(id: string, s?: number, e?: number): Promise<StreamQ
     if (!match) match = items.find((item: any) => item.type === type);
     if (!match?.id) return [];
     const streamUrl = isTv ? `${API_BASE}/stream/${match.id}/episode?season=${s}&episode=${e}` : `${API_BASE}/stream/${match.id}`;
-    const json = await fetchJson(streamUrl, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+    const json = await fetchJson(streamUrl, { headers: HEADERS, signal: withTimeout(6000) });
     const sources = json?.data?.items?.sources;
     if (json?.type !== "success" || !Array.isArray(sources) || !sources.length) return [];
     const chosen = sources.find((src: any) => src.stream_url);
@@ -533,7 +537,7 @@ async function fetchSubtitles(id: string, s?: number, e?: number): Promise<Strea
   try {
     const results = await Promise.all(paths.map(async ({ base, path }) => {
       try {
-        const res = await fetch(`${base}${path}`, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(5000) });
+        const res = await fetch(`${base}${path}`, { headers: { "User-Agent": UA }, signal: withTimeout(5000) });
         if (!res.ok) return [];
         const data = await res.json();
         if (base.includes("/v2")) {
@@ -587,13 +591,50 @@ function buildEmbeds(i: ResolveInput): EmbedSource[] {
   return sources;
 }
 
+export function buildEmbedsOnly(input: ResolveInput): ResolveResult {
+  const sources = buildEmbeds(input);
+  return { sources, primary: sources[0]?.id };
+}
+
 // ─── Main resolver ─────────────────────────────────────────────────────────────
+
+const SCRAPER_TIMEOUT = 3500;
 
 export async function resolveAllSources(input: ResolveInput): Promise<ResolveResult> {
   const id = input.tmdbId;
   const s = input.type === "show" ? input.season : undefined;
   const e = input.type === "show" ? input.episode : undefined;
 
+  // Always start with embed sources so the player has something immediately
+  const embeds = buildEmbeds(input);
+
+  // Try to get direct HLS streams with a short timeout (best-effort)
+  try {
+    const scraperPromise = runScrapers(id, s, e);
+    const timeoutPromise = new Promise<ResolveResult>((resolve) =>
+      setTimeout(() => resolve({ sources: [] }), SCRAPER_TIMEOUT)
+    );
+
+    const result = await Promise.race([scraperPromise, timeoutPromise]);
+    if (result.sources.length > 0) {
+      // Merge direct sources with embeds: direct first, embeds as fallback
+      const directSources = result.sources.filter((s) => s.kind === "direct");
+      if (directSources.length > 0) {
+        return {
+          sources: [...directSources, ...embeds],
+          primary: directSources[0].id,
+        };
+      }
+    }
+  } catch (e) {
+    console.error("[resolveAllSources] scraper error:", e);
+  }
+
+  // Fallback: embeds only
+  return { sources: embeds, primary: embeds[0]?.id };
+}
+
+async function runScrapers(id: string, s: number | undefined, e: number | undefined): Promise<ResolveResult> {
   // Run all scrapers in parallel
   const [vidsrc, vidlink, vidfast, videasy, vidcore, lookmovie, kisskh, vidbolt, opstream, purstream, subs] = await Promise.allSettled([
     srcVidsrc(id, s, e),
