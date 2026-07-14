@@ -749,7 +749,7 @@ function SubStyleControls({ value, onChange }: { value: SubStyle; onChange: (v: 
 function SubtitleRenderer({
   videoRef, src, style, posClass,
 }: {
-  videoRef: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   src: string;
   style: React.CSSProperties;
   posClass: string;
