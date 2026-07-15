@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, X, List } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 
-import type { Media } from "@/lib/catalog";
+import type { Media, Episode } from "@/lib/catalog";
 import { sourceForKey } from "@/lib/sources";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
 
@@ -14,32 +15,47 @@ interface Props {
   onClose: () => void;
 }
 
-/* ============================================================
- * Prionix iframe embed + postMessage API (backed by zxcstream.xyz)
- * ============================================================ */
-
-type CineSrcMessage = {
-  type: string;
-  currentTime?: number;
-  duration?: number;
-  season?: number;
-  episode?: number;
-  volume?: number;
-  muted?: boolean;
-  playbackRate?: number;
-  time?: number;
-  sourceId?: string;
-  error?: any;
-  internalNavigation?: boolean;
-  source?: string;
-};
-
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
+  const navigate = useNavigate();
+  const isShow = media.type !== "movie";
+  const hasEpisodes = isShow && !!(season && episode);
+
+  const [showEpisodeList, setShowEpisodeList] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const savedProgress = useMemo(
+    () => getLocalProgressFor(media.id, season ?? null, episode ?? null),
+    [media.id, season, episode],
+  );
+
+  // VidSuper URL — all features enabled.
+  const url = sourceForKey("vidsuper").build(media, season, episode, savedProgress?.positionSeconds);
+
+  const resetControlsTimer = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    controlsTimerRef.current = setTimeout(() => setShowControls(false), 4000);
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !document.fullscreenElement) onClose();
+      if (e.key === "Escape" && !showEpisodeList) onClose();
+      resetControlsTimer();
     };
     window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, resetControlsTimer, showEpisodeList]);
+
+  useEffect(() => {
+    resetControlsTimer();
+    return () => {
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    };
+  }, [resetControlsTimer]);
+
+  // Body scroll lock.
+  useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
     const scrollY = window.scrollY;
@@ -55,9 +71,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     body.style.position = "fixed";
     body.style.top = `-${scrollY}px`;
     body.style.width = "100%";
-
     return () => {
-      window.removeEventListener("keydown", onKey);
       html.style.overflow = prev.htmlOverflow;
       body.style.overflow = prev.bodyOverflow;
       body.style.position = prev.bodyPosition;
@@ -65,33 +79,133 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       body.style.width = prev.bodyWidth;
       window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
     };
-  }, [onClose]);
+  }, []);
 
-  const url = sourceForKey("prionix").build(media, season, episode);
+  const currentEpisodes: Episode[] = useMemo(() => {
+    if (!media.seasons || !season) return [];
+    return media.seasons.find((s) => s.number === season)?.episodes || [];
+  }, [media.seasons, season]);
 
   const player = (
     <div
-      className="fixed inset-0 z-[2147483000] flex flex-col bg-black animate-fade-in"
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: "100dvh",
-        width: "100vw",
-        zIndex: 2147483000,
-      }}
+      className="fixed inset-0 z-[2147483000] flex flex-col bg-black select-none"
+      style={{ height: "100dvh", width: "100vw" }}
+      onMouseMove={resetControlsTimer}
+      onClick={resetControlsTimer}
     >
       <div className="relative flex-1 bg-black">
-        <EmbedVideo url={url} media={media} season={season} episode={episode} onClose={onClose} />
+        <EmbedVideo
+          url={url}
+          media={media}
+          season={season}
+          episode={episode}
+          onClose={onClose}
+        />
       </div>
+
+      {/* Top bar */}
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent p-4 transition-all duration-300 ${
+          showControls ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <button
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          className="pointer-events-auto grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white ring-1 ring-white/20 backdrop-blur-md transition hover:bg-black/70"
+          aria-label="Back"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+
+        <div className="pointer-events-none flex flex-col items-center">
+          <p className="text-sm font-semibold text-white drop-shadow-md">{media.title}</p>
+          {isShow && season && episode && (
+            <p className="text-[11px] text-white/60">S{season} · E{episode}</p>
+          )}
+        </div>
+
+        <div className="pointer-events-auto flex gap-2">
+          {hasEpisodes && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowEpisodeList((v) => !v); }}
+              className="grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white ring-1 ring-white/20 backdrop-blur-md transition hover:bg-black/70"
+              aria-label="Episodes"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Episode selector drawer */}
+      {showEpisodeList && hasEpisodes && (
+        <div className="absolute right-0 top-0 z-30 h-full w-80 max-w-[85vw] overflow-y-auto border-l border-white/10 bg-black/90 backdrop-blur-xl">
+          <div className="sticky top-0 flex items-center justify-between border-b border-white/10 bg-black/80 p-4 backdrop-blur-md">
+            <div>
+              <p className="text-sm font-semibold text-white">Episodes</p>
+              <p className="text-[11px] text-white/40">Season {season}</p>
+            </div>
+            <button
+              onClick={() => setShowEpisodeList(false)}
+              className="grid h-8 w-8 place-items-center rounded-full text-white/60 transition hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="p-2">
+            {currentEpisodes.map((ep) => (
+              <button
+                key={ep.number}
+                onClick={() => {
+                  setShowEpisodeList(false);
+                  navigate({
+                    to: "/watch/$id",
+                    params: { id: String(media.id) },
+                    search: { t: media.type as any, s: season, e: ep.number, party: undefined } as any,
+                    replace: true,
+                  });
+                }}
+                className={`flex w-full gap-3 rounded-lg p-2 text-left transition hover:bg-white/5 ${
+                  ep.number === episode ? "bg-white/10" : ""
+                }`}
+              >
+                <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-md bg-white/5">
+                  {ep.still && <img src={ep.still} alt="" className="h-full w-full object-cover" loading="lazy" />}
+                  <div className="absolute bottom-0.5 left-1 text-[10px] font-bold text-white drop-shadow">E{ep.number}</div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-semibold text-white">{ep.title}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[10px] text-white/40">{ep.overview}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 
   if (typeof document === "undefined") return player;
   return createPortal(player, document.body);
 }
+
+/* ============================================================
+ * VidSuper iframe embed + postMessage API (vidsuper.net)
+ *
+ * The player streams playback events to the parent window:
+ *   { id, type, progress, duration, season, episode }
+ *   type ∈ "play" | "pause" | "timeupdate" | "ended"
+ *   progress / duration are in seconds.
+ * ============================================================ */
+
+type VidSuperMessage = {
+  type: "play" | "pause" | "timeupdate" | "ended";
+  id?: number | string;
+  progress?: number;
+  duration?: number;
+  season?: number;
+  episode?: number;
+};
 
 function EmbedVideo({
   url,
@@ -132,57 +246,46 @@ function EmbedVideo({
     [media.id, media.type, media.title, media.poster, media.backdrop, seasonKey, epKey],
   );
 
+  // Foolproof postMessage listener: validate origin loosely (sandboxed
+  // iframes report origin "null"), parse defensively, ignore anything that
+  // doesn't look like a VidSuper playback event.
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      let isAllowedOrigin: boolean;
-      if (event.origin === "null") {
-        isAllowedOrigin = true;
-      } else {
-        try {
-          const originHost = new URL(event.origin).hostname.toLowerCase();
-          isAllowedOrigin = originHost === "cinesrc.st" || originHost.endsWith(".cinesrc.st");
-        } catch {
-          isAllowedOrigin = true;
-        }
-      }
-      if (!isAllowedOrigin) return;
+      const raw = event.data;
+      if (!raw) return;
 
-      let data: CineSrcMessage | undefined;
-      if (typeof event.data === "string") {
-        try {
-          data = JSON.parse(event.data);
-        } catch {
-          return;
-        }
+      let msg: any;
+      if (typeof raw === "string") {
+        try { msg = JSON.parse(raw); } catch { return; }
+      } else if (typeof raw === "object" && raw !== null) {
+        msg = raw;
       } else {
-        data = event.data as CineSrcMessage | undefined;
+        return;
       }
-      if (!data || typeof (data as { type?: any }).type !== "string") return;
 
-      const t = data.type;
-      switch (t) {
-        case "cinesrc:ready":
-        case "cinesrc:play":
-        case "cinesrc:pause":
-        case "cinesrc:seeking":
-        case "cinesrc:seeked":
-          break;
-        case "cinesrc:timeupdate": {
-          if (typeof data.currentTime === "number" && typeof data.duration === "number") {
-            recordProgress(data.currentTime, data.duration, false);
-          }
-          break;
-        }
-        case "cinesrc:ended": {
-          const saved = getLocalProgressFor(media.id, seasonKey, epKey);
-          recordProgress(saved?.durationSeconds ?? 0, saved?.durationSeconds ?? 0, true);
-          break;
-        }
-        case "cinesrc:close":
-          onClose();
-          break;
+      const t = msg?.type;
+      if (t !== "play" && t !== "pause" && t !== "timeupdate" && t !== "ended") return;
+
+      const data = msg as VidSuperMessage;
+      const currentTime = Number(data.progress) || 0;
+      const duration = Number(data.duration) || 0;
+
+      if (t === "ended") {
+        const saved = getLocalProgressFor(media.id, seasonKey, epKey);
+        recordProgress(
+          saved?.durationSeconds ?? duration,
+          saved?.durationSeconds ?? duration,
+          true,
+        );
+        return;
+      }
+
+      if (t === "timeupdate" && currentTime > 0) {
+        const completed = duration > 0 && currentTime >= duration - 30;
+        recordProgress(currentTime, duration, completed);
       }
     };
+
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [media.id, seasonKey, epKey, recordProgress]);
@@ -197,6 +300,12 @@ function EmbedVideo({
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
         referrerPolicy="no-referrer"
+        // Sandboxed to block ad popups while keeping every player feature:
+        // allow-scripts (player JS), allow-same-origin (autoplay/fullscreen),
+        // allow-presentation (fullscreen), allow-popups (picture-in-picture).
+        // NOT set: allow-popups-to-escape-sandbox — so any window opened from
+        // inside inherits the sandbox restrictions, blocking ad popups.
+        sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <button

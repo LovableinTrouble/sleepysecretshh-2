@@ -1,9 +1,8 @@
 import type { Media } from "./catalog";
-import { getSettings } from "./store";
 
 /**
- * Source registry — Prionix is the only source (third-party iframe embed
- * backed by zxcstream.xyz).
+ * Source registry — VidSuper (vidsuper.net) is the only source.
+ * It is a pure iframe embed: no SDK, no backend, no keys.
  */
 export interface Source {
   id: string;
@@ -11,52 +10,63 @@ export interface Source {
   badge?: string;
   kind: "embed";
   tier: "primary";
-  build: (m: Media, season?: number, episode?: number) => string;
+  build: (m: Media, season?: number, episode?: number, progressSeconds?: number) => string;
 }
 
-export type SourceKey = "prionix";
+export type SourceKey = "vidsuper";
 
-const PRIONIX: Source = {
-  id: "prionix",
-  name: "CineSrc",
+// Sleepy accent.
+const VIDSUPER_COLOR = "6366f1";
+
+function buildVidSuper(
+  m: Media,
+  season?: number,
+  episode?: number,
+  progressSeconds?: number,
+): string {
+  const id = String(m.id);
+  const isShow = m.type !== "movie" && season != null && episode != null;
+  const base = isShow
+    ? `https://vidsuper.net/tv/${id}/${season}/${episode}`
+    : `https://vidsuper.net/movie/${id}`;
+
+  const params = new URLSearchParams({
+    color: VIDSUPER_COLOR,
+    autoplay: "true",
+    overlay: "true",
+  });
+  if (isShow) {
+    params.set("nextEpisode", "true");
+    params.set("episodeSelector", "true");
+    params.set("autoplayNextEpisode", "true");
+    params.set("skip_intro", "true");
+  }
+  if (progressSeconds && progressSeconds > 5) {
+    params.set("progress", String(Math.floor(progressSeconds)));
+  }
+  return `${base}?${params.toString()}`;
+}
+
+const VIDSUPER: Source = {
+  id: "vidsuper",
+  name: "VidSuper",
   badge: "Embed",
   kind: "embed",
   tier: "primary",
-  build: (m, season, episode) => {
-    const isShow = m.type !== "movie" && season != null && episode != null;
-    const base = isShow
-      ? `https://cinesrc.st/embed/tv/${m.id}?s=${season}&e=${episode}`
-      : `https://cinesrc.st/embed/movie/${m.id}`;
-    // Sleepy accent (indigo) — pass as hex with %23 replaced by URLSearchParams.
-    const params = new URLSearchParams({
-      color: "#6366f1",
-      autoplay: "true",
-      autonext: "true",
-      autoskip: "true",
-      controls: "true",
-      prioritize: "true",
-    });
-    try {
-      const tok = getSettings().integrations.febboxToken?.trim();
-      if (tok) params.set("febbox", tok);
-    } catch {
-      /* no-op */
-    }
-    const sep = base.includes("?") ? "&" : "?";
-    return `${base}${sep}${params.toString()}`;
-  },
+  build: (m, season, episode, progressSeconds) =>
+    buildVidSuper(m, season, episode, progressSeconds),
 };
 
-export const SOURCES: Source[] = [PRIONIX];
+export const SOURCES: Source[] = [VIDSUPER];
 
 export function getOrderedSources(): Source[] {
-  return [PRIONIX];
+  return [VIDSUPER];
 }
 
 export function sourceForKey(_key: SourceKey): Source {
-  return PRIONIX;
+  return VIDSUPER;
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
-  prionix: "Prionix",
+  vidsuper: "VidSuper",
 };

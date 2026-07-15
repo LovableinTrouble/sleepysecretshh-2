@@ -433,8 +433,8 @@ function SettingsPage() {
         </Section>
 
         {/* Sources */}
-        <Section title="Sources" desc="Prionix is the streaming provider.">
-          <Row label="Prionix" hint="Third-party iframe embed used for playback.">
+        <Section title="Sources" desc="VidSuper is the streaming provider.">
+          <Row label="VidSuper" hint="Third-party iframe embed used for playback.">
             <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
               Ready
             </span>
@@ -620,13 +620,6 @@ function SettingsPage() {
               placeholder="OpenSubtitles API key"
               value={ints.openSubtitles}
               onChange={(v) => setInt({ openSubtitles: v })}
-            />
-            <IntegrationCard
-              name="Febbox"
-              desc="Premium source access inside the player."
-              placeholder="Febbox token"
-              value={ints.febboxToken}
-              onChange={(v) => setInt({ febboxToken: v })}
             />
           </div>
         </Section>
