@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, X, List } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import { ChevronLeft } from "lucide-react";
 
-import type { Media, Episode } from "@/lib/catalog";
+import type { Media } from "@/lib/catalog";
 import { sourceForKey } from "@/lib/sources";
 import { getLocalProgressFor, saveProgressLocal } from "@/lib/progress";
 
@@ -16,11 +15,8 @@ interface Props {
 }
 
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
-  const navigate = useNavigate();
   const isShow = media.type !== "movie";
-  const hasEpisodes = isShow && !!(season && episode);
 
-  const [showEpisodeList, setShowEpisodeList] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -67,12 +63,12 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !showEpisodeList) onClose();
+      if (e.key === "Escape") onClose();
       resetControlsTimer();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, showEpisodeList]);
+  }, [onClose]);
 
   useEffect(() => {
     resetControlsTimer();
@@ -107,11 +103,6 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
     };
   }, []);
-
-  const currentEpisodes: Episode[] = useMemo(() => {
-    if (!media.seasons || !season) return [];
-    return media.seasons.find((s) => s.number === season)?.episodes || [];
-  }, [media.seasons, season]);
 
   const player = (
     <div
@@ -153,64 +144,8 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           )}
         </div>
 
-        <div className="pointer-events-auto flex gap-2">
-          {hasEpisodes && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowEpisodeList((v) => !v); }}
-              className="grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white ring-1 ring-white/20 backdrop-blur-md transition hover:bg-black/70"
-              aria-label="Episodes"
-            >
-              <List className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        <div className="w-10" />
       </div>
-
-      {/* Episode selector drawer */}
-      {showEpisodeList && hasEpisodes && (
-        <div className="absolute right-0 top-0 z-30 h-full w-80 max-w-[85vw] overflow-y-auto border-l border-white/10 bg-black/90 backdrop-blur-xl">
-          <div className="sticky top-0 flex items-center justify-between border-b border-white/10 bg-black/80 p-4 backdrop-blur-md">
-            <div>
-              <p className="text-sm font-semibold text-white">Episodes</p>
-              <p className="text-[11px] text-white/40">Season {season}</p>
-            </div>
-            <button
-              onClick={() => setShowEpisodeList(false)}
-              className="grid h-8 w-8 place-items-center rounded-full text-white/60 transition hover:bg-white/10 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="p-2">
-            {currentEpisodes.map((ep) => (
-              <button
-                key={ep.number}
-                onClick={() => {
-                  setShowEpisodeList(false);
-                  navigate({
-                    to: "/watch/$id",
-                    params: { id: String(media.id) },
-                    search: { t: media.type as any, s: season, e: ep.number, party: undefined } as any,
-                    replace: true,
-                  });
-                }}
-                className={`flex w-full gap-3 rounded-lg p-2 text-left transition hover:bg-white/5 ${
-                  ep.number === episode ? "bg-white/10" : ""
-                }`}
-              >
-                <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-md bg-white/5">
-                  {ep.still && <img src={ep.still} alt="" className="h-full w-full object-cover" loading="lazy" />}
-                  <div className="absolute bottom-0.5 left-1 text-[10px] font-bold text-white drop-shadow">E{ep.number}</div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-white">{ep.title}</p>
-                  <p className="mt-0.5 line-clamp-2 text-[10px] text-white/40">{ep.overview}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 
