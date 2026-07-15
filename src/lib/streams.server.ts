@@ -228,7 +228,9 @@ async function srcLookmovie(id: string, s?: number, e?: number): Promise<StreamQ
     const accessUrl = `${base}/api/v1/security/${isTV ? "episode" : "movie"}-access?id_${isTV ? "episode" : "movie"}=${streamId}&hash=${hashMatch[1]}&expires=${expiresMatch[1]}`;
     const data = await fetchJson(accessUrl, { headers: { ...HEADERS_BASE, Accept: "application/json", Referer: `${base}/`, "X-Requested-With": "XMLHttpRequest" }, signal: withTimeout(5000) });
     const streams = data?.streams ?? data?.result?.streams ?? data?.data?.streams ?? data;
-    const allUrls = Object.entries(streams || {}).filter(([, v]) => typeof v === "string" && (v as string).includes(".m3u8")).map(([quality, url]) => ({ url: url as string, label: quality, quality, format: "hls" as const }));
+    const allUrls = Object.entries(streams || {})
+      .filter(([, v]) => typeof v === "string" && (v as string).includes(".m3u8"))
+      .map(([quality, url]) => ({ url: proxyUrl(url as string), label: `LookMovie ${quality}`, quality, format: "hls" as const }));
     return allUrls;
   } catch { return []; }
 }
