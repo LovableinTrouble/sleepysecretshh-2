@@ -127,6 +127,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "dns-prefetch", href: "https://image.tmdb.org" },
       { rel: "preconnect", href: "https://api.themoviedb.org" },
       { rel: "dns-prefetch", href: "https://api.themoviedb.org" },
+      { rel: "preconnect", href: "https://nhdapi.com" },
+      { rel: "dns-prefetch", href: "https://nhdapi.com" },
     ],
   }),
   shellComponent: RootShell,

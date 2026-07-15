@@ -44,12 +44,14 @@ function buildNhdapi(
   if (progressSeconds && progressSeconds > 5) {
     p.set("progress", String(Math.floor(progressSeconds)));
   }
-  // Appearance — all UI controls visible (except download + PiP)
-  p.set("title", "true");
+  // Appearance — controls visible (download, PiP, watch party, title off)
+  p.set("title", "false");
+  p.set("download", "false");
   p.set("setting", "true");
   p.set("chromecast", "true");
-  p.set("pip", "false");
-  p.set("watchparty", "true");
+  p.set("pip", "true");
+  p.set("watchparty", "false");
+  p.set("appearance", "on");
   // Theme
   p.set("primarycolor", PRIMARY);
   p.set("secondarycolor", SECONDARY);
