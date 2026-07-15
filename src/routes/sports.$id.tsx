@@ -174,28 +174,26 @@ function SportsMatchPage() {
         )}
 
         {active && (
-          <>
-            <iframe
-              key={`${active.iframe}-${reload}`}
-              src={active.iframe}
-              title={event?.name || "Live match"}
-              allow="autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-read; clipboard-write; web-share"
-              allowFullScreen
-              loading="eager"
-              referrerPolicy="no-referrer-when-downgrade"
-              className="absolute inset-0 h-full w-full border-0 bg-black"
-            />
-            {/* Mask the embed's top region. Some third-party embeds render a
-                *visible fallback banner* ("Remove sandbox attributes…", UA
-                printout, etc.) when their internal popup probe fails. We can't
-                reach inside the cross-origin document, so we cover the area
-                where that banner appears. pointer-events:none keeps playback
-                interactive below the mask. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-black via-black/95 to-transparent"
-            />
-          </>
+          <iframe
+            key={`${active.iframe}-${reload}`}
+            src={active.iframe}
+            title={event?.name || "Live match"}
+            name="sports-match"
+            // Permissive sandbox — the embed provider's diagnostic script
+            // gates its self-check on these exact tokens. Without them, the
+            // embed prints "Remove sandbox attributes on the iframe tag" as a
+            // visible fallback even though the parent iframe has no sandbox.
+            // These tokens preserve full playback capability (scripts, popups,
+            // forms, same-origin storage) while satisfying that heuristic.
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-read; clipboard-write; web-share; payment"
+            allowFullScreen
+            loading="lazy"
+            scrolling="no"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="absolute inset-0 h-full w-full border-0 bg-black"
+            style={{ borderRadius: 10 }}
+          />
         )}
       </div>
 
