@@ -1,5 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+// ─── Stream proxy helper ──────────────────────────────────────────────────────
+// Browsers cannot set Referer/Origin headers via JS, and most upstream HLS CDNs
+// reject requests without the correct referer (403). Route every stream URL
+// through our /api/public/iptv-proxy which fetches with the right headers and
+// rewrites nested playlist/segment URLs to flow back through the proxy.
+function b64url(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  // btoa is available in workerd/Node 18+.
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+function proxyUrl(u: string): string {
+  return `/api/public/iptv-proxy?u=${b64url(u)}`;
+}
+
 export interface StreamQuality {
   url: string;
   label: string;
