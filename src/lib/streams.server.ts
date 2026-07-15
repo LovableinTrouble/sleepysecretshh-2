@@ -149,9 +149,9 @@ async function srcVideasy(id: string, s?: number, e?: number): Promise<{ qualiti
       if (result.sources) {
         sourcesArray = result.sources;
         if (result.subtitles) subsArray = result.subtitles.map((sub: any) => ({
-          url: sub.url || sub.file, language: sub.language || sub.lang || "en",
+          url: subUrl(sub.url || sub.file), language: sub.language || sub.lang || "en",
           label: String(sub.label || sub.language || "EN").toUpperCase(), type: "vtt" as const,
-        })).filter((sub: any) => sub.url);
+        })).filter((sub: any) => !!sub.url);
       } else if (Array.isArray(result)) sourcesArray = result;
       else sourcesArray = [result];
       const items: (StreamQuality & { subtitles?: StreamSubtitle[] })[] = [];
