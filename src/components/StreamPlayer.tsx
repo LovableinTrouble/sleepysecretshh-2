@@ -57,6 +57,14 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     controlsTimerRef.current = setTimeout(() => setShowControls(false), 4000);
   };
 
+  // Block right-click context menu while the player is mounted so the
+  // iframe source can't be inspected via "View frame source" etc.
+  useEffect(() => {
+    const onContext = (e: MouseEvent) => e.preventDefault();
+    window.addEventListener("contextmenu", onContext);
+    return () => window.removeEventListener("contextmenu", onContext);
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !showEpisodeList) onClose();
