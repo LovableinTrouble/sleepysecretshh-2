@@ -251,10 +251,13 @@ async function fetchSubtitles(id: string, s?: number, e?: number): Promise<Strea
         const res = await fetch(url, { headers: { "User-Agent": UA }, signal: withTimeout(4000) });
         if (!res.ok) return [];
         const data = await res.json();
-        return (Array.isArray(data) ? data : []).map((x: any) => ({
-          url: subUrl(x.file || x.url), language: String(x.label || "en").toLowerCase(),
-          label: String(x.label || "EN").toUpperCase(), type: "vtt" as const,
-        })).filter((x: any) => !!x.url);
+        return (Array.isArray(data) ? data : [])
+          .map((x: any) => ({ raw: x.file || x.url, label: String(x.label || "EN") }))
+          .filter((x) => !!x.raw)
+          .map((x) => ({
+            url: subUrl(x.raw), language: x.label.toLowerCase(),
+            label: x.label.toUpperCase(), type: "vtt" as const,
+          }));
       } catch { return []; }
     }));
     const all = results.flat();
