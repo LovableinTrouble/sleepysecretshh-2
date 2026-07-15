@@ -151,17 +151,30 @@ async function srcVideasy(id: string, s?: number, e?: number): Promise<{ qualiti
         })).filter((sub: any) => sub.url);
       } else if (Array.isArray(result)) sourcesArray = result;
       else sourcesArray = [result];
-      return sourcesArray.map((res: any) => {
+      const items: (StreamQuality & { subtitles?: StreamSubtitle[] })[] = [];
+      for (const res of sourcesArray) {
         const streamUrl = res.url || res.file || res.link || res.playlist || res.stream;
-        return streamUrl ? { url: streamUrl, label: `VidEasy ${srv.name}`, quality: res.quality || "Auto", format: inferFormat(streamUrl, res.type), subtitles: subsArray } : null;
-      }).filter(Boolean);
+        if (!streamUrl) continue;
+        items.push({
+          url: proxyUrl(streamUrl),
+          label: `VidEasy ${srv.name}`,
+          quality: res.quality || "Auto",
+          format: inferFormat(streamUrl, res.type),
+          subtitles: subsArray,
+        } as StreamQuality & { subtitles?: StreamSubtitle[] });
+      }
+      return items;
     }));
 
     const qualities: StreamQuality[] = [];
     const subtitles: StreamSubtitle[] = [];
     for (const r of settled) {
       if (r.status === "fulfilled" && r.value) {
-        for (const q of r.value) { qualities.push(q); if (q.subtitles) subtitles.push(...q.subtitles); }
+        for (const q of r.value) {
+          qualities.push(q);
+          const qSubs = (q as StreamQuality & { subtitles?: StreamSubtitle[] }).subtitles;
+          if (qSubs) subtitles.push(...qSubs);
+        }
       }
     }
     return { qualities, subtitles };
