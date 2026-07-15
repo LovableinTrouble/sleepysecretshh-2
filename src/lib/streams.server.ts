@@ -252,9 +252,9 @@ async function fetchSubtitles(id: string, s?: number, e?: number): Promise<Strea
         if (!res.ok) return [];
         const data = await res.json();
         return (Array.isArray(data) ? data : []).map((x: any) => ({
-          url: x.file || x.url, language: String(x.label || "en").toLowerCase(),
+          url: subUrl(x.file || x.url), language: String(x.label || "en").toLowerCase(),
           label: String(x.label || "EN").toUpperCase(), type: "vtt" as const,
-        })).filter((x: any) => x.url);
+        })).filter((x: any) => !!x.url);
       } catch { return []; }
     }));
     const all = results.flat();
