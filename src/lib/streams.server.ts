@@ -148,10 +148,10 @@ async function srcVideasy(id: string, s?: number, e?: number): Promise<{ qualiti
       const result = typeof decJson.result === "string" ? JSON.parse(decJson.result) : decJson.result;
       if (result.sources) {
         sourcesArray = result.sources;
-        if (result.subtitles) subsArray = result.subtitles.map((sub: any) => ({
-          url: subUrl(sub.url || sub.file), language: sub.language || sub.lang || "en",
-          label: String(sub.label || sub.language || "EN").toUpperCase(), type: "vtt" as const,
-        })).filter((sub: any) => !!sub.url);
+        if (result.subtitles) subsArray = (result.subtitles as any[])
+          .map((sub: any) => ({ raw: sub.url || sub.file, lang: sub.language || sub.lang || "en", label: String(sub.label || sub.language || "EN") }))
+          .filter((s) => !!s.raw)
+          .map((s) => ({ url: subUrl(s.raw), language: s.lang, label: s.label.toUpperCase(), type: "vtt" as const }));
       } else if (Array.isArray(result)) sourcesArray = result;
       else sourcesArray = [result];
       const items: (StreamQuality & { subtitles?: StreamSubtitle[] })[] = [];
