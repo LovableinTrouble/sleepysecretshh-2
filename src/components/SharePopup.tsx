@@ -5,22 +5,28 @@ import { useNavigate } from "@tanstack/react-router";
 const KEY = "sleepy.update-notice.v5";
 const CURRENT_VERSION = "2.9.0";
 
-const UPDATE_HIGHLIGHTS = [
+type HighlightItem = {
+  icon: typeof Sparkles;
+  title: string;
+  body: string;
+  to?: "/iptv";
+  cta?: string;
+};
+
+const UPDATE_HIGHLIGHTS: readonly HighlightItem[] = [
   {
     icon: Sparkles,
-    title: "AI Search is now in Search",
-    body: "Press \"/\" or hit the AI toggle on /search — describe a mood, actor or vibe and Sleepy finds it.",
-    to: "/search" as const,
-    cta: "Try AI Search",
+    title: "Added AI Search button",
+    body: "Press \"/\" then tap the new AI button — describe a mood, actor or vibe and Sleepy finds it.",
   },
   {
     icon: Globe2,
     title: "Added Global IPTV",
     body: "Pick any country and browse 8,000+ public broadcaster channels from iptv-org, right inside the Live TV tab.",
-    to: "/iptv" as const,
+    to: "/iptv",
     cta: "Open Global IPTV",
   },
-] as const;
+];
 
 export function SharePopup() {
   const [open, setOpen] = useState(false);
@@ -50,7 +56,7 @@ export function SharePopup() {
     setOpen(false);
   };
 
-  const openFeature = (to: (typeof UPDATE_HIGHLIGHTS)[number]["to"]) => {
+  const openFeature = (to: "/iptv") => {
     dismiss();
     // SPA-navigate after the popup finishes closing so the route transition
     // doesn't fight the fade-out animation.
@@ -112,42 +118,69 @@ export function SharePopup() {
           <div className="space-y-1.5">
             {UPDATE_HIGHLIGHTS.map((item, i) => {
               const Icon = item.icon;
-              return (
-                <button
-                  key={item.title}
-                  type="button"
-                  onClick={() => openFeature(item.to)}
-                  className="group/highlight flex w-full items-start gap-3 rounded-xl bg-white/[0.03] px-3 py-3 text-left transition hover:bg-white/[0.07] focus-visible:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
-                  style={{
-                    animation: `fadeInUp 0.3s ease-out ${i * 0.05 + 0.15}s both`,
-                  }}
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/15 transition group-hover/highlight:bg-primary/20">
+              const interactive = Boolean(item.to);
+              const content = (
+                <>
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/15 transition ${
+                      interactive ? "group-hover/highlight:bg-primary/20" : ""
+                    }`}
+                  >
                     <Icon className="h-4 w-4 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-white">{item.title}</p>
-                      <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-primary/80 opacity-0 transition group-hover/highlight:opacity-100">
-                        {item.cta}
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="h-3 w-3"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.4"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 12h14M13 6l6 6-6 6" />
-                        </svg>
-                      </span>
+                      {item.to && item.cta && (
+                        <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-primary/80 opacity-0 transition group-hover/highlight:opacity-100">
+                          {item.cta}
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-3 w-3"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.4"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M5 12h14M13 6l6 6-6 6" />
+                          </svg>
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 text-[12.5px] leading-snug text-white/65">
                       {item.body}
                     </p>
                   </div>
-                </button>
+                </>
+              );
+
+              if (interactive && item.to) {
+                return (
+                  <button
+                    key={item.title}
+                    type="button"
+                    onClick={() => openFeature(item.to!)}
+                    className="group/highlight flex w-full cursor-pointer items-start gap-3 rounded-xl bg-white/[0.03] px-3 py-3 text-left transition hover:bg-white/[0.07] focus-visible:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+                    style={{
+                      animation: `fadeInUp 0.3s ease-out ${i * 0.05 + 0.15}s both`,
+                    }}
+                  >
+                    {content}
+                  </button>
+                );
+              }
+
+              return (
+                <div
+                  key={item.title}
+                  className="flex items-start gap-3 rounded-xl bg-white/[0.03] px-3 py-3"
+                  style={{
+                    animation: `fadeInUp 0.3s ease-out ${i * 0.05 + 0.15}s both`,
+                  }}
+                >
+                  {content}
+                </div>
               );
             })}
           </div>
