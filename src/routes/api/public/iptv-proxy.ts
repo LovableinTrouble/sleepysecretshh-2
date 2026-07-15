@@ -126,7 +126,6 @@ async function handle(request: Request, method: "GET" | "HEAD"): Promise<Respons
     accept: "*/*",
     "accept-language": "en-US,en;q=0.8",
     referer: `${parsed.protocol}//${parsed.hostname}/`,
-    origin: `${parsed.protocol}//${parsed.hostname}`,
   };
   const range = request.headers.get("range");
   if (range) fwd["range"] = range;
