@@ -1,5 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+// ─── Stream proxy helper ──────────────────────────────────────────────────────
+// Browsers cannot set Referer/Origin headers via JS, and most upstream HLS CDNs
+// reject requests without the correct referer (403). Route every stream URL
+// through our /api/public/iptv-proxy which fetches with the right headers and
+// rewrites nested playlist/segment URLs to flow back through the proxy.
+function b64url(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  // btoa is available in workerd/Node 18+.
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+function proxyUrl(u: string): string {
+  return `/api/public/iptv-proxy?u=${b64url(u)}`;
+}
+function subUrl(u: string): string {
+  return `/api/public/subtitle?url=${encodeURIComponent(u)}`;
+}
+
 export interface StreamQuality {
   url: string;
   label: string;
@@ -129,23 +148,36 @@ async function srcVideasy(id: string, s?: number, e?: number): Promise<{ qualiti
       const result = typeof decJson.result === "string" ? JSON.parse(decJson.result) : decJson.result;
       if (result.sources) {
         sourcesArray = result.sources;
-        if (result.subtitles) subsArray = result.subtitles.map((sub: any) => ({
-          url: sub.url || sub.file, language: sub.language || sub.lang || "en",
-          label: String(sub.label || sub.language || "EN").toUpperCase(), type: "vtt" as const,
-        })).filter((sub: any) => sub.url);
+        if (result.subtitles) subsArray = (result.subtitles as any[])
+          .map((sub: any) => ({ raw: sub.url || sub.file, lang: sub.language || sub.lang || "en", label: String(sub.label || sub.language || "EN") }))
+          .filter((s) => !!s.raw)
+          .map((s) => ({ url: subUrl(s.raw), language: s.lang, label: s.label.toUpperCase(), type: "vtt" as const }));
       } else if (Array.isArray(result)) sourcesArray = result;
       else sourcesArray = [result];
-      return sourcesArray.map((res: any) => {
+      const items: (StreamQuality & { subtitles?: StreamSubtitle[] })[] = [];
+      for (const res of sourcesArray) {
         const streamUrl = res.url || res.file || res.link || res.playlist || res.stream;
-        return streamUrl ? { url: streamUrl, label: `VidEasy ${srv.name}`, quality: res.quality || "Auto", format: inferFormat(streamUrl, res.type), subtitles: subsArray } : null;
-      }).filter(Boolean);
+        if (!streamUrl) continue;
+        items.push({
+          url: proxyUrl(streamUrl),
+          label: `VidEasy ${srv.name}`,
+          quality: res.quality || "Auto",
+          format: inferFormat(streamUrl, res.type),
+          subtitles: subsArray,
+        } as StreamQuality & { subtitles?: StreamSubtitle[] });
+      }
+      return items;
     }));
 
     const qualities: StreamQuality[] = [];
     const subtitles: StreamSubtitle[] = [];
     for (const r of settled) {
       if (r.status === "fulfilled" && r.value) {
-        for (const q of r.value) { qualities.push(q); if (q.subtitles) subtitles.push(...q.subtitles); }
+        for (const q of r.value) {
+          qualities.push(q);
+          const qSubs = (q as StreamQuality & { subtitles?: StreamSubtitle[] }).subtitles;
+          if (qSubs) subtitles.push(...qSubs);
+        }
       }
     }
     return { qualities, subtitles };
@@ -199,7 +231,9 @@ async function srcLookmovie(id: string, s?: number, e?: number): Promise<StreamQ
     const accessUrl = `${base}/api/v1/security/${isTV ? "episode" : "movie"}-access?id_${isTV ? "episode" : "movie"}=${streamId}&hash=${hashMatch[1]}&expires=${expiresMatch[1]}`;
     const data = await fetchJson(accessUrl, { headers: { ...HEADERS_BASE, Accept: "application/json", Referer: `${base}/`, "X-Requested-With": "XMLHttpRequest" }, signal: withTimeout(5000) });
     const streams = data?.streams ?? data?.result?.streams ?? data?.data?.streams ?? data;
-    const allUrls = Object.entries(streams || {}).filter(([, v]) => typeof v === "string" && (v as string).includes(".m3u8")).map(([quality, url]) => ({ url: url as string, label: quality, quality, format: "hls" as const }));
+    const allUrls = Object.entries(streams || {})
+      .filter(([, v]) => typeof v === "string" && (v as string).includes(".m3u8"))
+      .map(([quality, url]) => ({ url: proxyUrl(url as string), label: `LookMovie ${quality}`, quality, format: "hls" as const }));
     return allUrls;
   } catch { return []; }
 }
@@ -217,10 +251,13 @@ async function fetchSubtitles(id: string, s?: number, e?: number): Promise<Strea
         const res = await fetch(url, { headers: { "User-Agent": UA }, signal: withTimeout(4000) });
         if (!res.ok) return [];
         const data = await res.json();
-        return (Array.isArray(data) ? data : []).map((x: any) => ({
-          url: x.file || x.url, language: String(x.label || "en").toLowerCase(),
-          label: String(x.label || "EN").toUpperCase(), type: "vtt" as const,
-        })).filter((x: any) => x.url);
+        return (Array.isArray(data) ? data : [])
+          .map((x: any) => ({ raw: x.file || x.url, label: String(x.label || "EN") }))
+          .filter((x) => !!x.raw)
+          .map((x) => ({
+            url: subUrl(x.raw), language: x.label.toLowerCase(),
+            label: x.label.toUpperCase(), type: "vtt" as const,
+          }));
       } catch { return []; }
     }));
     const all = results.flat();
