@@ -15,6 +15,9 @@ function b64url(value: string): string {
 function proxyUrl(u: string): string {
   return `/api/public/iptv-proxy?u=${b64url(u)}`;
 }
+function subUrl(u: string): string {
+  return `/api/public/subtitle?url=${encodeURIComponent(u)}`;
+}
 
 export interface StreamQuality {
   url: string;
