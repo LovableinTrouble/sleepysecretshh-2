@@ -67,12 +67,13 @@ export function getLocalProgress(): LocalProgressEntry[] {
     if (!existing || existing.updatedAt < entry.updatedAt) latest.set(continueKeyOf(entry), entry);
   }
   return Array.from(latest.values())
-    .filter(
-      (e) =>
-        !e.completed &&
-        e.positionSeconds > 10 &&
-        (e.durationSeconds === 0 || e.positionSeconds < e.durationSeconds - 60),
-    )
+    .filter((e) => {
+      if (e.completed) return false;
+      // Entries with no known duration (e.g. NHDAPI, which has no postMessage)
+      // are always shown — we only know they were watched, not the position.
+      if (e.durationSeconds === 0) return e.positionSeconds >= 0;
+      return e.positionSeconds > 10 && e.positionSeconds < e.durationSeconds - 60;
+    })
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 

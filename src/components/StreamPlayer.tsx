@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, X, List } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 import type { Media, Episode } from "@/lib/catalog";
 import { sourceForKey } from "@/lib/sources";
-import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
+import { getLocalProgressFor, saveProgressLocal } from "@/lib/progress";
 
 interface Props {
   media: Media;
@@ -29,14 +29,33 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     [media.id, season, episode],
   );
 
-  // VidSuper URL — all features enabled.
-  const url = sourceForKey("vidsuper").build(media, season, episode, savedProgress?.positionSeconds);
+  // NHDAPI URL — all features enabled.
+  const url = sourceForKey("nhdapi").build(media, season, episode, savedProgress?.positionSeconds);
 
-  const resetControlsTimer = useCallback(() => {
+  // Record a "watched" entry (no timestamps) so the title shows up in
+  // Continue Watching. NHDAPI exposes no postMessage, so we can't track
+  // real playback position — just mark it as recently watched on open.
+  useEffect(() => {
+    saveProgressLocal({
+      mediaId: media.id,
+      mediaType: media.type,
+      season: season ?? null,
+      episode: episode ?? null,
+      positionSeconds: 0,
+      durationSeconds: 0,
+      title: media.title,
+      poster: media.poster ?? null,
+      backdrop: media.backdrop ?? null,
+      completed: false,
+      updatedAt: Date.now(),
+    });
+  }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
+
+  const resetControlsTimer = () => {
     setShowControls(true);
     if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
     controlsTimerRef.current = setTimeout(() => setShowControls(false), 4000);
-  }, []);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -45,14 +64,14 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, resetControlsTimer, showEpisodeList]);
+  }, [onClose, showEpisodeList]);
 
   useEffect(() => {
     resetControlsTimer();
     return () => {
       if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
     };
-  }, [resetControlsTimer]);
+  }, []);
 
   // Body scroll lock.
   useEffect(() => {
@@ -94,12 +113,14 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       onClick={resetControlsTimer}
     >
       <div className="relative flex-1 bg-black">
-        <EmbedVideo
-          url={url}
-          media={media}
-          season={season}
-          episode={episode}
-          onClose={onClose}
+        <iframe
+          src={url}
+          title={media.title}
+          className="h-full w-full border-0"
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture; display-capture"
+          allowFullScreen
+          referrerPolicy="no-referrer"
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
         />
       </div>
 
@@ -187,135 +208,4 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   if (typeof document === "undefined") return player;
   return createPortal(player, document.body);
-}
-
-/* ============================================================
- * VidSuper iframe embed + postMessage API (vidsuper.net)
- *
- * The player streams playback events to the parent window:
- *   { id, type, progress, duration, season, episode }
- *   type ∈ "play" | "pause" | "timeupdate" | "ended"
- *   progress / duration are in seconds.
- * ============================================================ */
-
-type VidSuperMessage = {
-  type: "play" | "pause" | "timeupdate" | "ended";
-  id?: number | string;
-  progress?: number;
-  duration?: number;
-  season?: number;
-  episode?: number;
-};
-
-function EmbedVideo({
-  url,
-  media,
-  season,
-  episode,
-  onClose,
-}: {
-  url: string;
-  media: Media;
-  season?: number;
-  episode?: number;
-  onClose: () => void;
-}) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const seasonKey = season ?? null;
-  const epKey = episode ?? null;
-
-  const recordProgress = useCallback(
-    (currentTime: number, duration: number, completed: boolean) => {
-      if (!Number.isFinite(currentTime) || !Number.isFinite(duration)) return;
-      const entry = {
-        mediaId: media.id,
-        mediaType: media.type,
-        season: seasonKey,
-        episode: epKey,
-        positionSeconds: Math.max(0, Math.floor(currentTime)),
-        durationSeconds: Math.max(0, Math.floor(duration)),
-        title: media.title,
-        poster: media.poster ?? null,
-        backdrop: media.backdrop ?? null,
-        completed,
-        updatedAt: Date.now(),
-      };
-      saveProgressLocal(entry);
-      void syncProgressUp(entry);
-    },
-    [media.id, media.type, media.title, media.poster, media.backdrop, seasonKey, epKey],
-  );
-
-  // Foolproof postMessage listener: validate origin loosely (sandboxed
-  // iframes report origin "null"), parse defensively, ignore anything that
-  // doesn't look like a VidSuper playback event.
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      const raw = event.data;
-      if (!raw) return;
-
-      let msg: any;
-      if (typeof raw === "string") {
-        try { msg = JSON.parse(raw); } catch { return; }
-      } else if (typeof raw === "object" && raw !== null) {
-        msg = raw;
-      } else {
-        return;
-      }
-
-      const t = msg?.type;
-      if (t !== "play" && t !== "pause" && t !== "timeupdate" && t !== "ended") return;
-
-      const data = msg as VidSuperMessage;
-      const currentTime = Number(data.progress) || 0;
-      const duration = Number(data.duration) || 0;
-
-      if (t === "ended") {
-        const saved = getLocalProgressFor(media.id, seasonKey, epKey);
-        recordProgress(
-          saved?.durationSeconds ?? duration,
-          saved?.durationSeconds ?? duration,
-          true,
-        );
-        return;
-      }
-
-      if (t === "timeupdate" && currentTime > 0) {
-        const completed = duration > 0 && currentTime >= duration - 30;
-        recordProgress(currentTime, duration, completed);
-      }
-    };
-
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [media.id, seasonKey, epKey, recordProgress]);
-
-  return (
-    <div className="relative h-full w-full bg-black">
-      <iframe
-        ref={iframeRef}
-        src={url}
-        title={media.title}
-        className="h-full w-full border-0"
-        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-        allowFullScreen
-        referrerPolicy="no-referrer"
-        // Sandboxed to block ad popups while keeping every player feature:
-        // allow-scripts (player JS), allow-same-origin (autoplay/fullscreen),
-        // allow-presentation (fullscreen), allow-popups (picture-in-picture).
-        // NOT set: allow-popups-to-escape-sandbox — so any window opened from
-        // inside inherits the sandbox restrictions, blocking ad popups.
-        sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
-      />
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
-        <button
-          onClick={onClose}
-          className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white ring-1 ring-white/15 backdrop-blur hover:bg-black/70"
-          aria-label="Close player"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-      </div>
-    </div>
-  );
 }

@@ -433,8 +433,8 @@ function SettingsPage() {
         </Section>
 
         {/* Sources */}
-        <Section title="Sources" desc="VidSuper is the streaming provider.">
-          <Row label="VidSuper" hint="Third-party iframe embed used for playback.">
+        <Section title="Sources" desc="NHDAPI is the streaming provider.">
+          <Row label="NHDAPI" hint="Third-party iframe embed used for playback.">
             <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
               Ready
             </span>
