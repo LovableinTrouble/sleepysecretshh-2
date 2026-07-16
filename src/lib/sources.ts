@@ -35,10 +35,24 @@ function buildVidsuper(
   p.set("color", ACCENT);
   p.set("overlay", "true");
   p.set("skip_intro", "true");
+  p.set("skip_recap", "true");
+  p.set("skip_credits", "true");
+  p.set("subtitles", "true");
+  p.set("download", "true");
+  p.set("pip", "true");
+  p.set("chromecast", "true");
+  p.set("share", "true");
+  p.set("quality", "auto");
+  p.set("speed", "true");
+  p.set("theater", "true");
+  p.set("fullscreen", "true");
+  p.set("keyboard", "true");
   if (isShow) {
     p.set("nextEpisode", "true");
     p.set("episodeSelector", "true");
     p.set("autoplayNextEpisode", "true");
+    p.set("nextEpisodeButton", "true");
+    p.set("prevEpisodeButton", "true");
   }
   if (progressSeconds && progressSeconds > 5) {
     p.set("progress", String(Math.floor(progressSeconds)));
