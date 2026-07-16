@@ -25,12 +25,16 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     [media.id, season, episode],
   );
 
-  // NHDAPI URL — all features enabled.
-  const url = sourceForKey("nhdapi").build(media, season, episode, savedProgress?.positionSeconds);
+  // Vidsuper URL — all features enabled.
+  const url = sourceForKey("vidsuper").build(
+    media,
+    season,
+    episode,
+    savedProgress?.positionSeconds,
+  );
 
-  // Record a "watched" entry (no timestamps) so the title shows up in
-  // Continue Watching. NHDAPI exposes no postMessage, so we can't track
-  // real playback position — just mark it as recently watched on open.
+  // Seed a Continue Watching entry on open; real position comes from
+  // Vidsuper's postMessage stream below.
   useEffect(() => {
     saveProgressLocal({
       mediaId: media.id,
@@ -45,6 +49,40 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       completed: false,
       updatedAt: Date.now(),
     });
+  }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
+
+  // Listen for Vidsuper postMessage events and persist real playback progress.
+  useEffect(() => {
+    const onMsg = (event: MessageEvent) => {
+      if (typeof event.data !== "string") return;
+      let data: any;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (!data || typeof data !== "object") return;
+      const type = data.type as string | undefined;
+      if (!type) return;
+      const progress = Number(data.progress);
+      const duration = Number(data.duration);
+      if (!Number.isFinite(progress)) return;
+      saveProgressLocal({
+        mediaId: media.id,
+        mediaType: media.type,
+        season: season ?? null,
+        episode: episode ?? null,
+        positionSeconds: Math.max(0, Math.floor(progress)),
+        durationSeconds: Number.isFinite(duration) ? Math.max(0, Math.floor(duration)) : 0,
+        title: media.title,
+        poster: media.poster ?? null,
+        backdrop: media.backdrop ?? null,
+        completed: type === "ended",
+        updatedAt: Date.now(),
+      });
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
   }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
 
   const resetControlsTimer = () => {
@@ -119,7 +157,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture; display-capture"
           allowFullScreen
           referrerPolicy="no-referrer"
-          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
         />
       </div>
 
