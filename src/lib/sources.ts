@@ -13,77 +13,59 @@ export interface Source {
   build: (m: Media, season?: number, episode?: number, progressSeconds?: number) => string;
 }
 
-export type SourceKey = "nhdapi";
+export type SourceKey = "vidsuper";
 
-// Sleepy accent.
-const PRIMARY = "6366f1";
-const SECONDARY = "818cf8";
-const ICON = "ffffff";
+// Sleepy accent (hex without #).
+const ACCENT = "6366f1";
 
-function buildNhdapi(
+function buildVidsuper(
   m: Media,
   season?: number,
   episode?: number,
   progressSeconds?: number,
 ): string {
-  const id = m.imdbId || String(m.id);
+  const id = String(m.id);
   const isShow = m.type !== "movie" && season != null && episode != null;
   const base = isShow
-    ? `https://nhdapi.com/embed/tv/${id}/${season}/${episode}`
-    : `https://nhdapi.com/embed/movie/${id}`;
+    ? `https://vidsuper.net/tv/${id}/${season}/${episode}`
+    : `https://vidsuper.net/movie/${id}`;
 
   const p = new URLSearchParams();
-  // Playback behaviour
   p.set("autoplay", "true");
-  p.set("audio", "true");
+  p.set("color", ACCENT);
+  p.set("overlay", "true");
+  p.set("skip_intro", "true");
   if (isShow) {
-    p.set("autonext", "true");
-    p.set("nextbutton", "true");
-    p.set("episodelist", "true");
+    p.set("nextEpisode", "true");
+    p.set("episodeSelector", "true");
+    p.set("autoplayNextEpisode", "true");
   }
   if (progressSeconds && progressSeconds > 5) {
     p.set("progress", String(Math.floor(progressSeconds)));
   }
-  // Appearance — controls visible (download, PiP, watch party, title off)
-  p.set("title", "false");
-  p.set("download", "false");
-  p.set("setting", "true");
-  p.set("chromecast", "true");
-  p.set("pip", "true");
-  p.set("watchparty", "false");
-  p.set("appearance", "on");
-  // Theme
-  p.set("primarycolor", PRIMARY);
-  p.set("secondarycolor", SECONDARY);
-  p.set("iconcolor", ICON);
-  p.set("glasscolor", "000000");
-  p.set("glassopacity", "65");
-  p.set("glassblur", "20");
-  p.set("font", "Inter");
-  p.set("fontcolor", "FFFFFF");
   return `${base}?${p.toString()}`;
 }
 
-const NHDAPI: Source = {
-  id: "nhdapi",
-  name: "NHDAPI",
+const VIDSUPER: Source = {
+  id: "vidsuper",
+  name: "Vidsuper",
   badge: "Embed",
   kind: "embed",
   tier: "primary",
   build: (m, season, episode, progressSeconds) =>
-    buildNhdapi(m, season, episode, progressSeconds),
+    buildVidsuper(m, season, episode, progressSeconds),
 };
 
-export const SOURCES: Source[] = [NHDAPI];
+export const SOURCES: Source[] = [VIDSUPER];
 
 export function getOrderedSources(): Source[] {
-  return [NHDAPI];
+  return [VIDSUPER];
 }
 
 export function sourceForKey(_key: SourceKey): Source {
-  return NHDAPI;
+  return VIDSUPER;
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
-  nhdapi: "NHDAPI",
+  vidsuper: "Vidsuper",
 };
