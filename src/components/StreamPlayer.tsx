@@ -169,7 +169,6 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           className="h-full w-full border-0"
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture; display-capture"
           allowFullScreen
-          referrerPolicy="no-referrer"
           {...(SANDBOX_ATTR ? { sandbox: SANDBOX_ATTR } : {})}
         />
       </div>

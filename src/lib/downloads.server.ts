@@ -59,8 +59,9 @@ function toItem(
 }
 
 async function providerVyla(input: Input): Promise<{ downloads: DownloadItem[]; subs: DownloadsResult["subtitles"] } | null> {
-  const key = process.env.VYLA_API_KEY?.trim();
-  if (!key) return null;
+  // Public key gives access to /api/downloads/* (non-streaming endpoints only).
+  // Standard/partner keys are configured via VYLA_API_KEY when available.
+  const key = process.env.VYLA_API_KEY?.trim() || "public_api_key";
 
   const path =
     input.type === "show"
