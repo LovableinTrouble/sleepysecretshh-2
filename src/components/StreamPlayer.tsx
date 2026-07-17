@@ -160,7 +160,6 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture; display-capture"
           allowFullScreen
           referrerPolicy="no-referrer"
-          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
         />
       </div>
 
