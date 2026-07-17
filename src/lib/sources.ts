@@ -21,12 +21,14 @@ export type SourceKey = "zxc";
 
 // Sleepy accent (hex without #).
 const ACCENT = "6366f1";
-const BASE = "https://zxcstream.xyz";
+const BASE = "https://v4.zxcstream.xyz";
 
 function buildZxc(m: Media, season?: number, episode?: number, _progressSeconds?: number): string {
   const id = String(m.id);
   const isShow = m.type !== "movie" && season != null && episode != null;
-  const base = isShow ? `${BASE}/tv/${id}/${season}/${episode}` : `${BASE}/movie/${id}`;
+  const base = isShow
+    ? `${BASE}/player/tv/${id}/${season}/${episode}`
+    : `${BASE}/player/movie/${id}`;
 
   const p = new URLSearchParams();
   p.set("color", ACCENT);
