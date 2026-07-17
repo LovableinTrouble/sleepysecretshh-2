@@ -13,46 +13,38 @@ export interface Source {
   build: (m: Media, season?: number, episode?: number, progressSeconds?: number) => string;
 }
 
-export type SourceKey = "vidsuper";
+export type SourceKey = "videasy";
 
 // Sleepy accent (hex without #).
 const ACCENT = "6366f1";
 
-function buildVidsuper(
+function buildVideasy(
   m: Media,
   season?: number,
   episode?: number,
   progressSeconds?: number,
 ): string {
   const id = String(m.id);
-  const isShow = m.type !== "movie" && season != null && episode != null;
-  const base = isShow
-    ? `https://vidsuper.net/tv/${id}/${season}/${episode}`
-    : `https://vidsuper.net/movie/${id}`;
+  const isAnime = m.type === "anime";
+  const isShow = !isAnime && m.type !== "movie" && season != null && episode != null;
+  let base: string;
+  if (isAnime) {
+    base = episode != null
+      ? `https://player.videasy.net/anime/${id}/${episode}`
+      : `https://player.videasy.net/anime/${id}`;
+  } else if (isShow) {
+    base = `https://player.videasy.net/tv/${id}/${season}/${episode}`;
+  } else {
+    base = `https://player.videasy.net/movie/${id}`;
+  }
 
   const p = new URLSearchParams();
-  p.set("autoplay", "true");
   p.set("color", ACCENT);
   p.set("overlay", "true");
-  p.set("skip_intro", "true");
-  p.set("skip_recap", "true");
-  p.set("skip_credits", "true");
-  p.set("subtitles", "true");
-  p.set("download", "true");
-  p.set("pip", "true");
-  p.set("chromecast", "true");
-  p.set("share", "true");
-  p.set("quality", "auto");
-  p.set("speed", "true");
-  p.set("theater", "true");
-  p.set("fullscreen", "true");
-  p.set("keyboard", "true");
-  if (isShow) {
+  if (isShow || isAnime) {
     p.set("nextEpisode", "true");
     p.set("episodeSelector", "true");
     p.set("autoplayNextEpisode", "true");
-    p.set("nextEpisodeButton", "true");
-    p.set("prevEpisodeButton", "true");
   }
   if (progressSeconds && progressSeconds > 5) {
     p.set("progress", String(Math.floor(progressSeconds)));
@@ -60,26 +52,26 @@ function buildVidsuper(
   return `${base}?${p.toString()}`;
 }
 
-const VIDSUPER: Source = {
-  id: "vidsuper",
-  name: "Vidsuper",
+const VIDEASY: Source = {
+  id: "videasy",
+  name: "Videasy",
   badge: "Embed",
   kind: "embed",
   tier: "primary",
   build: (m, season, episode, progressSeconds) =>
-    buildVidsuper(m, season, episode, progressSeconds),
+    buildVideasy(m, season, episode, progressSeconds),
 };
 
-export const SOURCES: Source[] = [VIDSUPER];
+export const SOURCES: Source[] = [VIDEASY];
 
 export function getOrderedSources(): Source[] {
-  return [VIDSUPER];
+  return [VIDEASY];
 }
 
 export function sourceForKey(_key: SourceKey): Source {
-  return VIDSUPER;
+  return VIDEASY;
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
-  vidsuper: "Vidsuper",
+  videasy: "Videasy",
 };
