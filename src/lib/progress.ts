@@ -69,8 +69,8 @@ export function getLocalProgress(): LocalProgressEntry[] {
   return Array.from(latest.values())
     .filter((e) => {
       if (e.completed) return false;
-      // Entries with no known duration (e.g. NHDAPI, which has no postMessage)
-      // are always shown — we only know they were watched, not the position.
+      // Entries with no known duration are always shown — we only know they
+      // were watched, not the position.
       if (e.durationSeconds === 0) return e.positionSeconds >= 0;
       return e.positionSeconds > 10 && e.positionSeconds < e.durationSeconds - 60;
     })

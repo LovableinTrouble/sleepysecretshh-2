@@ -1,8 +1,12 @@
 import type { Media } from "./catalog";
 
 /**
- * Source registry — NHDAPI (nhdapi.com) is the only source.
- * Pure iframe embed: no SDK, no postMessage, no backend, no keys.
+ * Source registry — ZXC[STREAM] (v4.zxcstream.xyz) is the only source.
+ * Pure iframe embed with a postMessage API for play/pause/progress/ended.
+ *
+ * Docs: https://zxcstream.xyz/player/movie/
+ * Events: VIDEO_PLAY, VIDEO_PAUSE, VIDEO_PROGRESS (every 60s after 60s),
+ *         VIDEO_NINETY_PERCENT, VIDEO_ENDED
  */
 export interface Source {
   id: string;
@@ -13,65 +17,51 @@ export interface Source {
   build: (m: Media, season?: number, episode?: number, progressSeconds?: number) => string;
 }
 
-export type SourceKey = "videasy";
+export type SourceKey = "zxc";
 
 // Sleepy accent (hex without #).
 const ACCENT = "6366f1";
+const BASE = "https://v4.zxcstream.xyz";
 
-function buildVideasy(
+function buildZxc(
   m: Media,
   season?: number,
   episode?: number,
-  progressSeconds?: number,
+  _progressSeconds?: number,
 ): string {
   const id = String(m.id);
-  const isAnime = m.type === "anime";
-  const isShow = !isAnime && m.type !== "movie" && season != null && episode != null;
-  let base: string;
-  if (isAnime) {
-    base = episode != null
-      ? `https://player.videasy.net/anime/${id}/${episode}`
-      : `https://player.videasy.net/anime/${id}`;
-  } else if (isShow) {
-    base = `https://player.videasy.net/tv/${id}/${season}/${episode}`;
-  } else {
-    base = `https://player.videasy.net/movie/${id}`;
-  }
+  const isShow = m.type !== "movie" && season != null && episode != null;
+  const base = isShow
+    ? `${BASE}/tv/${id}/${season}/${episode}`
+    : `${BASE}/movie/${id}`;
 
   const p = new URLSearchParams();
   p.set("color", ACCENT);
-  p.set("overlay", "true");
-  if (isShow || isAnime) {
-    p.set("nextEpisode", "true");
-    p.set("episodeSelector", "true");
-    p.set("autoplayNextEpisode", "true");
-  }
-  if (progressSeconds && progressSeconds > 5) {
-    p.set("progress", String(Math.floor(progressSeconds)));
-  }
+  p.set("autoplay", "true");
+  // No `back` param — we render our own back button on site.
   return `${base}?${p.toString()}`;
 }
 
-const VIDEASY: Source = {
-  id: "videasy",
-  name: "Videasy",
+const ZXC: Source = {
+  id: "zxc",
+  name: "ZXCStream",
   badge: "Embed",
   kind: "embed",
   tier: "primary",
   build: (m, season, episode, progressSeconds) =>
-    buildVideasy(m, season, episode, progressSeconds),
+    buildZxc(m, season, episode, progressSeconds),
 };
 
-export const SOURCES: Source[] = [VIDEASY];
+export const SOURCES: Source[] = [ZXC];
 
 export function getOrderedSources(): Source[] {
-  return [VIDEASY];
+  return [ZXC];
 }
 
 export function sourceForKey(_key: SourceKey): Source {
-  return VIDEASY;
+  return ZXC;
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
-  videasy: "Videasy",
+  zxc: "ZXCStream",
 };
