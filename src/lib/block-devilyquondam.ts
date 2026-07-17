@@ -77,6 +77,94 @@ if (typeof window !== "undefined") {
       return origBeacon(url, data);
     }) as typeof navigator.sendBeacon;
   }
+
+  // WebSocket
+  const OrigWS = window.WebSocket;
+  if (OrigWS) {
+    const Patched = function (this: unknown, url: string | URL, protocols?: string | string[]) {
+      if (isBlocked(url)) {
+        // Return a dummy object that mimics a closed socket.
+        const dummy: Partial<WebSocket> & Record<string, unknown> = {
+          readyState: 3,
+          url: String(url),
+          send: () => {},
+          close: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => false,
+        };
+        return dummy as WebSocket;
+      }
+      return new OrigWS(url, protocols);
+    } as unknown as typeof WebSocket;
+    Patched.prototype = OrigWS.prototype;
+    (Patched as unknown as { CONNECTING: number }).CONNECTING = OrigWS.CONNECTING;
+    (Patched as unknown as { OPEN: number }).OPEN = OrigWS.OPEN;
+    (Patched as unknown as { CLOSING: number }).CLOSING = OrigWS.CLOSING;
+    (Patched as unknown as { CLOSED: number }).CLOSED = OrigWS.CLOSED;
+    window.WebSocket = Patched;
+  }
+
+  // EventSource
+  const OrigES = window.EventSource;
+  if (OrigES) {
+    const Patched = function (this: unknown, url: string | URL, init?: EventSourceInit) {
+      if (isBlocked(url)) {
+        return {
+          readyState: 2,
+          url: String(url),
+          withCredentials: false,
+          onmessage: null,
+          onopen: null,
+          onerror: null,
+          close: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => false,
+        } as unknown as EventSource;
+      }
+      return new OrigES(url, init);
+    } as unknown as typeof EventSource;
+    Patched.prototype = OrigES.prototype;
+    window.EventSource = Patched;
+  }
+
+  // <img>, <script>, <link>, <iframe>, <source> injected into parent DOM.
+  const stripBlockedSrc = (node: Element) => {
+    const attrs = ["src", "href", "data-src"];
+    for (const a of attrs) {
+      const v = node.getAttribute?.(a);
+      if (v && isBlocked(v)) {
+        node.removeAttribute(a);
+        node.remove();
+        return;
+      }
+    }
+  };
+  try {
+    const mo = new MutationObserver((records) => {
+      for (const r of records) {
+        r.addedNodes.forEach((n) => {
+          if (n.nodeType === 1) {
+            const el = n as Element;
+            stripBlockedSrc(el);
+            el.querySelectorAll?.("[src],[href],[data-src]").forEach(stripBlockedSrc);
+          }
+        });
+        if (r.type === "attributes" && r.target.nodeType === 1) {
+          stripBlockedSrc(r.target as Element);
+        }
+      }
+    });
+    mo.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["src", "href", "data-src"],
+    });
+  } catch {
+    /* no-op */
+  }
 }
 
 export {};
