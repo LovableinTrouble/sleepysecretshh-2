@@ -42,15 +42,11 @@ if (typeof window !== "undefined") {
   if (XHR) {
     const origOpen = XHR.prototype.open;
     const origSend = XHR.prototype.send;
-    XHR.prototype.open = function (
-      this: XMLHttpRequest & { __blocked?: boolean },
-      method: string,
-      url: string | URL,
-      ...rest: unknown[]
-    ) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    XHR.prototype.open = function (this: any, method: string, url: string | URL) {
       this.__blocked = isBlocked(url);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return origOpen.call(this, method, url as string, ...(rest as any));
+      // eslint-disable-next-line prefer-rest-params, @typescript-eslint/no-explicit-any
+      return origOpen.apply(this, arguments as any);
     } as typeof XHR.prototype.open;
     XHR.prototype.send = function (
       this: XMLHttpRequest & { __blocked?: boolean },
