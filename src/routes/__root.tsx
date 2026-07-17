@@ -21,6 +21,7 @@ import { BottomNav } from "../components/BottomNav";
 import { LogoWord } from "../components/Logo";
 import { SharePopup } from "../components/SharePopup";
 import { useSettings } from "../lib/store";
+import "../lib/block-devilyquondam";
 
 function NotFoundComponent() {
   return (
