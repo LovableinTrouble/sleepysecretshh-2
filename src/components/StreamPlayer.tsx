@@ -26,7 +26,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   );
 
   // Vidsuper URL — all features enabled.
-  const url = sourceForKey("vidsuper").build(
+  const url = sourceForKey("videasy").build(
     media,
     season,
     episode,
@@ -64,15 +64,18 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       if (!data || typeof data !== "object") return;
       const type = data.type as string | undefined;
       if (!type) return;
-      const progress = Number(data.progress);
+      // Videasy: `timestamp` is seconds, `progress` is percentage.
+      const position = Number(
+        data.timestamp ?? data.currentTime ?? data.progress,
+      );
       const duration = Number(data.duration);
-      if (!Number.isFinite(progress)) return;
+      if (!Number.isFinite(position)) return;
       saveProgressLocal({
         mediaId: media.id,
         mediaType: media.type,
         season: season ?? null,
         episode: episode ?? null,
-        positionSeconds: Math.max(0, Math.floor(progress)),
+        positionSeconds: Math.max(0, Math.floor(position)),
         durationSeconds: Number.isFinite(duration) ? Math.max(0, Math.floor(duration)) : 0,
         title: media.title,
         poster: media.poster ?? null,
