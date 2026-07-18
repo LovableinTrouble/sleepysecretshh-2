@@ -15,7 +15,7 @@ export const Route = createFileRoute("/watch/$id")({
     t: typeof s.t === "string" ? (s.t as MediaKind) : undefined,
     src: typeof s.src === "string" ? (s.src as "zxc" | "scraper") : undefined,
     party: typeof s.party === "string" ? s.party : undefined,
-  }),
+  } as { s?: number; e?: number; t?: MediaKind; src?: "zxc" | "scraper"; party?: string }),
   component: WatchPage,
 });
 
