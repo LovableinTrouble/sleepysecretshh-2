@@ -3,7 +3,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { Media, MediaKind } from "@/lib/catalog";
 import { StreamPlayer } from "@/components/StreamPlayer";
-import { ScraperPlayer } from "@/components/ScraperPlayer";
 import { loadStashedMedia } from "@/lib/watch-stash";
 import { fetchMediaById } from "@/lib/tmdb";
 
@@ -13,15 +12,14 @@ export const Route = createFileRoute("/watch/$id")({
     s: s.s ? Number(s.s) : undefined,
     e: s.e ? Number(s.e) : undefined,
     t: typeof s.t === "string" ? (s.t as MediaKind) : undefined,
-    src: typeof s.src === "string" ? (s.src as "zxc" | "scraper") : undefined,
     party: typeof s.party === "string" ? s.party : undefined,
-  } as { s?: number; e?: number; t?: MediaKind; src?: "zxc" | "scraper"; party?: string }),
+  } as { s?: number; e?: number; t?: MediaKind; party?: string }),
   component: WatchPage,
 });
 
 function WatchPage() {
   const { id } = Route.useParams();
-  const { s, e, t, src } = Route.useSearch();
+  const { s, e, t } = Route.useSearch();
   const navigate = useNavigate();
   const [media, setMedia] = useState<Media | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,10 +68,5 @@ function WatchPage() {
     );
   }
 
-  // src=scraper uses the @movie-web/providers scraper player; anything else
-  // (including default) uses the ZXCStream iframe embed.
-  if (src === "scraper") {
-    return <ScraperPlayer media={media} season={s} episode={e} onClose={onClose} />;
-  }
   return <StreamPlayer media={media} season={s} episode={e} onClose={onClose} />;
 }
