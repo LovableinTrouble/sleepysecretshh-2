@@ -9,15 +9,7 @@ import { fetchMediaById } from "@/lib/tmdb";
 
 export const Route = createFileRoute("/watch/$id")({
   head: () => ({ meta: [{ title: "Now Playing — Sleepy" }] }),
-  validateSearch: (
-    s: Record<string, any>,
-  ): {
-    s?: number;
-    e?: number;
-    t?: MediaKind;
-    src?: "zxc" | "scraper";
-    party?: string;
-  } => ({
+  validateSearch: (s: Record<string, any>) => ({
     s: s.s ? Number(s.s) : undefined,
     e: s.e ? Number(s.e) : undefined,
     t: typeof s.t === "string" ? (s.t as MediaKind) : undefined,

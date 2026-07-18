@@ -657,18 +657,6 @@ function SettingsPage() {
           </Row>
         </Section>
 
-        <Section title="Advanced">
-          <Row
-            label="Enable scraper source"
-            hint="Adds a secondary Scraper button on media pages. Experimental — slower and may fail."
-          >
-            <Toggle
-              value={s.enableScraperSource}
-              onChange={(v) => set({ enableScraperSource: v })}
-            />
-          </Row>
-        </Section>
-
         <button
           onClick={() => {
             localStorage.removeItem("sleepy.settings.v2");
