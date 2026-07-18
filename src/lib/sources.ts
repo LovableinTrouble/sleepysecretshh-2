@@ -17,7 +17,7 @@ export interface Source {
   build: (m: Media, season?: number, episode?: number, progressSeconds?: number) => string;
 }
 
-export type SourceKey = "zxc";
+export type SourceKey = "zxc" | "vyla";
 
 // Sleepy accent (hex without #).
 const ACCENT = "6366f1";
@@ -44,16 +44,41 @@ const ZXC: Source = {
   build: (m, season, episode, progressSeconds) => buildZxc(m, season, episode, progressSeconds),
 };
 
-export const SOURCES: Source[] = [ZXC];
-
-export function getOrderedSources(): Source[] {
-  return [ZXC];
+// Vyla player embed — full-featured multi-source scraper player.
+// player.vyla.cc handles its own auth, HLS/MP4, source switching,
+// subtitles, and quality selection. No API key needed.
+function buildVyla(m: Media, season?: number, episode?: number): string {
+  const id = String(m.id);
+  const isShow = m.type !== "movie" && season != null && episode != null;
+  const base = "https://player.vyla.cc/";
+  const p = new URLSearchParams({ id });
+  if (isShow) {
+    p.set("season", String(season));
+    p.set("episode", String(episode));
+  }
+  return `${base}?${p.toString()}`;
 }
 
-export function sourceForKey(_key: SourceKey): Source {
-  return ZXC;
+const VYLA: Source = {
+  id: "vyla",
+  name: "Vyla",
+  badge: "Scraper",
+  kind: "embed",
+  tier: "primary",
+  build: (m, season, episode) => buildVyla(m, season, episode),
+};
+
+export const SOURCES: Source[] = [ZXC, VYLA];
+
+export function getOrderedSources(): Source[] {
+  return [ZXC, VYLA];
+}
+
+export function sourceForKey(key: SourceKey): Source {
+  return key === "vyla" ? VYLA : ZXC;
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
   zxc: "ZXCStream",
+  vyla: "Vyla Scraper",
 };

@@ -433,8 +433,23 @@ function SettingsPage() {
         </Section>
 
         {/* Sources */}
-        <Section title="Sources" desc="ZXC[STREAM] is the streaming provider.">
+        <Section title="Sources" desc="Choose where streams come from. ZXCStream is the default embed; Vyla is a multi-source scraper player.">
+          <Row label="Streaming source" hint="Vyla queries many providers in parallel and auto-plays the first working source with HLS/MP4 fallbacks.">
+            <Select
+              value={s.scraperSource}
+              onChange={(v) => set({ scraperSource: v as "zxc" | "vyla" })}
+              options={[
+                { value: "zxc", label: "ZXCStream (embed)" },
+                { value: "vyla", label: "Vyla (scraper)" },
+              ]}
+            />
+          </Row>
           <Row label="ZXCStream" hint="Third-party iframe embed used for playback.">
+            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
+              Ready
+            </span>
+          </Row>
+          <Row label="Vyla scraper" hint="Multi-source player with built-in HLS.js, subtitles, and quality selection.">
             <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
               Ready
             </span>

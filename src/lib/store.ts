@@ -57,6 +57,9 @@ export interface Settings {
   };
   /** Re-enable legacy embed scrapers (currently no extras — reserved). */
   useLegacyEmbeds: boolean;
+  /** Which streaming source to use for playback: "zxc" (ZXCStream iframe)
+   * or "vyla" (Vyla player.vyla.cc embed — multi-source scraper player). */
+  scraperSource: "zxc" | "vyla";
   tmdbApiKey: string;
   preferredSource: string;
   preferredDownloadSource: string;
@@ -101,6 +104,7 @@ export const DEFAULT_SETTINGS: Settings = {
     pstreamRegion: "auto",
   },
   useLegacyEmbeds: false,
+  scraperSource: "zxc",
   tmdbApiKey: "",
   preferredSource: "zxc",
   preferredDownloadSource: "zxc",
