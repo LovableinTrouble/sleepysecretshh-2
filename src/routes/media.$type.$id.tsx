@@ -29,6 +29,7 @@ function MediaPage() {
   const navigate = useNavigate();
   const mediaId = Number(id);
   const mediaType = type as MediaKind;
+  const [settings] = useSettings();
   const [media, setMedia] = useState<Media | null>(null);
   const [extra, setExtra] = useState<ExtraDetails | null>(null);
   const [season, setSeason] = useState(1);
