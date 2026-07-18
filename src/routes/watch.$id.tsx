@@ -23,6 +23,7 @@ function WatchPage() {
   const { id } = Route.useParams();
   const { s, e, t } = Route.useSearch();
   const navigate = useNavigate();
+  const [settings] = useSettings();
   const [media, setMedia] = useState<Media | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,7 +71,6 @@ function WatchPage() {
     );
   }
 
-  const [settings] = useSettings();
   const useVyla = settings.scraperSource === "vyla";
 
   if (useVyla) {

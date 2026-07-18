@@ -92,9 +92,89 @@ async function providerVyla(input: Input): Promise<{ downloads: DownloadItem[]; 
   }
 }
 
+// The Vyla /api/downloads/tv endpoint has no TV providers on the public tier.
+// As a fallback, we obtain a standard-tier session token from the
+// player.vyla.cc embed backend (which has its own embedded standard key),
+// then hit the /tv SSE streaming endpoint to collect verified source URLs.
+// HLS sources are offered as stream downloads; MP4 sources as direct downloads.
+async function providerVylaTvStream(input: Input): Promise<{ downloads: DownloadItem[]; subs: DownloadsResult["subtitles"] } | null> {
+  if (input.type !== "show") return null;
+  const season = input.season ?? 1;
+  const episode = input.episode ?? 1;
+  try {
+    // 1. Get a standard-tier token from the player's own auth endpoint.
+    const authRes = await fetch("https://player.vyla.cc/api/auth", {
+      method: "POST",
+      headers: { "content-type": "application/json", "user-agent": UA },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!authRes.ok) return null;
+    const { token } = (await authRes.json()) as { token: string };
+    if (!token) return null;
+
+    // 2. Stream the /tv SSE endpoint and collect source events.
+    const sseUrl = `https://api.vyla.cc/tv?id=${input.tmdbId}&season=${season}&episode=${episode}`;
+    const sseRes = await fetch(sseUrl, {
+      headers: { "X-Session-Token": token, accept: "text/event-stream", "user-agent": UA },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!sseRes.ok || !sseRes.body) return null;
+
+    const reader = sseRes.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const sources: { source: string; label: string; url: string }[] = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const evt = JSON.parse(line.slice(6));
+          if (evt.type === "source" && evt.source?.url) {
+            sources.push({
+              source: String(evt.source.source || "vyla"),
+              label: String(evt.source.label || "Stream"),
+              url: String(evt.source.url),
+            });
+          }
+        } catch {}
+      }
+    }
+    if (!sources.length) return null;
+
+    // 3. Convert each source to a download item.
+    const downloads = sources
+      .map((s) =>
+        toItem(
+          s.url,
+          `Vyla · ${s.label}`,
+          `${input.title} S${season}E${episode}`,
+          "Auto",
+          undefined,
+        ),
+      )
+      .filter(Boolean) as DownloadItem[];
+    return downloads.length ? { downloads, subs: [] } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   const hit = await providerVyla(input).catch(() => null);
-  const downloads = hit?.downloads ?? [];
+  let downloads = hit?.downloads ?? [];
+
+  // TV downloads fallback: the Vyla /api/downloads/tv endpoint returns empty
+  // on the public tier, so fall back to collecting stream sources from /tv SSE.
+  if (!downloads.length && input.type === "show") {
+    const tvHit = await providerVylaTvStream(input).catch(() => null);
+    downloads = tvHit?.downloads ?? [];
+  }
 
   return {
     ok: downloads.length > 0,
