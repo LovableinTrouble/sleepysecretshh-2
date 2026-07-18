@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Episode, Media, MediaKind } from "@/lib/catalog";
 import { DownloadsDialog } from "@/components/DownloadsDialog";
 import { MediaCard } from "@/components/MediaCard";
-import { getWatchlist, toggleWatchlist } from "@/lib/store";
+import { getWatchlist, toggleWatchlist, useSettings } from "@/lib/store";
 import {
   fetchCredits,
   fetchExtraDetails,
@@ -29,6 +29,7 @@ function MediaPage() {
   const navigate = useNavigate();
   const mediaId = Number(id);
   const mediaType = type as MediaKind;
+  const [settings] = useSettings();
   const [media, setMedia] = useState<Media | null>(null);
   const [extra, setExtra] = useState<ExtraDetails | null>(null);
   const [season, setSeason] = useState(1);
@@ -309,20 +310,22 @@ function MediaPage() {
                 Play {isSeries && `S${season} · E${episode}`}
               </Link>
 
-              <Link
-                to="/watch/$id"
-                params={{ id: String(media.id) }}
-                search={{ t: media.type, ...(isSeries ? { s: season, e: episode } : {}), src: "scraper" }}
-                onClick={() => stashWatchMedia(media)}
-                aria-label="Play with scraper sources"
-                title="Scraper sources"
-                className="group/scr relative z-10 inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-4 text-sm font-bold text-foreground/90 backdrop-blur transition-all duration-200 hover:border-white/30 hover:bg-white/[0.12] hover:text-foreground"
-              >
-                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 12h4l3-8 4 16 3-8h4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Scraper
-              </Link>
+              {settings.enableScraperSource && (
+                <Link
+                  to="/watch/$id"
+                  params={{ id: String(media.id) }}
+                  search={{ t: media.type, ...(isSeries ? { s: season, e: episode } : {}), src: "scraper" }}
+                  onClick={() => stashWatchMedia(media)}
+                  aria-label="Play with scraper sources"
+                  title="Scraper sources"
+                  className="group/scr relative z-10 inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-4 text-sm font-bold text-foreground/90 backdrop-blur transition-all duration-200 hover:border-white/30 hover:bg-white/[0.12] hover:text-foreground"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 12h4l3-8 4 16 3-8h4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Scraper
+                </Link>
+              )}
 
               <button
                 type="button"
