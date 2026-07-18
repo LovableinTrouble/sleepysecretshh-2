@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Episode, Media, MediaKind } from "@/lib/catalog";
 import { DownloadsDialog } from "@/components/DownloadsDialog";
 import { MediaCard } from "@/components/MediaCard";
-import { getWatchlist, toggleWatchlist } from "@/lib/store";
+import { getWatchlist, toggleWatchlist, useSettings } from "@/lib/store";
 import {
   fetchCredits,
   fetchExtraDetails,
