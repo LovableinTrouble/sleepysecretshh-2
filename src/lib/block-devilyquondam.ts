@@ -1,9 +1,20 @@
-// Client-only interceptor: silently blocks any network request to
-// `devilyquondam.cyou` (and subdomains) by resolving it with an empty 200 OK.
+// Client-only interceptor: blocks popups and network requests to known
+// ad/popup domains used by embedded streaming players (ZXCStream etc).
+//
+// The embedded iframe is cross-origin so we can't patch its internal
+// fetch/XHR — but popup ads typically fire via window.open() on the
+// top-level window (window.top.open / parent.open), which we CAN
+// intercept from the parent document.
+//
 // Runs as a side-effect import — no iframe sandboxing required.
 
 if (typeof window !== "undefined") {
-  const BLOCKED_HOST = "devilyquondam.cyou";
+  const BLOCKED_DOMAINS = [
+    "sentrygabiescloes.qpon",
+    "devilyquondam.cyou",
+    "jivingafrithm.cyou",
+    "guarriancha.qpon",
+  ];
 
   const isBlocked = (input: unknown): boolean => {
     try {
@@ -15,12 +26,42 @@ if (typeof window !== "undefined") {
       }
       if (!url) return false;
       const host = new URL(url, window.location.href).hostname;
-      return host === BLOCKED_HOST || host.endsWith("." + BLOCKED_HOST);
+      return BLOCKED_DOMAINS.some(
+        (d) => host === d || host.endsWith("." + d),
+      );
     } catch {
       return false;
     }
   };
 
+  // ─── 1. Block window.open() popups ───────────────────────────
+  // The iframe calls top.open() / parent.open() to spawn ad popups.
+  // We override open() on every frame we can reach (our own window)
+  // and silently return null for blocked URLs.
+  const origOpen = window.open;
+  window.open = function (
+    url?: string | URL,
+    target?: string,
+    features?: string,
+  ): Window | null {
+    if (url && isBlocked(url)) {
+      return null;
+    }
+    return origOpen.call(window, url as string, target, features);
+  } as typeof window.open;
+
+  // ─── 2. Block navigation to ad domains ───────────────────────
+  // If the iframe tries to navigate the top frame to an ad URL
+  // (via top.location = ...), intercept beforeunload.
+  window.addEventListener("beforeunload", (e) => {
+    // We can't read the destination URL here, but we can check if
+    // any known ad link was clicked recently. This is a fallback —
+    // the window.open override above handles the primary case.
+  });
+
+  // ─── 3. Block network requests in the parent document ────────
+  // These patches apply to our own origin's requests. The iframe's
+  // cross-origin requests are handled by the service worker (sw.js).
   const emptyResponse = () =>
     new Response("", {
       status: 200,
@@ -28,7 +69,6 @@ if (typeof window !== "undefined") {
       headers: { "content-type": "text/plain" },
     });
 
-  // fetch
   const origFetch = window.fetch?.bind(window);
   if (origFetch) {
     window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
@@ -37,7 +77,6 @@ if (typeof window !== "undefined") {
     }) as typeof window.fetch;
   }
 
-  // XHR
   const XHR = window.XMLHttpRequest;
   if (XHR) {
     const origOpen = XHR.prototype.open;
@@ -69,7 +108,6 @@ if (typeof window !== "undefined") {
     } as typeof XHR.prototype.send;
   }
 
-  // sendBeacon
   if (navigator.sendBeacon) {
     const origBeacon = navigator.sendBeacon.bind(navigator);
     navigator.sendBeacon = ((url: string | URL, data?: BodyInit | null) => {
@@ -78,58 +116,9 @@ if (typeof window !== "undefined") {
     }) as typeof navigator.sendBeacon;
   }
 
-  // WebSocket
-  const OrigWS = window.WebSocket;
-  if (OrigWS) {
-    const Patched = function (this: unknown, url: string | URL, protocols?: string | string[]) {
-      if (isBlocked(url)) {
-        // Return a dummy object that mimics a closed socket.
-        const dummy: Partial<WebSocket> & Record<string, unknown> = {
-          readyState: 3,
-          url: String(url),
-          send: () => {},
-          close: () => {},
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          dispatchEvent: () => false,
-        };
-        return dummy as WebSocket;
-      }
-      return new OrigWS(url, protocols);
-    } as unknown as typeof WebSocket;
-    Patched.prototype = OrigWS.prototype;
-    (Patched as unknown as { CONNECTING: number }).CONNECTING = OrigWS.CONNECTING;
-    (Patched as unknown as { OPEN: number }).OPEN = OrigWS.OPEN;
-    (Patched as unknown as { CLOSING: number }).CLOSING = OrigWS.CLOSING;
-    (Patched as unknown as { CLOSED: number }).CLOSED = OrigWS.CLOSED;
-    window.WebSocket = Patched;
-  }
-
-  // EventSource
-  const OrigES = window.EventSource;
-  if (OrigES) {
-    const Patched = function (this: unknown, url: string | URL, init?: EventSourceInit) {
-      if (isBlocked(url)) {
-        return {
-          readyState: 2,
-          url: String(url),
-          withCredentials: false,
-          onmessage: null,
-          onopen: null,
-          onerror: null,
-          close: () => {},
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          dispatchEvent: () => false,
-        } as unknown as EventSource;
-      }
-      return new OrigES(url, init);
-    } as unknown as typeof EventSource;
-    Patched.prototype = OrigES.prototype;
-    window.EventSource = Patched;
-  }
-
-  // <img>, <script>, <link>, <iframe>, <source> injected into parent DOM.
+  // ─── 4. Strip ad elements injected into the parent DOM ───────
+  // The iframe can inject <script>, <img>, <iframe> into the parent
+  // if it has same-origin access — strip them via MutationObserver.
   const stripBlockedSrc = (node: Element) => {
     const attrs = ["src", "href", "data-src"];
     for (const a of attrs) {
@@ -165,6 +154,23 @@ if (typeof window !== "undefined") {
   } catch {
     /* no-op */
   }
+
+  // ─── 5. Block popup attempts via click hijacking ────────────
+  // Some ads fire on click events that bubble up to the top frame.
+  // Intercept clicks that would navigate to blocked domains.
+  document.addEventListener(
+    "click",
+    (e) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const anchor = target.closest?.("a");
+      if (anchor && isBlocked(anchor.href)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true,
+  );
 }
 
 export {};

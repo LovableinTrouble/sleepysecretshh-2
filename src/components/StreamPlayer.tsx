@@ -112,6 +112,66 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     return () => window.removeEventListener("contextmenu", onContext);
   }, []);
 
+  // ─── Popup / ad blocking while the player iframe is mounted ───
+  // The embedded player (ZXCStream) injects ads that fire popups via
+  // window.open() / top.open(). We can't sandbox the iframe (it needs
+  // same-origin for postMessage), so we neuter window.open at the top
+  // level and block navigation to known ad domains.
+  useEffect(() => {
+    const BLOCKED = [
+      "sentrygabiescloes.qpon",
+      "devilyquondam.cyou",
+      "jivingafrithm.cyou",
+      "guarriancha.qpon",
+    ];
+    const isAd = (u: string) => {
+      try {
+        return BLOCKED.some((d) => {
+          const host = new URL(u, location.href).hostname;
+          return host === d || host.endsWith("." + d);
+        });
+      } catch {
+        return false;
+      }
+    };
+
+    // 1. Override window.open — kill popups from the iframe that point
+    //    to known ad domains.
+    const origOpen = window.open;
+    window.open = function (url?: string | URL, target?: string, features?: string) {
+      if (url && isAd(String(url))) return null;
+      return origOpen.call(window, url as string, target, features);
+    } as typeof window.open;
+
+    // 2. Block top-frame navigation to ad domains via clicked links.
+    const onClickCapture = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      const a = t?.closest?.("a");
+      if (a && a.href && isAd(a.href)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("click", onClickCapture, true);
+
+    // 3. Periodically strip any ad iframes/scripts injected into our DOM.
+    const stripAds = () => {
+      document
+        .querySelectorAll("iframe[src],script[src],img[src]")
+        .forEach((el) => {
+          const src = el.getAttribute("src");
+          if (src && isAd(src)) el.remove();
+        });
+    };
+    const stripInterval = setInterval(stripAds, 1000);
+
+    return () => {
+      window.open = origOpen;
+      document.removeEventListener("click", onClickCapture, true);
+      clearInterval(stripInterval);
+    };
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
