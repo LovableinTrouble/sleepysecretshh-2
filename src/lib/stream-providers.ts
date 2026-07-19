@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Stream providers — scrapes HLS/MP4 stream URLs from multiple free streaming
-// APIs using TMDB IDs. Each provider returns an array of stream objects with
-// direct playable URLs. Based on the Inside4ndroid/TMDB-Embed-API provider logic.
+// APIs using TMDB IDs. All stream URLs are routed through the /api/public/iptv-proxy
+// endpoint which adds permissive CORS headers and forwards the correct
+// Referer/Origin so the browser can actually play them.
 
 export interface ScrapedStream {
   source: string;
@@ -23,8 +24,13 @@ const UA =
 const TMDB_KEY = "aa8db17cefbe569dc21a8809090b7b93";
 
 function inferType(url: string): "hls" | "mp4" {
-  const lower = url.toLowerCase().split("?")[0];
-  if (lower.endsWith(".m3u8")) return "hls";
+  const lower = url.toLowerCase();
+  // Check both the path and any query param values for media extensions
+  // (some URLs use vid1.php?url=...m3u8 which returns either HLS or MP4)
+  if (/\.m3u8/i.test(lower)) return "hls";
+  if (/\.mp4|\.webm|\.mkv/i.test(lower)) return "mp4";
+  // vid1.php?url=/vid/... paths typically return MP4 data
+  if (/\/vid\//i.test(lower)) return "mp4";
   return "mp4";
 }
 
@@ -35,6 +41,19 @@ function qualityGuess(text: string): string {
   if (/480/i.test(text)) return "480p";
   if (/360/i.test(text)) return "360p";
   return "Auto";
+}
+
+// Route a stream URL through the iptv-proxy with optional custom referer.
+// This solves the two main playback problems:
+//  1. CORS — the proxy adds Access-Control-Allow-Origin: *
+//  2. Referer/Origin checks — the proxy forwards the correct headers
+// For HLS playlists, the proxy also rewrites all internal URIs to flow
+// through itself, so segments and keys work transparently.
+function proxiedUrl(rawUrl: string, referer?: string): string {
+  const params = new URLSearchParams();
+  params.set("url", rawUrl);
+  if (referer) params.set("ref", referer);
+  return `/api/public/iptv-proxy?${params.toString()}`;
 }
 
 // --- TMDB lookup helper ---
@@ -53,7 +72,8 @@ async function tmdbLookup(tmdbId: string, type: "movie" | "tv") {
 }
 
 // ============================================================
-// Provider: Vidlink — encrypts TMDB ID, fetches playlist from API
+// Provider: Vidlink — encrypts TMDB ID, fetches HLS playlist from API
+// The playlist URL is a direct m3u8 that works through the proxy.
 // ============================================================
 async function vidlink(
   tmdbId: string,
@@ -84,33 +104,15 @@ async function vidlink(
     const data = await apiRes.json();
 
     const streams: ScrapedStream[] = [];
-    // Direct qualities (mp4)
-    const qualities = data?.stream?.qualities;
-    if (qualities && typeof qualities === "object") {
-      for (const [q, info] of Object.entries(qualities)) {
-        const url = (info as any)?.url;
-        if (url) {
-          streams.push({
-            source: "Vidlink",
-            label: `Vidlink ${q}`,
-            url: String(url),
-            quality: q,
-            type: inferType(String(url)),
-            headers: { Referer: "https://vidlink.pro" },
-          });
-        }
-      }
-    }
-    // Playlist (HLS)
+    // HLS playlist — the only reliably playable format from Vidlink
     const playlist = data?.stream?.playlist;
-    if (playlist) {
+    if (playlist && typeof playlist === "string") {
       streams.push({
         source: "Vidlink",
         label: "Vidlink HLS",
-        url: String(playlist),
+        url: proxiedUrl(String(playlist), "https://vidlink.pro"),
         quality: "Auto",
         type: "hls",
-        headers: { Referer: "https://vidlink.pro" },
       });
     }
     return streams;
@@ -120,7 +122,9 @@ async function vidlink(
 }
 
 // ============================================================
-// Provider: NoTorrent — Stremio addon, returns HLS streams via IMDb ID
+// Provider: NoTorrent — Stremio addon, returns HLS/MP4 via IMDb ID
+// The Voxzer HLS streams and hostingersite MP4s are directly playable.
+// Worker URLs and 111477.xyz are filtered out (premium redirects / CF 403).
 // ============================================================
 async function notorrent(
   tmdbId: string,
@@ -146,11 +150,20 @@ async function notorrent(
     for (const item of raw) {
       if (item.externalUrl || !item.url) continue;
       const url = String(item.url);
+      // Skip non-media URLs
       if (url.includes("github.com") || url.includes("googleusercontent")) continue;
+      // Skip premium-redirect workers
+      if (/notorrent2\.workers\.dev/i.test(url)) continue;
+      // Skip Cloudflare-protected proxy URLs
+      if (/111477\.xyz/i.test(url)) continue;
+      // Only keep direct media URLs (m3u8, mp4, or /vid/ paths)
+      const isMedia = /\.(m3u8|mp4|mkv|webm)(\?|$)/i.test(url) || /\/vid\//i.test(url);
+      if (!isMedia) continue;
+
       streams.push({
         source: "NoTorrent",
         label: `NoTorrent ${item.name || "Stream"}`,
-        url,
+        url: proxiedUrl(url),
         quality: qualityGuess(String(item.name || item.title || "")),
         type: inferType(url),
       });
@@ -162,9 +175,9 @@ async function notorrent(
 }
 
 // ============================================================
-// Provider: Vixsrc — direct HLS from vixsrc.to
+// Provider: VidSrc.cc — returns direct m3u8 from embed page
 // ============================================================
-async function vixsrc(
+async function vidsrc(
   tmdbId: string,
   type: "movie" | "tv",
   season?: number,
@@ -173,116 +186,11 @@ async function vixsrc(
   try {
     const path =
       type === "tv"
-        ? `https://vixsrc.to/tv/${tmdbId}/${season ?? 1}/${episode ?? 1}`
-        : `https://vixsrc.to/movie/${tmdbId}`;
+        ? `https://vidsrc.cc/v2/tv/${tmdbId}/${season ?? 1}/${episode ?? 1}`
+        : `https://vidsrc.cc/v2/movie/${tmdbId}`;
     const res = await fetch(path, {
-      headers: { "User-Agent": UA, Referer: "https://vixsrc.to/" },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return [];
-    const html = await res.text();
-    // Extract m3u8 URL from the page
-    const m3u8Match = html.match(/https?:\/\/[^"'\s>]+\.m3u8[^"'\s>]*/i);
-    if (!m3u8Match) return [];
-    return [
-      {
-        source: "Vixsrc",
-        label: "Vixsrc HLS",
-        url: m3u8Match[0],
-        quality: "Auto",
-        type: "hls",
-        headers: { Referer: "https://vixsrc.to/" },
-      },
-    ];
-  } catch {
-    return [];
-  }
-}
-
-// ============================================================
-// Provider: Videasy — resolves title via TMDB, fetches from videasy API
-// ============================================================
-async function videasy(
-  tmdbId: string,
-  type: "movie" | "tv",
-  season?: number,
-  episode?: number,
-): Promise<ScrapedStream[]> {
-  try {
-    const info = await tmdbLookup(tmdbId, type);
-    if (!info?.title) return [];
-
-    const servers = [
-      { name: "Neon", url: "https://api.videasy.net/myflixerzupcloud/sources-with-title" },
-      { name: "Cypher", url: "https://api.videasy.net/moviebox/sources-with-title" },
-      { name: "Reyna", url: "https://api.videasy.net/primewire/sources-with-title" },
-    ];
-
-    const streams: ScrapedStream[] = [];
-    const typeParam = type === "tv" ? "series" : "movie";
-    const titleEnc = encodeURIComponent(info.title).replace(/%20/g, "+");
-
-    for (const server of servers) {
-      try {
-        const params = new URLSearchParams({
-          type: typeParam,
-          title: titleEnc,
-          year: info.year || "",
-        });
-        if (type === "tv") {
-          params.set("season", String(season ?? 1));
-          params.set("episode", String(episode ?? 1));
-        }
-        const res = await fetch(`${server.url}?${params}`, {
-          headers: {
-            "User-Agent": UA,
-            Accept: "application/json",
-            Origin: "https://player.videasy.net",
-            Referer: "https://player.videasy.net/",
-          },
-          signal: AbortSignal.timeout(8000),
-        });
-        if (!res.ok) continue;
-        const data = await res.json();
-        if (data?.sources && Array.isArray(data.sources)) {
-          for (const s of data.sources) {
-            if (s?.url) {
-              streams.push({
-                source: `Videasy ${server.name}`,
-                label: `Videasy ${server.name} ${s.quality || ""}`.trim(),
-                url: String(s.url),
-                quality: s.quality || qualityGuess(String(s.url)),
-                type: inferType(String(s.url)),
-              });
-            }
-          }
-        }
-        if (streams.length > 0) break;
-      } catch {}
-    }
-    return streams;
-  } catch {
-    return [];
-  }
-}
-
-// ============================================================
-// Provider: Vidfast — direct HLS from vidfast.vc
-// ============================================================
-async function vidfast(
-  tmdbId: string,
-  type: "movie" | "tv",
-  season?: number,
-  episode?: number,
-): Promise<ScrapedStream[]> {
-  try {
-    const path =
-      type === "tv"
-        ? `https://vidfast.vc/tv/${tmdbId}/${season ?? 1}/${episode ?? 1}`
-        : `https://vidfast.vc/movie/${tmdbId}`;
-    const res = await fetch(path, {
-      headers: { "User-Agent": UA, Referer: "https://vidfast.vc/" },
-      signal: AbortSignal.timeout(8000),
+      headers: { "User-Agent": UA, Referer: "https://vidsrc.cc/" },
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return [];
     const html = await res.text();
@@ -290,12 +198,11 @@ async function vidfast(
     if (!m3u8Match) return [];
     return [
       {
-        source: "Vidfast",
-        label: "Vidfast HLS",
-        url: m3u8Match[0],
+        source: "VidSrc",
+        label: "VidSrc HLS",
+        url: proxiedUrl(m3u8Match[0], "https://vidsrc.cc/"),
         quality: "Auto",
         type: "hls",
-        headers: { Referer: "https://vidfast.vc/" },
       },
     ];
   } catch {
@@ -307,11 +214,9 @@ async function vidfast(
 // Provider registry
 // ============================================================
 export const PROVIDERS: { name: string; nickname: string; fetch: typeof vidlink }[] = [
-  { name: "vidlink", nickname: "Vidlink", fetch: vidlink },
   { name: "notorrent", nickname: "NoTorrent", fetch: notorrent },
-  { name: "vixsrc", nickname: "Vixsrc", fetch: vixsrc },
-  { name: "videasy", nickname: "Videasy", fetch: videasy },
-  { name: "vidfast", nickname: "Vidfast", fetch: vidfast },
+  { name: "vidlink", nickname: "Vidlink", fetch: vidlink },
+  { name: "vidsrc", nickname: "VidSrc", fetch: vidsrc },
 ];
 
 export function listProviders(): ProviderInfo[] {

@@ -145,11 +145,9 @@ export function ScraperPlayer({ media, season, episode, onClose }: Props) {
       setScrapeLog(["Starting…"]);
       const mediaType = isShow ? "tv" : "movie";
       const providerList = providers.length > 0 ? providers : [
-        { name: "vidlink", nickname: "Vidlink" },
         { name: "notorrent", nickname: "NoTorrent" },
-        { name: "vixsrc", nickname: "Vixsrc" },
-        { name: "videasy", nickname: "Videasy" },
-        { name: "vidfast", nickname: "Vidfast" },
+        { name: "vidlink", nickname: "Vidlink" },
+        { name: "vidsrc", nickname: "VidSrc" },
       ];
 
       const collected: ScrapedStream[] = [];
@@ -283,16 +281,6 @@ export function ScraperPlayer({ media, season, episode, onClose }: Props) {
               }
             }
           });
-
-          if (stream.headers) {
-            hls.config.xhrSetup = (xhr) => {
-              for (const [k, v] of Object.entries(stream.headers!)) {
-                try {
-                  xhr.setRequestHeader(k, v);
-                } catch {}
-              }
-            };
-          }
 
           hls.loadSource(stream.url);
           hls.attachMedia(video);
