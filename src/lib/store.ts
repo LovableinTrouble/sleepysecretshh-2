@@ -57,9 +57,10 @@ export interface Settings {
   };
   /** Re-enable legacy embed scrapers (currently no extras — reserved). */
   useLegacyEmbeds: boolean;
-  /** Which streaming source to use for playback: "zxc" (ZXCStream iframe)
-   * or "vyla" (Vyla player.vyla.cc embed — multi-source scraper player). */
-  scraperSource: "zxc" | "vyla";
+  /** Which streaming source to use for playback: "zxc" (ZXCStream iframe),
+   * "vyla" (Vyla player.vyla.cc embed), or "scraper" (native hls.js scraper
+   * player that scrapes multiple free streaming providers). */
+  scraperSource: "zxc" | "vyla" | "scraper";
   tmdbApiKey: string;
   preferredSource: string;
   preferredDownloadSource: string;
@@ -104,7 +105,7 @@ export const DEFAULT_SETTINGS: Settings = {
     pstreamRegion: "auto",
   },
   useLegacyEmbeds: false,
-  scraperSource: "zxc",
+  scraperSource: "scraper",
   tmdbApiKey: "",
   preferredSource: "zxc",
   preferredDownloadSource: "zxc",

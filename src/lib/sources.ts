@@ -17,7 +17,7 @@ export interface Source {
   build: (m: Media, season?: number, episode?: number, progressSeconds?: number) => string;
 }
 
-export type SourceKey = "zxc" | "vyla";
+export type SourceKey = "zxc" | "vyla" | "scraper";
 
 // Sleepy accent (hex without #).
 const ACCENT = "6366f1";
@@ -81,4 +81,5 @@ export function sourceForKey(key: SourceKey): Source {
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
   zxc: "ZXCStream",
   vyla: "Vyla Scraper",
+  scraper: "Scraper",
 };

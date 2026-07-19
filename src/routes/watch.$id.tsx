@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Media, MediaKind } from "@/lib/catalog";
 import { StreamPlayer } from "@/components/StreamPlayer";
 import { VylaPlayer } from "@/components/VylaPlayer";
+import { ScraperPlayer } from "@/components/ScraperPlayer";
 import { loadStashedMedia } from "@/lib/watch-stash";
 import { fetchMediaById } from "@/lib/tmdb";
 import { useSettings } from "@/lib/store";
@@ -71,10 +72,11 @@ function WatchPage() {
     );
   }
 
-  const useVyla = settings.scraperSource === "vyla";
-
-  if (useVyla) {
+  if (settings.scraperSource === "vyla") {
     return <VylaPlayer media={media} season={s} episode={e} onClose={onClose} />;
+  }
+  if (settings.scraperSource === "scraper") {
+    return <ScraperPlayer media={media} season={s} episode={e} onClose={onClose} />;
   }
   return <StreamPlayer media={media} season={s} episode={e} onClose={onClose} />;
 }
