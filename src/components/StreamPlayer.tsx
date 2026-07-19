@@ -14,13 +14,6 @@ interface Props {
   onClose: () => void;
 }
 
-// Hidden sandbox toggle — flip ENABLE_SANDBOX to true to isolate the iframe.
-// Off by default (ZXCStream needs same-origin access for postMessage events).
-const ENABLE_SANDBOX = false;
-const SANDBOX_ATTR = ENABLE_SANDBOX
-  ? "allow-scripts allow-same-origin allow-presentation allow-popups allow-forms"
-  : undefined;
-
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const isShow = media.type !== "movie";
 
@@ -32,8 +25,8 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     [media.id, season, episode],
   );
 
-  // ZXC[STREAM] URL — autoplay on, no in-player back button.
-  const url = sourceForKey("zxc").build(
+  // Videasy URL — all features on, resumes from local progress.
+  const url = sourceForKey("videasy").build(
     media,
     season,
     episode,
@@ -58,39 +51,37 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     });
   }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
 
-  // Listen for ZXC[STREAM] postMessage events and persist real playback progress.
-  // Events: VIDEO_PLAY, VIDEO_PAUSE, VIDEO_PROGRESS (every 60s after 60s),
-  //         VIDEO_NINETY_PERCENT, VIDEO_ENDED
+  // Videasy posts progress as a JSON string on window.message.
+  // Payload example: { id, type: 'movie'|'tv', progress: { watched, duration },
+  //                    timestamp, season?, episode? }
   useEffect(() => {
     const onMsg = (event: MessageEvent) => {
-      const data = event.data;
+      const raw = event.data;
+      let data: any = raw;
+      if (typeof raw === "string") {
+        try { data = JSON.parse(raw); } catch { return; }
+      }
       if (!data || typeof data !== "object") return;
-      const type = data.type as string | undefined;
-      if (!type || !type.startsWith("VIDEO_")) return;
-
-      const payload = data.payload || {};
-      const position = Number(payload.currentTime);
-      const duration = Number(payload.duration);
-      const percent = Number(payload.percent);
-
-      // VIDEO_PROGRESS carries currentTime/duration; VIDEO_ENDED/PLAY/PAUSE may not.
+      const progress = data.progress;
+      if (!progress || typeof progress !== "object") return;
+      const position = Number(progress.watched);
+      const duration = Number(progress.duration);
       const hasProgress = Number.isFinite(position) && position >= 0;
       const hasDuration = Number.isFinite(duration) && duration > 0;
+      if (!hasProgress) return;
 
-      // Don't spam localStorage on every play/pause if there's no progress info.
-      if (!hasProgress && type !== "VIDEO_ENDED") return;
-
+      const percent = hasDuration ? (position / duration) * 100 : 0;
       saveProgressLocal({
         mediaId: media.id,
         mediaType: media.type,
         season: season ?? null,
         episode: episode ?? null,
-        positionSeconds: hasProgress ? Math.max(0, Math.floor(position)) : 0,
+        positionSeconds: Math.max(0, Math.floor(position)),
         durationSeconds: hasDuration ? Math.max(0, Math.floor(duration)) : 0,
         title: media.title,
         poster: media.poster ?? null,
         backdrop: media.backdrop ?? null,
-        completed: type === "VIDEO_ENDED" || percent >= 90,
+        completed: percent >= 90,
         updatedAt: Date.now(),
       });
     };
@@ -169,7 +160,6 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           className="h-full w-full border-0"
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture; display-capture"
           allowFullScreen
-          {...(SANDBOX_ATTR ? { sandbox: SANDBOX_ATTR } : {})}
         />
       </div>
 
