@@ -3,7 +3,16 @@
 // Runs as a side-effect import — no iframe sandboxing required.
 
 if (typeof window !== "undefined") {
-  const BLOCKED_HOST = "devilyquondam.cyou";
+  const BLOCKED_HOSTS = [
+    "devilyquondam.cyou",
+    "guarriancha.qpon",
+    "jivingafrithm.cyou",
+  ];
+
+  const hostBlocked = (host: string): boolean => {
+    const h = host.toLowerCase();
+    return BLOCKED_HOSTS.some((b) => h === b || h.endsWith("." + b));
+  };
 
   const isBlocked = (input: unknown): boolean => {
     try {
@@ -15,7 +24,7 @@ if (typeof window !== "undefined") {
       }
       if (!url) return false;
       const host = new URL(url, window.location.href).hostname;
-      return host === BLOCKED_HOST || host.endsWith("." + BLOCKED_HOST);
+      return hostBlocked(host);
     } catch {
       return false;
     }
