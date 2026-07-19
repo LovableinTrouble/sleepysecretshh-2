@@ -60,7 +60,7 @@ export interface Settings {
   /** Which streaming source to use for playback: "zxc" (ZXCStream iframe),
    * "vyla" (Vyla player.vyla.cc embed), or "scraper" (native hls.js scraper
    * player that scrapes multiple free streaming providers). */
-  scraperSource: "zxc" | "vyla" | "scraper";
+  scraperSource?: never;
   tmdbApiKey: string;
   preferredSource: string;
   preferredDownloadSource: string;
@@ -105,7 +105,6 @@ export const DEFAULT_SETTINGS: Settings = {
     pstreamRegion: "auto",
   },
   useLegacyEmbeds: false,
-  scraperSource: "scraper",
   tmdbApiKey: "",
   preferredSource: "zxc",
   preferredDownloadSource: "zxc",
