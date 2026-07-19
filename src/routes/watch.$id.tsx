@@ -3,11 +3,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { Media, MediaKind } from "@/lib/catalog";
 import { StreamPlayer } from "@/components/StreamPlayer";
-import { VylaPlayer } from "@/components/VylaPlayer";
-import { ScraperPlayer } from "@/components/ScraperPlayer";
 import { loadStashedMedia } from "@/lib/watch-stash";
 import { fetchMediaById } from "@/lib/tmdb";
-import { useSettings } from "@/lib/store";
 
 export const Route = createFileRoute("/watch/$id")({
   head: () => ({ meta: [{ title: "Now Playing — Sleepy" }] }),
@@ -24,7 +21,6 @@ function WatchPage() {
   const { id } = Route.useParams();
   const { s, e, t } = Route.useSearch();
   const navigate = useNavigate();
-  const [settings] = useSettings();
   const [media, setMedia] = useState<Media | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,11 +68,5 @@ function WatchPage() {
     );
   }
 
-  if (settings.scraperSource === "vyla") {
-    return <VylaPlayer media={media} season={s} episode={e} onClose={onClose} />;
-  }
-  if (settings.scraperSource === "scraper") {
-    return <ScraperPlayer media={media} season={s} episode={e} onClose={onClose} />;
-  }
   return <StreamPlayer media={media} season={s} episode={e} onClose={onClose} />;
 }
