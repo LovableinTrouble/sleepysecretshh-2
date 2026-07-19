@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft } from "lucide-react";
@@ -14,103 +13,75 @@ interface Props {
   onClose: () => void;
 }
 
-// Hidden sandbox toggle — flip ENABLE_SANDBOX to true to isolate the iframe.
-// Off by default (ZXCStream needs same-origin access for postMessage events).
-const ENABLE_SANDBOX = false;
-const SANDBOX_ATTR = ENABLE_SANDBOX
-  ? "allow-scripts allow-same-origin allow-presentation allow-popups allow-forms"
-  : undefined;
-
-export function StreamPlayer({ media, season, episode, onClose }: Props) {
+export function VylaPlayer({ media, season, episode, onClose }: Props) {
   const isShow = media.type !== "movie";
 
   const [showControls, setShowControls] = useState(true);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startTime = useMemo(
+    () => Date.now(),
+    [],
+  );
 
   const savedProgress = useMemo(
     () => getLocalProgressFor(media.id, season ?? null, episode ?? null),
     [media.id, season, episode],
   );
 
-  // ZXC[STREAM] URL — autoplay on, no in-player back button.
-  const url = sourceForKey("zxc").build(
+  // Vyla player embed — player.vyla.cc handles auth, HLS/MP4, source
+  // switching, subtitles, and quality selection internally.
+  const url = sourceForKey("vyla").build(
     media,
     season,
     episode,
-    savedProgress?.positionSeconds,
   );
 
-  // Seed a Continue Watching entry on open; real position comes from
-  // ZXCStream's postMessage stream below.
+  // Seed a Continue Watching entry on open.
   useEffect(() => {
     saveProgressLocal({
       mediaId: media.id,
       mediaType: media.type,
       season: season ?? null,
       episode: episode ?? null,
-      positionSeconds: 0,
-      durationSeconds: 0,
+      positionSeconds: savedProgress?.positionSeconds ?? 0,
+      durationSeconds: savedProgress?.durationSeconds ?? 0,
       title: media.title,
       poster: media.poster ?? null,
       backdrop: media.backdrop ?? null,
       completed: false,
       updatedAt: Date.now(),
     });
-  }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
+  }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode, savedProgress?.positionSeconds, savedProgress?.durationSeconds]);
 
-  // Listen for ZXC[STREAM] postMessage events and persist real playback progress.
-  // Events: VIDEO_PLAY, VIDEO_PAUSE, VIDEO_PROGRESS (every 60s after 60s),
-  //         VIDEO_NINETY_PERCENT, VIDEO_ENDED
+  // Mark as "watched" (position-only heartbeat) every 30s while the player
+  // is open — the Vyla iframe doesn't expose postMessage progress events, so
+  // we approximate by recording elapsed wall-clock time as a heartbeat.
   useEffect(() => {
-    const onMsg = (event: MessageEvent) => {
-      const data = event.data;
-      if (!data || typeof data !== "object") return;
-      const type = data.type as string | undefined;
-      if (!type || !type.startsWith("VIDEO_")) return;
-
-      const payload = data.payload || {};
-      const position = Number(payload.currentTime);
-      const duration = Number(payload.duration);
-      const percent = Number(payload.percent);
-
-      // VIDEO_PROGRESS carries currentTime/duration; VIDEO_ENDED/PLAY/PAUSE may not.
-      const hasProgress = Number.isFinite(position) && position >= 0;
-      const hasDuration = Number.isFinite(duration) && duration > 0;
-
-      // Don't spam localStorage on every play/pause if there's no progress info.
-      if (!hasProgress && type !== "VIDEO_ENDED") return;
-
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const base = savedProgress?.positionSeconds ?? 0;
       saveProgressLocal({
         mediaId: media.id,
         mediaType: media.type,
         season: season ?? null,
         episode: episode ?? null,
-        positionSeconds: hasProgress ? Math.max(0, Math.floor(position)) : 0,
-        durationSeconds: hasDuration ? Math.max(0, Math.floor(duration)) : 0,
+        positionSeconds: base + elapsed,
+        durationSeconds: savedProgress?.durationSeconds ?? 0,
         title: media.title,
         poster: media.poster ?? null,
         backdrop: media.backdrop ?? null,
-        completed: type === "VIDEO_ENDED" || percent >= 90,
+        completed: false,
         updatedAt: Date.now(),
       });
-    };
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
-  }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode]);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [media.id, media.type, media.title, media.poster, media.backdrop, season, episode, startTime, savedProgress?.positionSeconds, savedProgress?.durationSeconds]);
 
   const resetControlsTimer = () => {
     setShowControls(true);
     if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
     controlsTimerRef.current = setTimeout(() => setShowControls(false), 4000);
   };
-
-  // Block right-click context menu while the player is mounted so the
-  // iframe source can't be inspected via "View frame source" etc.
-  useEffect(() => {
-    const onContext = (e: MouseEvent) => e.preventDefault();
-    window.addEventListener("contextmenu", onContext);
-    return () => window.removeEventListener("contextmenu", onContext);
-  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -169,7 +140,6 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           className="h-full w-full border-0"
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture; display-capture"
           allowFullScreen
-          {...(SANDBOX_ATTR ? { sandbox: SANDBOX_ATTR } : {})}
         />
       </div>
 

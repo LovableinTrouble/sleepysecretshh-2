@@ -57,7 +57,10 @@ export interface Settings {
   };
   /** Re-enable legacy embed scrapers (currently no extras — reserved). */
   useLegacyEmbeds: boolean;
-  /** Legacy field removed — Videasy is the only source. */
+  /** Which streaming source to use for playback: "zxc" (ZXCStream iframe),
+   * "vyla" (Vyla player.vyla.cc embed), or "scraper" (native hls.js scraper
+   * player that scrapes multiple free streaming providers). */
+  scraperSource: "zxc" | "vyla" | "scraper";
   tmdbApiKey: string;
   preferredSource: string;
   preferredDownloadSource: string;
@@ -102,6 +105,7 @@ export const DEFAULT_SETTINGS: Settings = {
     pstreamRegion: "auto",
   },
   useLegacyEmbeds: false,
+  scraperSource: "scraper",
   tmdbApiKey: "",
   preferredSource: "zxc",
   preferredDownloadSource: "zxc",
