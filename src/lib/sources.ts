@@ -1,12 +1,9 @@
 import type { Media } from "./catalog";
 
 /**
- * Source registry — ZXC[STREAM] (v4.zxcstream.xyz) is the only source.
- * Pure iframe embed with a postMessage API for play/pause/progress/ended.
- *
- * Docs: https://zxcstream.xyz/player/movie/
- * Events: VIDEO_PLAY, VIDEO_PAUSE, VIDEO_PROGRESS (every 60s after 60s),
- *         VIDEO_NINETY_PERCENT, VIDEO_ENDED
+ * Source registry — Videasy (player.videasy.net) is the only source.
+ * Pure iframe embed with a postMessage progress stream.
+ * Docs: https://www.videasy.net/
  */
 export interface Source {
   id: string;
@@ -17,69 +14,56 @@ export interface Source {
   build: (m: Media, season?: number, episode?: number, progressSeconds?: number) => string;
 }
 
-export type SourceKey = "zxc" | "vyla" | "scraper";
+export type SourceKey = "videasy";
 
 // Sleepy accent (hex without #).
 const ACCENT = "6366f1";
-const BASE = "https://v4.zxcstream.xyz";
+const BASE = "https://player.videasy.net";
 
-function buildZxc(m: Media, season?: number, episode?: number, _progressSeconds?: number): string {
+function buildVideasy(
+  m: Media,
+  season?: number,
+  episode?: number,
+  progressSeconds?: number,
+): string {
   const id = String(m.id);
   const isShow = m.type !== "movie" && season != null && episode != null;
-  const base = isShow ? `${BASE}/player/tv/${id}/${season}/${episode}` : `${BASE}/player/movie/${id}`;
+  const base = isShow ? `${BASE}/tv/${id}/${season}/${episode}` : `${BASE}/movie/${id}`;
 
+  // All features enabled.
   const p = new URLSearchParams();
   p.set("color", ACCENT);
   p.set("autoplay", "true");
-  // No `back` param — we render our own back button on site.
-  return `${base}?${p.toString()}`;
-}
-
-const ZXC: Source = {
-  id: "zxc",
-  name: "ZXCStream",
-  badge: "Embed",
-  kind: "embed",
-  tier: "primary",
-  build: (m, season, episode, progressSeconds) => buildZxc(m, season, episode, progressSeconds),
-};
-
-// Vyla player embed — full-featured multi-source scraper player.
-// player.vyla.cc handles its own auth, HLS/MP4, source switching,
-// subtitles, and quality selection. No API key needed.
-function buildVyla(m: Media, season?: number, episode?: number): string {
-  const id = String(m.id);
-  const isShow = m.type !== "movie" && season != null && episode != null;
-  const base = "https://player.vyla.cc/";
-  const p = new URLSearchParams({ id });
-  if (isShow) {
-    p.set("season", String(season));
-    p.set("episode", String(episode));
+  p.set("nextEpisode", "true");
+  p.set("episodeSelector", "true");
+  p.set("autoplayNextEpisode", "true");
+  p.set("progress", "true");
+  if (progressSeconds && progressSeconds > 0) {
+    p.set("progress", String(Math.floor(progressSeconds)));
   }
   return `${base}?${p.toString()}`;
 }
 
-const VYLA: Source = {
-  id: "vyla",
-  name: "Vyla",
-  badge: "Scraper",
+const VIDEASY: Source = {
+  id: "videasy",
+  name: "Videasy",
+  badge: "Embed",
   kind: "embed",
   tier: "primary",
-  build: (m, season, episode) => buildVyla(m, season, episode),
+  build: (m, season, episode, progressSeconds) =>
+    buildVideasy(m, season, episode, progressSeconds),
 };
 
-export const SOURCES: Source[] = [ZXC, VYLA];
+export const SOURCES: Source[] = [VIDEASY];
 
 export function getOrderedSources(): Source[] {
-  return [ZXC, VYLA];
+  return [VIDEASY];
 }
 
-export function sourceForKey(key: SourceKey): Source {
-  return key === "vyla" ? VYLA : ZXC;
+export function sourceForKey(_key: SourceKey): Source {
+  return VIDEASY;
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
-  zxc: "ZXCStream",
-  vyla: "Vyla Scraper",
-  scraper: "Scraper",
+  videasy: "Videasy",
 };
