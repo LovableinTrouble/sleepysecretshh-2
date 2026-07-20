@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Hero } from "@/components/Hero";
 import { MediaRow } from "@/components/MediaRow";
 import { ContinueWatchingRow } from "@/components/ContinueWatching";
@@ -24,32 +24,48 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const navigate = useNavigate();
-  // Decorative online count — no external API call (keeps homepage fast).
-  const [onlineCount] = useState(() => Math.floor(Math.random() * 400) + 800);
+  const [onlineCount, setOnlineCount] = useState<number | null>(null);
+
+  // Fetch online count once on mount
+  useEffect(() => {
+    const fetchOnline = async () => {
+      try {
+        const res = await fetch("https://api.countapi.xyz/hit/sleepy-stream/online");
+        if (res.ok) {
+          const data = await res.json();
+          setOnlineCount(data.value);
+        }
+      } catch {
+        // Fallback to simulated count
+        setOnlineCount(Math.floor(Math.random() * 500) + 800);
+      }
+    };
+    fetchOnline();
+  }, []);
 
   const trending = useQuery({
     queryKey: ["trending"],
     queryFn: () => fetchTrending("all"),
-    staleTime: 10 * 60_000,
+    staleTime: 5 * 60_000,
   });
   const movies = useQuery({
     queryKey: ["popular-movies"],
-    queryFn: () => fetchPopular("movie", 1),
-    staleTime: 10 * 60_000,
+    queryFn: () => fetchPopular("movie", 2),
+    staleTime: 5 * 60_000,
   });
   const tv = useQuery({
     queryKey: ["popular-tv"],
-    queryFn: () => fetchPopular("tv", 1),
-    staleTime: 10 * 60_000,
+    queryFn: () => fetchPopular("tv", 2),
+    staleTime: 5 * 60_000,
   });
   const top = useQuery({
     queryKey: ["top-movies"],
     queryFn: () => fetchTopRated("movie", 1),
-    staleTime: 10 * 60_000,
+    staleTime: 5 * 60_000,
   });
   const anime = useQuery({
     queryKey: ["anime-trending-week-v2"],
-    queryFn: () => fetchAnime(1),
+    queryFn: () => fetchAnime(2),
     staleTime: 30 * 60_000,
   });
 

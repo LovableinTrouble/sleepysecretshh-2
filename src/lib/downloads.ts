@@ -7,7 +7,7 @@ export interface DownloadItem {
   url: string;
   source: string;
   quality: string;
-  type: "mp4" | "hls" | "mkv" | "torrent" | "magnet" | "file";
+  type: "mp4" | "hls" | "mkv" | "file";
   size?: string;
   fileName?: string;
   headers?: Record<string, string>;

@@ -133,7 +133,12 @@ function Select({
   // stacking context (each Settings section has `backdrop-blur-xl`, which
   // creates one — without a portal the dropdown is trapped underneath
   // subsequent sibling sections).
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [menuPos, setMenuPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
 
   // Recompute position whenever the menu is open (handles scroll / resize).
   // The initial position is already set synchronously in the click handler,
@@ -179,8 +184,15 @@ function Select({
     if (!r) return null;
     const MENU_WIDTH = 208; // matches w-52
     const left = Math.max(8, Math.min(window.innerWidth - MENU_WIDTH - 8, r.right - MENU_WIDTH));
-    const top = r.bottom + 8;
-    return { top, left, width: MENU_WIDTH };
+    const GAP = 8;
+    const MARGIN = 12;
+    const estHeight = Math.min(options.length * 40 + 16, 360);
+    const spaceBelow = window.innerHeight - r.bottom - GAP - MARGIN;
+    const spaceAbove = r.top - GAP - MARGIN;
+    const openUp = spaceBelow < estHeight && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(160, Math.min(estHeight, openUp ? spaceAbove : spaceBelow));
+    const top = openUp ? Math.max(MARGIN, r.top - GAP - maxHeight) : r.bottom + GAP;
+    return { top, left, width: MENU_WIDTH, maxHeight };
   };
 
   return (
@@ -226,9 +238,11 @@ function Select({
               top: menuPos.top,
               left: menuPos.left,
               width: menuPos.width,
-              zIndex: 9999,
+              maxHeight: menuPos.maxHeight,
+              overflowY: "auto",
+              zIndex: 999999,
             }}
-            className="overflow-hidden rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl"
+            className="rounded-2xl border border-white/10 bg-[oklch(0.16_0.02_280)] p-1.5 text-white shadow-2xl"
           >
             {options.map((o) => (
               <button
@@ -387,21 +401,34 @@ function SettingsPage() {
 
         <a
           href="/install"
-          className="group flex items-center gap-4 rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/15 to-transparent p-5 transition hover:border-primary/50 hover:from-primary/20"
+          className="group flex items-center gap-3 rounded-2xl border border-glass-border bg-card/40 px-4 py-3 backdrop-blur-xl transition hover:border-primary/40 hover:bg-card/60"
         >
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/20 ring-1 ring-primary/30">
-            <Download className="h-6 w-6 text-primary" />
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+            <Download className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-bold">Get the Android app</div>
-            <div className="mt-0.5 text-xs text-muted-foreground">
-              Instant startup, offline downloads, no ads.
-            </div>
+            <div className="text-sm font-semibold">Android app</div>
+            <div className="text-[11px] text-muted-foreground">Instant startup · offline · no ads</div>
           </div>
-          <span className="shrink-0 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition group-hover:brightness-110">
-            Download
+          <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-primary-foreground transition group-hover:brightness-110">
+            Get
           </span>
         </a>
+
+        {/* Febbox token — surfaced at the top so users can wire premium access
+            immediately without hunting through the integrations section. */}
+        <Section
+          title="Febbox cookie"
+          desc="Unlocks premium sources inside the Cinezo player. Paste your Febbox UI token."
+        >
+          <IntegrationCard
+            name="Febbox"
+            desc="Token is passed to the embed as the `febbox` query param."
+            placeholder="Febbox token / cookie"
+            value={ints.febboxToken}
+            onChange={(v) => setInt({ febboxToken: v })}
+          />
+        </Section>
 
         {/* p-stream region — picks the closest CDN/proxy edge for subtitles. */}
         <Section
@@ -433,27 +460,15 @@ function SettingsPage() {
         </Section>
 
         {/* Sources */}
-        <Section title="Sources" desc="Choose where streams come from. Scraper is the native hls.js player that scrapes multiple providers; ZXCStream is an iframe embed; Vyla is an external embed.">
-          <Row label="Streaming source" hint="Scraper queries multiple free streaming APIs in parallel and auto-plays the first working source with HLS/MP4 fallbacks and quality selection.">
+        <Section title="Sources" desc="Pick the default streaming source. Cinezo is recommended.">
+          <Row label="Default source" hint="Cinezo embeds the player.cinezo.live player.">
             <Select
-              value={s.scraperSource}
-              onChange={(v) => set({ scraperSource: v as "zxc" | "vyla" | "scraper" })}
+              value={s.embedProvider}
+              onChange={(v) => set({ embedProvider: v as Settings["embedProvider"] })}
               options={[
-                { value: "scraper", label: "Scraper (native hls.js)" },
-                { value: "zxc", label: "ZXCStream (embed)" },
-                { value: "vyla", label: "Vyla (embed)" },
+                { value: "vidsrc", label: "Cinezo (recommended)" },
               ]}
             />
-          </Row>
-          <Row label="Scraper player" hint="Native hls.js player with multi-provider scraping, quality selection, and source switching.">
-            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
-              Ready
-            </span>
-          </Row>
-          <Row label="ZXCStream" hint="Third-party iframe embed used for playback.">
-            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
-              Ready
-            </span>
           </Row>
         </Section>
 

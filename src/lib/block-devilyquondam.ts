@@ -1,5 +1,7 @@
 // Client-only interceptor: blocks popups and network requests to known
-// ad/popup domains used by embedded streaming players (ZXCStream etc).
+// ad/popup domains used by embedded streaming players (Videasy, Cinezo,
+// Vidlink, AutoEmbed, 2Embed, VidSrc, etc — any iframe embed that fires
+// popup ads).
 //
 // The embedded iframe is cross-origin so we can't patch its internal
 // fetch/XHR — but popup ads typically fire via window.open() on the

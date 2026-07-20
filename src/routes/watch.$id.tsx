@@ -3,11 +3,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { Media, MediaKind } from "@/lib/catalog";
 import { StreamPlayer } from "@/components/StreamPlayer";
-import { VylaPlayer } from "@/components/VylaPlayer";
-import { ScraperPlayer } from "@/components/ScraperPlayer";
 import { loadStashedMedia } from "@/lib/watch-stash";
 import { fetchMediaById } from "@/lib/tmdb";
-import { useSettings } from "@/lib/store";
 
 export const Route = createFileRoute("/watch/$id")({
   head: () => ({ meta: [{ title: "Now Playing — Sleepy" }] }),
@@ -16,7 +13,7 @@ export const Route = createFileRoute("/watch/$id")({
     e: s.e ? Number(s.e) : undefined,
     t: typeof s.t === "string" ? (s.t as MediaKind) : undefined,
     party: typeof s.party === "string" ? s.party : undefined,
-  } as { s?: number; e?: number; t?: MediaKind; party?: string }),
+  }),
   component: WatchPage,
 });
 
@@ -24,9 +21,11 @@ function WatchPage() {
   const { id } = Route.useParams();
   const { s, e, t } = Route.useSearch();
   const navigate = useNavigate();
-  const [settings] = useSettings();
   const [media, setMedia] = useState<Media | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     const numeric = Number(id);
@@ -72,11 +71,15 @@ function WatchPage() {
     );
   }
 
-  if (settings.scraperSource === "vyla") {
-    return <VylaPlayer media={media} season={s} episode={e} onClose={onClose} />;
+  if (!mounted) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black text-white">
+        <div className="text-center">
+          <div className="text-xs uppercase tracking-[0.4em] text-white/40">Preparing player</div>
+        </div>
+      </div>
+    );
   }
-  if (settings.scraperSource === "scraper") {
-    return <ScraperPlayer media={media} season={s} episode={e} onClose={onClose} />;
-  }
+
   return <StreamPlayer media={media} season={s} episode={e} onClose={onClose} />;
 }

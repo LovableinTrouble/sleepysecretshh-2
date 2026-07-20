@@ -50,6 +50,8 @@ function SportsMatchPage() {
     queryKey: ["ppv", "all"],
     queryFn: fetchPpvAll,
     staleTime: 60_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
   const event = useMemo(() => (data ? findEvent(data, Number(id)) : undefined), [data, id]);
@@ -178,21 +180,11 @@ function SportsMatchPage() {
             key={`${active.iframe}-${reload}`}
             src={active.iframe}
             title={event?.name || "Live match"}
-            name="sports-match"
-            // Permissive sandbox — the embed provider's diagnostic script
-            // gates its self-check on these exact tokens. Without them, the
-            // embed prints "Remove sandbox attributes on the iframe tag" as a
-            // visible fallback even though the parent iframe has no sandbox.
-            // These tokens preserve full playback capability (scripts, popups,
-            // forms, same-origin storage) while satisfying that heuristic.
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-read; clipboard-write; web-share; payment"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             allowFullScreen
-            loading="lazy"
-            scrolling="no"
-            referrerPolicy="no-referrer-when-downgrade"
+            loading="eager"
+            referrerPolicy="no-referrer"
             className="absolute inset-0 h-full w-full border-0 bg-black"
-            style={{ borderRadius: 10 }}
           />
         )}
       </div>

@@ -42,6 +42,8 @@ export interface Settings {
     chromecast: boolean;
     plexSync: boolean;
     enable4k: boolean;
+    /** Febbox token for premium source access via Cinezo embed. */
+    febboxToken: string;
     /** p-stream-style proxy region for CDN routing (auto = detect by IP). */
     pstreamRegion:
       | "auto"
@@ -57,10 +59,6 @@ export interface Settings {
   };
   /** Re-enable legacy embed scrapers (currently no extras — reserved). */
   useLegacyEmbeds: boolean;
-  /** Which streaming source to use for playback: "zxc" (ZXCStream iframe),
-   * "vyla" (Vyla player.vyla.cc embed), or "scraper" (native hls.js scraper
-   * player that scrapes multiple free streaming providers). */
-  scraperSource: "zxc" | "vyla" | "scraper";
   tmdbApiKey: string;
   preferredSource: string;
   preferredDownloadSource: string;
@@ -102,13 +100,13 @@ export const DEFAULT_SETTINGS: Settings = {
     chromecast: true,
     plexSync: false,
     enable4k: false,
+    febboxToken: "",
     pstreamRegion: "auto",
   },
   useLegacyEmbeds: false,
-  scraperSource: "scraper",
   tmdbApiKey: "",
-  preferredSource: "zxc",
-  preferredDownloadSource: "zxc",
+  preferredSource: "prionix",
+  preferredDownloadSource: "prionix",
   embedProvider: "vidsrc",
   customTheme: null,
   language: "en",

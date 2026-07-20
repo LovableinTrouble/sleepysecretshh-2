@@ -128,8 +128,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "dns-prefetch", href: "https://image.tmdb.org" },
       { rel: "preconnect", href: "https://api.themoviedb.org" },
       { rel: "dns-prefetch", href: "https://api.themoviedb.org" },
-      { rel: "preconnect", href: "https://v4.zxcstream.xyz" },
-      { rel: "dns-prefetch", href: "https://v4.zxcstream.xyz" },
     ],
   }),
   shellComponent: RootShell,

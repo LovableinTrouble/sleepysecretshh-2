@@ -24,11 +24,11 @@ import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as SportsIdRouteImport } from './routes/sports.$id'
 import { Route as PersonIdRouteImport } from './routes/person.$id'
 import { Route as LiveIdRouteImport } from './routes/live.$id'
+import { Route as ApiDownloadsRouteImport } from './routes/api/downloads'
 import { Route as MediaTypeIdRouteImport } from './routes/media.$type.$id'
 import { Route as ApiPublicYtPlaylistRouteImport } from './routes/api/public/yt-playlist'
 import { Route as ApiPublicSubtitleRouteImport } from './routes/api/public/subtitle'
 import { Route as ApiPublicIptvProxyRouteImport } from './routes/api/public/iptv-proxy'
-import { Route as ApiPublicIptvOrgRouteImport } from './routes/api/public/iptv-org'
 import { Route as ApiPublicGamesFeedRouteImport } from './routes/api/public/games-feed'
 import { Route as ApiPublicDownloadRouteImport } from './routes/api/public/download'
 import { Route as ApiPpvStreamsRouteImport } from './routes/api/ppv.streams'
@@ -108,6 +108,11 @@ const LiveIdRoute = LiveIdRouteImport.update({
   path: '/live/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDownloadsRoute = ApiDownloadsRouteImport.update({
+  id: '/api/downloads',
+  path: '/api/downloads',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MediaTypeIdRoute = MediaTypeIdRouteImport.update({
   id: '/media/$type/$id',
   path: '/media/$type/$id',
@@ -126,11 +131,6 @@ const ApiPublicSubtitleRoute = ApiPublicSubtitleRouteImport.update({
 const ApiPublicIptvProxyRoute = ApiPublicIptvProxyRouteImport.update({
   id: '/api/public/iptv-proxy',
   path: '/api/public/iptv-proxy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicIptvOrgRoute = ApiPublicIptvOrgRouteImport.update({
-  id: '/api/public/iptv-org',
-  path: '/api/public/iptv-org',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicGamesFeedRoute = ApiPublicGamesFeedRouteImport.update({
@@ -161,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/downloads': typeof ApiDownloadsRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
@@ -168,7 +169,6 @@ export interface FileRoutesByFullPath {
   '/api/ppv/streams': typeof ApiPpvStreamsRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/games-feed': typeof ApiPublicGamesFeedRoute
-  '/api/public/iptv-org': typeof ApiPublicIptvOrgRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
@@ -186,6 +186,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/downloads': typeof ApiDownloadsRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
@@ -193,7 +194,6 @@ export interface FileRoutesByTo {
   '/api/ppv/streams': typeof ApiPpvStreamsRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/games-feed': typeof ApiPublicGamesFeedRoute
-  '/api/public/iptv-org': typeof ApiPublicIptvOrgRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
@@ -212,6 +212,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sports': typeof SportsRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/downloads': typeof ApiDownloadsRoute
   '/live/$id': typeof LiveIdRoute
   '/person/$id': typeof PersonIdRoute
   '/sports/$id': typeof SportsIdRoute
@@ -219,7 +220,6 @@ export interface FileRoutesById {
   '/api/ppv/streams': typeof ApiPpvStreamsRoute
   '/api/public/download': typeof ApiPublicDownloadRoute
   '/api/public/games-feed': typeof ApiPublicGamesFeedRoute
-  '/api/public/iptv-org': typeof ApiPublicIptvOrgRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
@@ -239,6 +239,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
+    | '/api/downloads'
     | '/live/$id'
     | '/person/$id'
     | '/sports/$id'
@@ -246,7 +247,6 @@ export interface FileRouteTypes {
     | '/api/ppv/streams'
     | '/api/public/download'
     | '/api/public/games-feed'
-    | '/api/public/iptv-org'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
@@ -264,6 +264,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
+    | '/api/downloads'
     | '/live/$id'
     | '/person/$id'
     | '/sports/$id'
@@ -271,7 +272,6 @@ export interface FileRouteTypes {
     | '/api/ppv/streams'
     | '/api/public/download'
     | '/api/public/games-feed'
-    | '/api/public/iptv-org'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
@@ -289,6 +289,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/sports'
     | '/watchlist'
+    | '/api/downloads'
     | '/live/$id'
     | '/person/$id'
     | '/sports/$id'
@@ -296,7 +297,6 @@ export interface FileRouteTypes {
     | '/api/ppv/streams'
     | '/api/public/download'
     | '/api/public/games-feed'
-    | '/api/public/iptv-org'
     | '/api/public/iptv-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
@@ -315,13 +315,13 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SportsRoute: typeof SportsRouteWithChildren
   WatchlistRoute: typeof WatchlistRoute
+  ApiDownloadsRoute: typeof ApiDownloadsRoute
   LiveIdRoute: typeof LiveIdRoute
   PersonIdRoute: typeof PersonIdRoute
   WatchIdRoute: typeof WatchIdRoute
   ApiPpvStreamsRoute: typeof ApiPpvStreamsRoute
   ApiPublicDownloadRoute: typeof ApiPublicDownloadRoute
   ApiPublicGamesFeedRoute: typeof ApiPublicGamesFeedRoute
-  ApiPublicIptvOrgRoute: typeof ApiPublicIptvOrgRoute
   ApiPublicIptvProxyRoute: typeof ApiPublicIptvProxyRoute
   ApiPublicSubtitleRoute: typeof ApiPublicSubtitleRoute
   ApiPublicYtPlaylistRoute: typeof ApiPublicYtPlaylistRoute
@@ -435,6 +435,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/downloads': {
+      id: '/api/downloads'
+      path: '/api/downloads'
+      fullPath: '/api/downloads'
+      preLoaderRoute: typeof ApiDownloadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/media/$type/$id': {
       id: '/media/$type/$id'
       path: '/media/$type/$id'
@@ -461,13 +468,6 @@ declare module '@tanstack/react-router' {
       path: '/api/public/iptv-proxy'
       fullPath: '/api/public/iptv-proxy'
       preLoaderRoute: typeof ApiPublicIptvProxyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/iptv-org': {
-      id: '/api/public/iptv-org'
-      path: '/api/public/iptv-org'
-      fullPath: '/api/public/iptv-org'
-      preLoaderRoute: typeof ApiPublicIptvOrgRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/games-feed': {
@@ -517,13 +517,13 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SportsRoute: SportsRouteWithChildren,
   WatchlistRoute: WatchlistRoute,
+  ApiDownloadsRoute: ApiDownloadsRoute,
   LiveIdRoute: LiveIdRoute,
   PersonIdRoute: PersonIdRoute,
   WatchIdRoute: WatchIdRoute,
   ApiPpvStreamsRoute: ApiPpvStreamsRoute,
   ApiPublicDownloadRoute: ApiPublicDownloadRoute,
   ApiPublicGamesFeedRoute: ApiPublicGamesFeedRoute,
-  ApiPublicIptvOrgRoute: ApiPublicIptvOrgRoute,
   ApiPublicIptvProxyRoute: ApiPublicIptvProxyRoute,
   ApiPublicSubtitleRoute: ApiPublicSubtitleRoute,
   ApiPublicYtPlaylistRoute: ApiPublicYtPlaylistRoute,

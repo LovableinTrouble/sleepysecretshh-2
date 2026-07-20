@@ -69,8 +69,13 @@ function Search() {
         const direct = await searchMulti(debounced).catch(() => []);
         return { results: direct, error: r.error, aiUsed: false };
       }
+      // For each AI title, search TMDB and take only the top result (best match).
       const perTitle = await Promise.all(
-        r.titles.map((t) => searchMulti(t).catch(() => [])),
+        r.titles.slice(0, 5).map(async (t) => {
+          const results = await searchMulti(t).catch(() => []);
+          // Return only the single best match for this title.
+          return results[0] ? [results[0]] : [];
+        }),
       );
       const seen = new Set<string>();
       const merged = perTitle.flat().filter((m) => {

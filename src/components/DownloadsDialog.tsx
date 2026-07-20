@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
-import { Download, Loader2, X } from "lucide-react";
+import { Download, FileVideo, Loader2, X } from "lucide-react";
 import type { Media } from "@/lib/catalog";
-import { resolveDownloaderSources, type DownloadItem } from "@/lib/downloads";
+import type { DownloadItem } from "@/lib/downloads";
 
 interface DownloadsDialogProps {
   open: boolean;
@@ -24,24 +23,37 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     setLoading(true);
     setError(null);
     setItems([]);
-    resolveDownloaderSources({
-      data: {
-        tmdbId: media.id,
-        title: media.title,
-        year: media.year,
-        type: isSeries ? "show" : "movie",
-        season: isSeries ? (season ?? 1) : undefined,
-        episode: isSeries ? (episode ?? 1) : undefined,
-      },
-    })
-      .then((res) => {
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          tmdbId: String(media.id),
+          title: media.title,
+          type: isSeries ? "show" : "movie",
+        });
+        if (media.year) params.set("year", media.year);
+        if (isSeries) {
+          params.set("season", String(season ?? 1));
+          params.set("episode", String(episode ?? 1));
+        }
+        const res = await fetch(`/api/downloads?${params.toString()}`);
         if (dead) return;
-        if (res.ok)
-          setItems(res.downloads.filter((d) => !d.url.startsWith("magnet:")));
-        else setError(res.error || "No downloads found for this title.");
-      })
-      .catch((err: any) => !dead && setError(err?.message || "Failed to load downloads."))
-      .finally(() => !dead && setLoading(false));
+        if (!res.ok) throw new Error(`Server responded ${res.status}`);
+        const data = (await res.json()) as {
+          ok: boolean;
+          downloads: DownloadItem[];
+          error?: string;
+        };
+        if (data.ok && data.downloads.length > 0) {
+          setItems(data.downloads);
+        } else {
+          setError(data.error || "No direct downloads found for this title.");
+        }
+      } catch (err: any) {
+        if (!dead) setError(err?.message || "Failed to load downloads.");
+      } finally {
+        if (!dead) setLoading(false);
+      }
+    })();
     return () => {
       dead = true;
     };
@@ -54,8 +66,14 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
     if (fileName) params.set("filename", fileName);
     return `/api/public/download?${params.toString()}`;
   };
-  const downloadHref = (item: DownloadItem) =>
-    item.url.startsWith("magnet:") ? item.url : proxied(item.url, item.fileName);
+
+  const downloadHref = (item: DownloadItem) => proxied(item.url, item.fileName);
+
+  const typeIcon = (type: DownloadItem["type"]) => {
+    if (type === "mp4" || type === "mkv") return "MP4";
+    if (type === "hls") return "HLS";
+    return "FILE";
+  };
 
   return (
     <div
@@ -77,7 +95,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
               <Download className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-bold text-white">Media Downloader</p>
+              <p className="text-sm font-bold text-white">Direct Downloads</p>
               <p className="text-xs text-white/50">{media.title}</p>
             </div>
           </div>
@@ -100,7 +118,7 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
           {loading && (
             <div className="grid place-items-center py-12 text-white/60">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="mt-3 text-xs">Searching download sources…</p>
+              <p className="mt-3 text-xs">Searching for direct downloads…</p>
             </div>
           )}
           {!loading && error && (
@@ -118,12 +136,17 @@ export function DownloadsDialog({ open, media, season, episode, onClose }: Downl
                     rel="noopener noreferrer"
                     className="group flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 p-4 transition hover:border-white/20 hover:bg-black/60"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold uppercase text-white">{it.source}</p>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
-                        {it.quality} · {it.type.toUpperCase()}
-                        {it.size ? ` · ${it.size}` : ""}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
+                        <FileVideo className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-white">{media.title}</p>
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
+                          {it.quality} · {typeIcon(it.type)} · {it.source}
+                          {it.size ? ` · ${it.size}` : ""}
+                        </p>
+                      </div>
                     </div>
                     <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
                       <Download className="h-4 w-4" />

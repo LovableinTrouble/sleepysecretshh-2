@@ -39,19 +39,24 @@ const PPV_ENDPOINTS = [
 export async function fetchPpvAll(): Promise<PpvCategory[]> {
   let lastError = "Could not load PPV streams";
 
-  for (const endpoint of PPV_ENDPOINTS) {
-    try {
-      const r = await fetch(endpoint, { headers: { accept: "application/json" } });
-      if (!r.ok) {
-        lastError = `ppv api ${r.status}`;
-        continue;
-      }
+  // Try endpoints in parallel on first attempt for speed (mobile),
+  // then fall back to sequential on retries.
+  const results = await Promise.allSettled(
+    PPV_ENDPOINTS.map(async (endpoint) => {
+      const r = await fetch(endpoint, {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!r.ok) throw new Error(`ppv api ${r.status}`);
       const j = (await r.json()) as { success?: boolean; streams?: PpvCategory[] };
       if (Array.isArray(j.streams)) return j.streams;
-      lastError = "ppv api missing streams";
-    } catch (e) {
-      lastError = String((e as Error).message || e);
-    }
+      throw new Error("ppv api missing streams");
+    }),
+  );
+
+  for (const result of results) {
+    if (result.status === "fulfilled") return result.value;
+    if (result.status === "rejected") lastError = String(result.reason?.message || result.reason);
   }
 
   throw new Error(lastError);
