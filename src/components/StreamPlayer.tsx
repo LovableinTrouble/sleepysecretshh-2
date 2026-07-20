@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, X, RefreshCw } from "lucide-react";
+import { ChevronLeft, RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 import type { Media } from "@/lib/catalog";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-import { resolveStreams, type ResolvedSource, type DirectSource } from "@/lib/streams";
-import { CustomPlayer } from "./CustomPlayer";
+import { resolveStreams, type ResolvedSource } from "@/lib/streams";
 
 interface Props {
   media: Media;
@@ -46,7 +45,6 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadMsg, setLoadMsg] = useState("Scanning sources…");
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const msgTimerRef = useRef<number | null>(null);
   useEffect(() => {
@@ -94,7 +92,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   const hasNext = !!(season && episode);
   const onProgress = useCallback((t: number, d: number, ended: boolean) => {
-    recordProgress(media, season, episode, t, d, ended, active?.id ?? "unknown");
+    recordProgress(media, season, episode, t, d, ended, active?.id ?? "videasy");
   }, [media, season, episode, active?.id]);
 
   const player = (
@@ -102,17 +100,20 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       <div className="relative flex-1 bg-black overflow-hidden">
         {!sources && !error && <LoadingOverlay message={loadMsg} onClose={onClose} title={media.title} />}
         {error && <ErrorOverlay error={error} onClose={onClose} onRetry={() => { setError(null); setSources(null); }} />}
-        {active?.kind === "direct" && (
-          <CustomPlayer source={active} title={media.title} season={season} episode={episode}
-            startAt={startAt} onProgress={onProgress} onClose={onClose}
-            onSelectSource={() => setPickerOpen(true)}
-            onNextEpisode={hasNext ? handleNextEpisode : undefined} hasNext={hasNext} autoplay autoNext />
+        {active?.kind === "embed" && (
+          <EmbedFrame
+            source={active}
+            media={media}
+            onClose={onClose}
+            onProgress={onProgress}
+            onNextEpisode={hasNext ? handleNextEpisode : undefined}
+          />
         )}
-        {active?.kind === "embed" && <EmbedFrame source={active} media={media} onClose={onClose} onSelectSource={() => setPickerOpen(true)} />}
-        {pickerOpen && sources && <SourcePicker sources={sources} active={activeId} onPick={(id) => { setActiveId(id); setPickerOpen(false); }} onClose={() => setPickerOpen(false)} />}
       </div>
     </div>
   );
+  // Silence unused var warning from previous multi-source picker.
+  void startAt;
   if (typeof document === "undefined") return player;
   return createPortal(player, document.body);
 }
