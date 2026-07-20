@@ -415,21 +415,6 @@ function SettingsPage() {
           </span>
         </a>
 
-        {/* Febbox token — surfaced at the top so users can wire premium access
-            immediately without hunting through the integrations section. */}
-        <Section
-          title="Febbox cookie"
-          desc="Unlocks premium sources inside the Cinezo player. Paste your Febbox UI token."
-        >
-          <IntegrationCard
-            name="Febbox"
-            desc="Token is passed to the embed as the `febbox` query param."
-            placeholder="Febbox token / cookie"
-            value={ints.febboxToken}
-            onChange={(v) => setInt({ febboxToken: v })}
-          />
-        </Section>
-
         {/* p-stream region — picks the closest CDN/proxy edge for subtitles. */}
         <Section
           title="Streaming region"
@@ -455,19 +440,6 @@ function SettingsPage() {
                     r === "unknown" ? "auto" : (r as Settings["integrations"]["pstreamRegion"]),
                 })
               }
-            />
-          </Row>
-        </Section>
-
-        {/* Sources */}
-        <Section title="Sources" desc="Pick the default streaming source. Cinezo is recommended.">
-          <Row label="Default source" hint="Cinezo embeds the player.cinezo.live player.">
-            <Select
-              value={s.embedProvider}
-              onChange={(v) => set({ embedProvider: v as Settings["embedProvider"] })}
-              options={[
-                { value: "vidsrc", label: "Cinezo (recommended)" },
-              ]}
             />
           </Row>
         </Section>

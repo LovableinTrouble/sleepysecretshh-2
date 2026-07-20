@@ -42,8 +42,6 @@ export interface Settings {
     chromecast: boolean;
     plexSync: boolean;
     enable4k: boolean;
-    /** Febbox token for premium source access via Cinezo embed. */
-    febboxToken: string;
     /** p-stream-style proxy region for CDN routing (auto = detect by IP). */
     pstreamRegion:
       | "auto"
@@ -57,13 +55,9 @@ export interface Settings {
       | "singapore"
       | "mumbai";
   };
-  /** Re-enable legacy embed scrapers (currently no extras — reserved). */
-  useLegacyEmbeds: boolean;
   tmdbApiKey: string;
   preferredSource: string;
   preferredDownloadSource: string;
-  /** Main embed provider used for the video player. */
-  embedProvider: "vidsrc";
   /** Optional custom theme values applied when `theme === "custom"`. */
   customTheme: { primary: string; background: string } | null;
   language: "en" | "es" | "fr" | "ja" | "de";
@@ -100,14 +94,11 @@ export const DEFAULT_SETTINGS: Settings = {
     chromecast: true,
     plexSync: false,
     enable4k: false,
-    febboxToken: "",
     pstreamRegion: "auto",
   },
-  useLegacyEmbeds: false,
   tmdbApiKey: "",
   preferredSource: "prionix",
   preferredDownloadSource: "prionix",
-  embedProvider: "vidsrc",
   customTheme: null,
   language: "en",
   region: "US",
