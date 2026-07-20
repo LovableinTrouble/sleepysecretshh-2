@@ -1,69 +1,41 @@
-// Videasy-only mode. No server-side scraping — we build the embed URL
-// directly on the client with all features enabled.
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import type { ResolveResult } from "./streams.server";
 
-export interface EmbedSource {
-  kind: "embed";
-  id: string;
-  name: string;
-  badge: string;
-  url: string;
-}
-export interface DirectSource {
-  kind: "direct";
-  id: string;
-  name: string;
-  badge: string;
-  qualities: never[];
-  subtitles: never[];
-}
-export type ResolvedSource = EmbedSource | DirectSource;
-export interface ResolveResult {
-  sources: ResolvedSource[];
-  primary: string | null;
-}
+export type { ResolveResult, ResolvedSource, DirectSource, EmbedSource, StreamQuality, StreamSubtitle } from "./streams.server";
 
-export interface StreamQuality {
-  url: string;
-  label: string;
-  quality: string;
-  format: "hls" | "mp4" | "mkv" | "unknown";
-}
-export interface StreamSubtitle {
-  url: string;
-  language: string;
-  label: string;
-  type: "srt" | "vtt";
-}
+const InputSchema = z.object({
+  tmdbId: z.union([z.string(), z.number()]).transform(String),
+  title: z.string().min(1),
+  type: z.enum(["movie", "show"]),
+  season: z.number().optional(),
+  episode: z.number().optional(),
+});
 
-interface ResolveInput {
-  tmdbId: string | number;
-  title: string;
-  type: "movie" | "show";
-  season?: number;
-  episode?: number;
-}
-
-function buildVideasyUrl(input: ResolveInput): string {
-  const id = String(input.tmdbId);
-  const isShow = input.type === "show" && input.season != null && input.episode != null;
-  const base = isShow
-    ? `https://player.videasy.net/tv/${id}/${input.season}/${input.episode}`
-    : `https://player.videasy.net/movie/${id}`;
-  const params = new URLSearchParams({
-    color: "6366f1",
-    autoplay: "true",
-    nextEpisode: "true",
-    episodeSelector: "true",
-    autoplayNextEpisode: "true",
-    progress: "true",
+export const resolveStreams = createServerFn({ method: "POST" })
+  .inputValidator((d) => InputSchema.parse(d))
+  .handler(async ({ data }): Promise<ResolveResult> => {
+    try {
+      const { resolveAllSources } = await import("./streams.server");
+      const result = await resolveAllSources(data);
+      if (result.sources.length > 0) return result;
+    } catch (e) {
+      console.error("[resolveStreams] scraper error:", e);
+    }
+    // Fallback: static embeds that don't need any API calls
+    try {
+      const { buildEmbedsOnly } = await import("./streams.server");
+      return buildEmbedsOnly(data);
+    } catch {
+      // Last-resort: return a single vidsrc embed
+      const id = data.tmdbId;
+      const isShow = data.type === "show";
+      const url = isShow
+        ? `https://player.autoembed.cc/embed/tv/${id}/${data.season ?? 1}/${data.episode ?? 1}`
+        : `https://player.autoembed.cc/embed/movie/${id}`;
+      return {
+        sources: [{ id: "fallback", kind: "embed", name: "AutoEmbed", badge: "embed", url }],
+        primary: "fallback",
+      };
+    }
   });
-  return `${base}?${params.toString()}`;
-}
-
-export async function resolveStreams(args: { data: ResolveInput }): Promise<ResolveResult> {
-  const url = buildVideasyUrl(args.data);
-  return {
-    sources: [{ id: "videasy", kind: "embed", name: "Videasy", badge: "HD", url }],
-    primary: "videasy",
-  };
-}

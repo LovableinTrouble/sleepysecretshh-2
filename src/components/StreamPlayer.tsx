@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, RefreshCw } from "lucide-react";
+import { ChevronLeft, X, RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 import type { Media } from "@/lib/catalog";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-import { resolveStreams, type ResolvedSource } from "@/lib/streams";
+import { resolveStreams, type ResolvedSource, type DirectSource } from "@/lib/streams";
+import { CustomPlayer } from "./CustomPlayer";
 
 interface Props {
   media: Media;
@@ -45,6 +46,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadMsg, setLoadMsg] = useState("Scanning sources…");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const msgTimerRef = useRef<number | null>(null);
   useEffect(() => {
@@ -92,7 +94,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   const hasNext = !!(season && episode);
   const onProgress = useCallback((t: number, d: number, ended: boolean) => {
-    recordProgress(media, season, episode, t, d, ended, active?.id ?? "videasy");
+    recordProgress(media, season, episode, t, d, ended, active?.id ?? "unknown");
   }, [media, season, episode, active?.id]);
 
   const player = (
@@ -100,20 +102,17 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       <div className="relative flex-1 bg-black overflow-hidden">
         {!sources && !error && <LoadingOverlay message={loadMsg} onClose={onClose} title={media.title} />}
         {error && <ErrorOverlay error={error} onClose={onClose} onRetry={() => { setError(null); setSources(null); }} />}
-        {active?.kind === "embed" && (
-          <EmbedFrame
-            source={active}
-            media={media}
-            onClose={onClose}
-            onProgress={onProgress}
-            onNextEpisode={hasNext ? handleNextEpisode : undefined}
-          />
+        {active?.kind === "direct" && (
+          <CustomPlayer source={active} title={media.title} season={season} episode={episode}
+            startAt={startAt} onProgress={onProgress} onClose={onClose}
+            onSelectSource={() => setPickerOpen(true)}
+            onNextEpisode={hasNext ? handleNextEpisode : undefined} hasNext={hasNext} autoplay autoNext />
         )}
+        {active?.kind === "embed" && <EmbedFrame source={active} media={media} onClose={onClose} onSelectSource={() => setPickerOpen(true)} />}
+        {pickerOpen && sources && <SourcePicker sources={sources} active={activeId} onPick={(id) => { setActiveId(id); setPickerOpen(false); }} onClose={() => setPickerOpen(false)} />}
       </div>
     </div>
   );
-  // Silence unused var warning from previous multi-source picker.
-  void startAt;
   if (typeof document === "undefined") return player;
   return createPortal(player, document.body);
 }
@@ -165,89 +164,109 @@ function ErrorOverlay({ error, onClose, onRetry }: { error: string; onClose: () 
   );
 }
 
-function EmbedFrame({ source, media, onClose, onProgress, onNextEpisode }: { source: Extract<ResolvedSource, { kind: "embed" }>; media: Media; onClose: () => void; onProgress: (t: number, d: number, ended: boolean) => void; onNextEpisode?: () => void; }) {
+function EmbedFrame({ source, media, onClose, onSelectSource }: { source: Extract<ResolvedSource, { kind: "embed" }>; media: Media; onClose: () => void; onSelectSource: () => void; }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const BLOCKED = [
-      "sentrygabiescloes.qpon",
-      "devilyquondam.cyou",
-      "jivingafrithm.cyou",
-      "guarriancha.qpon",
-    ];
-    const isAd = (u: string) => {
-      try {
-        return BLOCKED.some((d) => {
-          const host = new URL(u, location.href).hostname;
-          return host === d || host.endsWith("." + d);
-        });
-      } catch {
-        return false;
+    const overlay = overlayRef.current;
+    const iframe = iframeRef.current;
+    if (!overlay || !iframe) return;
+
+    const onClick = (event: MouseEvent) => {
+      // 1. Temporarily strip the allow-popups permission so the embed's
+      //    popup-firing click handlers run sandboxed (no popups can escape).
+      iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+      // 2. Hide the overlay for a split second so the click passes through
+      //    to the third-party page underneath.
+      overlay.style.pointerEvents = "none";
+      // 3. Simulate the exact user click at the precise coordinates inside
+      //    the iframe so playback controls register the interaction.
+      const clickElement = document.elementFromPoint(event.clientX, event.clientY);
+      if (clickElement) {
+        clickElement.dispatchEvent(new MouseEvent("click", {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          bubbles: true,
+        }));
       }
+      // 4. Instantly restore permissions and overlay targeting so the
+      //    embed's sandbox-detection (if any) fails to observe the gap.
+      setTimeout(() => {
+        iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups");
+        overlay.style.pointerEvents = "auto";
+      }, 10);
     };
 
-    // Kill popups the embed fires via top.open() / parent.open().
-    const origOpen = window.open;
-    window.open = function (url?: string | URL, target?: string, features?: string) {
-      if (url && isAd(String(url))) return null;
-      return origOpen.call(window, url as string, target, features);
-    } as typeof window.open;
-
-    // Block clicks that navigate to ad domains.
-    const onClickCapture = (e: MouseEvent) => {
-      const t = e.target as HTMLElement | null;
-      const a = t?.closest?.("a");
-      if (a && a.href && isAd(a.href)) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    document.addEventListener("click", onClickCapture, true);
-
-    // Strip ad elements injected into our DOM.
-    const stripAds = () => {
-      document
-        .querySelectorAll("iframe[src],script[src],img[src]")
-        .forEach((el) => {
-          const src = el.getAttribute("src");
-          if (src && isAd(src)) el.remove();
-        });
-    };
-    const stripInterval = setInterval(stripAds, 1000);
-
-    return () => {
-      window.open = origOpen;
-      document.removeEventListener("click", onClickCapture, true);
-      clearInterval(stripInterval);
-    };
+    overlay.addEventListener("click", onClick);
+    return () => overlay.removeEventListener("click", onClick);
   }, []);
-
-  // Videasy postMessage → progress + ended events.
-  useEffect(() => {
-    const onMsg = (ev: MessageEvent) => {
-      try {
-        const origin = ev.origin || "";
-        if (!/videasy\.net$/.test(new URL(origin).hostname)) return;
-        const data = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
-        if (!data || typeof data !== "object") return;
-        const type = (data.type || data.event || "").toString();
-        const t = Number(data.currentTime ?? data.time ?? data.progress ?? 0);
-        const d = Number(data.duration ?? 0);
-        if (type.includes("ended")) onProgress(t || d, d, true);
-        else if (type.includes("time") || type.includes("progress")) onProgress(t, d, false);
-        else if (type.includes("next") && onNextEpisode) onNextEpisode();
-      } catch {
-        /* ignore */
-      }
-    };
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
-  }, [onProgress, onNextEpisode]);
 
   return (
     <div className="relative h-full w-full bg-black">
-      <iframe src={source.url} title={media.title} className="h-full w-full border-0" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowFullScreen referrerPolicy="no-referrer" />
+      <iframe
+        ref={iframeRef}
+        id="target-iframe"
+        src={source.url}
+        title={media.title}
+        className="h-full w-full border-0"
+        sandbox="allow-scripts allow-same-origin allow-popups"
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+        allowFullScreen
+        referrerPolicy="no-referrer"
+      />
+      <div
+        id="overlay"
+        ref={overlayRef}
+        className="absolute inset-0"
+      />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <button onClick={onClose} className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full bg-black/60 text-white ring-1 ring-white/20 backdrop-blur-md hover:bg-black/80 transition" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
+        <button onClick={onSelectSource} className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur-md hover:bg-black/80 transition"><span className="h-1.5 w-1.5 rounded-full bg-white" />{source.name}<span className="text-white/40">·</span>{source.badge}</button>
       </div>
     </div>
+  );
+}
+
+function SourcePicker({ sources, active, onPick, onClose }: { sources: ResolvedSource[]; active: string | null; onPick: (id: string) => void; onClose: () => void; }) {
+  const direct = sources.filter((s) => s.kind === "direct");
+  const embeds = sources.filter((s) => s.kind === "embed");
+  return (
+    <div className="absolute inset-0 z-30 grid place-items-center bg-black/75 backdrop-blur-md" onClick={onClose}>
+      <div className="w-[min(92vw,500px)] rounded-2xl border border-white/10 bg-black/95 p-4 shadow-2xl backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <div><p className="text-sm font-bold text-white">Select source</p><p className="text-[10px] text-white/40">{sources.length} sources available</p></div>
+          <button onClick={onClose} className="rounded-full p-1.5 text-white/40 hover:bg-white/10 hover:text-white transition"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="max-h-[65vh] space-y-3 overflow-y-auto">
+          {direct.length > 0 && (
+            <div>
+              <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-widest text-white/50">Direct HLS</p>
+              <ul className="space-y-1">
+                {direct.map((s) => { const ds = s as DirectSource; const topQ = ds.qualities[0]; return (
+                  <li key={s.id}><SourceButton source={s} active={active === s.id} onPick={onPick}>{topQ && <span className="ml-auto rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">{topQ.label} · {topQ.format.toUpperCase()}</span>}</SourceButton></li>
+                ); })}
+              </ul>
+            </div>
+          )}
+          {embeds.length > 0 && (
+            <div>
+              <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-widest text-white/30">Embed Sources</p>
+              <ul className="space-y-1">{embeds.map((s) => (<li key={s.id}><SourceButton source={s} active={active === s.id} onPick={onPick} /></li>))}</ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SourceButton({ source, active, onPick, children }: { source: ResolvedSource; active: boolean; onPick: (id: string) => void; children?: React.ReactNode; }) {
+  return (
+    <button onClick={() => onPick(source.id)} className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${active ? "border-white/40 bg-white/10" : "border-white/8 bg-white/4 hover:bg-white/8"}`}>
+      <div className={`h-2 w-2 rounded-full flex-shrink-0 ${active ? "bg-white" : "bg-white/20"}`} />
+      <div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white">{source.name}</p><p className="text-[10px] uppercase tracking-widest text-white/40">{source.kind === "direct" ? "Direct HLS" : "Embed"} · {source.badge}</p></div>
+      {children}
+    </button>
   );
 }
