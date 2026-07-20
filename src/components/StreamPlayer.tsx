@@ -108,7 +108,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             onSelectSource={() => setPickerOpen(true)}
             onNextEpisode={hasNext ? handleNextEpisode : undefined} hasNext={hasNext} autoplay autoNext />
         )}
-        {active?.kind === "embed" && <EmbedFrame source={active} media={media} onClose={onClose} onSelectSource={() => setPickerOpen(true)} />}
+        {active?.kind === "embed" && <EmbedFrame source={active} media={media} season={season} episode={episode} onProgress={onProgress} onClose={onClose} onSelectSource={() => setPickerOpen(true)} />}
         {pickerOpen && sources && <SourcePicker sources={sources} active={activeId} onPick={(id) => { setActiveId(id); setPickerOpen(false); }} onClose={() => setPickerOpen(false)} />}
       </div>
     </div>
@@ -164,24 +164,38 @@ function ErrorOverlay({ error, onClose, onRetry }: { error: string; onClose: () 
   );
 }
 
-function EmbedFrame({ source, media, onClose, onSelectSource }: { source: Extract<ResolvedSource, { kind: "embed" }>; media: Media; onClose: () => void; onSelectSource: () => void; }) {
+function EmbedFrame({ source, media, season, episode, onProgress, onClose, onSelectSource }: { source: Extract<ResolvedSource, { kind: "embed" }>; media: Media; season?: number; episode?: number; onProgress: (t: number, d: number, ended: boolean) => void; onClose: () => void; onSelectSource: () => void; }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [backVisible, setBackVisible] = useState(true);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cinezo emits WATCH_PROGRESS postMessages with currentTime/duration/eventType.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== "https://player.cinezo.live") return;
+      const payload = event.data;
+      if (!payload || payload.type !== "WATCH_PROGRESS") return;
+      const data = payload.data;
+      if (!data) return;
+      const currentTime = Number(data.currentTime) || 0;
+      const duration = Number(data.duration) || 0;
+      if (duration > 0) onProgress(currentTime, duration, data.eventType === "ended");
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [onProgress]);
+
+  // Sandbox-toggle ad-block: strip allow-popups for a split second on click so
+  // the embed's popup-firing handlers run sandboxed, then restore it.
   useEffect(() => {
     const overlay = overlayRef.current;
     const iframe = iframeRef.current;
     if (!overlay || !iframe) return;
 
     const onClick = (event: MouseEvent) => {
-      // 1. Temporarily strip the allow-popups permission so the embed's
-      //    popup-firing click handlers run sandboxed (no popups can escape).
       iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
-      // 2. Hide the overlay for a split second so the click passes through
-      //    to the third-party page underneath.
       overlay.style.pointerEvents = "none";
-      // 3. Simulate the exact user click at the precise coordinates inside
-      //    the iframe so playback controls register the interaction.
       const clickElement = document.elementFromPoint(event.clientX, event.clientY);
       if (clickElement) {
         clickElement.dispatchEvent(new MouseEvent("click", {
@@ -190,8 +204,6 @@ function EmbedFrame({ source, media, onClose, onSelectSource }: { source: Extrac
           bubbles: true,
         }));
       }
-      // 4. Instantly restore permissions and overlay targeting so the
-      //    embed's sandbox-detection (if any) fails to observe the gap.
       setTimeout(() => {
         iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups");
         overlay.style.pointerEvents = "auto";
@@ -202,8 +214,26 @@ function EmbedFrame({ source, media, onClose, onSelectSource }: { source: Extrac
     return () => overlay.removeEventListener("click", onClick);
   }, []);
 
+  // Auto-hide back tab like a normal back button: show on pointer move / scroll,
+  // hide after 2.5s of inactivity.
+  const revealBack = useCallback(() => {
+    setBackVisible(true);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setBackVisible(false), 2500);
+  }, []);
+
+  useEffect(() => {
+    revealBack();
+    return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
+  }, [revealBack]);
+
   return (
-    <div className="relative h-full w-full bg-black">
+    <div
+      className="relative h-full w-full bg-black"
+      onPointerMove={revealBack}
+      onPointerDown={revealBack}
+      onWheel={revealBack}
+    >
       <iframe
         ref={iframeRef}
         id="target-iframe"
@@ -220,8 +250,16 @@ function EmbedFrame({ source, media, onClose, onSelectSource }: { source: Extrac
         ref={overlayRef}
         className="absolute inset-0"
       />
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
-        <button onClick={onClose} className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full bg-black/60 text-white ring-1 ring-white/20 backdrop-blur-md hover:bg-black/80 transition" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
+      {/* Left-side back tab — slides away when hidden, like a normal back btn */}
+      <button
+        onClick={onClose}
+        aria-label="Back"
+        className={`pointer-events-auto fixed left-0 top-1/2 z-40 flex -translate-y-1/2 items-center gap-1.5 rounded-r-2xl bg-black/70 px-2.5 py-4 text-white ring-1 ring-white/15 backdrop-blur-md transition-all duration-300 ease-out hover:bg-black/90 hover:px-3.5 ${backVisible ? "translate-x-0 opacity-100" : "-translate-x-[calc(100%)] opacity-0"}`}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      {/* Source picker pill — top-right, stays for manual selection */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-end p-3">
         <button onClick={onSelectSource} className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur-md hover:bg-black/80 transition"><span className="h-1.5 w-1.5 rounded-full bg-white" />{source.name}<span className="text-white/40">·</span>{source.badge}</button>
       </div>
     </div>

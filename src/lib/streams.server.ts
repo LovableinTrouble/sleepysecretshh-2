@@ -49,10 +49,30 @@ function mkEmbed(id: string, name: string, badge: string, url: string): EmbedSou
 
 function buildEmbeds(i: ResolveInput): EmbedSource[] {
   const isShow = i.type !== "movie";
-  const tv = (base: string) => `${base}/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}`;
+  const season = i.season ?? 1;
+  const episode = i.episode ?? 1;
+  const path = isShow
+    ? `tv/${i.tmdbId}/${season}/${episode}`
+    : `movie/${i.tmdbId}`;
+  // Cinezo embed with the Sleepy customization (gold primary, near-black secondary).
+  const params = new URLSearchParams({
+    autoplay: "true",
+    poster: "true",
+    chromecast: "true",
+    servericon: "true",
+    setting: "true",
+    pip: "true",
+    font: "Roboto",
+    fontcolor: "6f63ff",
+    fontsize: "20",
+    opacity: "0.5",
+    primarycolor: "e8b86d",
+    secondarycolor: "0a0a12",
+    iconcolor: "ffffff",
+  });
   const sources: EmbedSource[] = [];
-  sources.push(mkEmbed("quasar2", "Videasy", "Embed",
-    isShow ? `https://player.videasy.net/tv/${tv("")}?color=6366f1&autoPlay=true` : `https://player.videasy.net/movie/${i.tmdbId}?color=6366f1&autoPlay=true`));
+  sources.push(mkEmbed("cinezo", "Cinezo", "Embed",
+    `https://player.cinezo.live/embed/${path}?${params.toString()}`));
   return sources;
 }
 
