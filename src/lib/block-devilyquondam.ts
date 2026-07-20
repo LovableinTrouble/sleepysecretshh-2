@@ -16,7 +16,31 @@ if (typeof window !== "undefined") {
     "devilyquondam.cyou",
     "jivingafrithm.cyou",
     "guarriancha.qpon",
+    // extra popup networks commonly rotated in by these ad providers
+    "qpon",
+    "cyou",
   ];
+
+  // Domains we consider ALLOWED for popups triggered from our page.
+  // Anything else opened via window.open gets blocked.
+  const POPUP_ALLOWLIST = [
+    location.hostname,
+    "lovable.app",
+    "lovable.dev",
+    "xullys.xyz",
+    "youtube.com",
+    "youtu.be",
+    "github.com",
+  ];
+
+  const isAllowedPopup = (url: string): boolean => {
+    try {
+      const host = new URL(url, location.href).hostname;
+      return POPUP_ALLOWLIST.some((d) => host === d || host.endsWith("." + d));
+    } catch {
+      return false;
+    }
+  };
 
   const isBlocked = (input: unknown): boolean => {
     try {
@@ -46,11 +70,43 @@ if (typeof window !== "undefined") {
     target?: string,
     features?: string,
   ): Window | null {
-    if (url && isBlocked(url)) {
-      return null;
-    }
+    // Block known ad hosts explicitly.
+    if (url && isBlocked(url)) return null;
+    // Deny-by-default: only allow window.open to our allowlist. The player
+    // iframe never needs to spawn top-level popups; every ad network does.
+    if (url && !isAllowedPopup(String(url))) return null;
+    if (!url) return null;
     return origOpen.call(window, url as string, target, features);
   } as typeof window.open;
+
+  // Some ads fire popups via a detached <a target="_blank"> click.
+  // Neuter <a> clicks that leave our allowlist.
+  document.addEventListener(
+    "click",
+    (e) => {
+      const t = e.target as HTMLElement | null;
+      const a = t?.closest?.("a") as HTMLAnchorElement | null;
+      if (!a || !a.href) return;
+      if (isBlocked(a.href) || (a.target === "_blank" && !isAllowedPopup(a.href))) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true,
+  );
+
+  // Close orphan popups: if focus leaves the page right after a click that
+  // did NOT originate from a trusted UI element, refocus the window (this
+  // closes some popunders that rely on the parent losing focus).
+  window.addEventListener("blur", () => {
+    setTimeout(() => {
+      try {
+        window.focus();
+      } catch {
+        /* no-op */
+      }
+    }, 0);
+  });
 
   // ─── 2. Block navigation to ad domains ───────────────────────
   // If the iframe tries to navigate the top frame to an ad URL
