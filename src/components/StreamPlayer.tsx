@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, X, RefreshCw } from "lucide-react";
+import { ChevronLeft, RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 import type { Media } from "@/lib/catalog";
@@ -46,7 +46,6 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadMsg, setLoadMsg] = useState("Scanning sources…");
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const msgTimerRef = useRef<number | null>(null);
   useEffect(() => {
@@ -105,11 +104,10 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
         {active?.kind === "direct" && (
           <CustomPlayer source={active} title={media.title} season={season} episode={episode}
             startAt={startAt} onProgress={onProgress} onClose={onClose}
-            onSelectSource={() => setPickerOpen(true)}
+            onSelectSource={() => {}}
             onNextEpisode={hasNext ? handleNextEpisode : undefined} hasNext={hasNext} autoplay autoNext />
         )}
-        {active?.kind === "embed" && <EmbedFrame source={active} media={media} season={season} episode={episode} onProgress={onProgress} onClose={onClose} onSelectSource={() => setPickerOpen(true)} />}
-        {pickerOpen && sources && <SourcePicker sources={sources} active={activeId} onPick={(id) => { setActiveId(id); setPickerOpen(false); }} onClose={() => setPickerOpen(false)} />}
+        {active?.kind === "embed" && <EmbedFrame source={active} media={media} onProgress={onProgress} onClose={onClose} />}
       </div>
     </div>
   );
