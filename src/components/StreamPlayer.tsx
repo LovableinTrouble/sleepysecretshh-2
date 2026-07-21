@@ -6,7 +6,7 @@ import { useNavigate } from "@tanstack/react-router";
 
 import type { Media } from "@/lib/catalog";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-import { resolveStreams, type ResolvedSource, type DirectSource } from "@/lib/streams";
+import { resolveStreams, type ResolvedSource } from "@/lib/streams";
 import { CustomPlayer } from "./CustomPlayer";
 
 interface Props {
