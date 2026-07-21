@@ -170,6 +170,14 @@ function AppShell() {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
   }, [pathname]);
 
+  // Block right-click context menu across the whole site.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onCtx = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener("contextmenu", onCtx);
+    return () => document.removeEventListener("contextmenu", onCtx);
+  }, []);
+
   // Global keyboard shortcuts: "/" focuses search, "g h" home
   useEffect(() => {
     if (typeof window === "undefined") return;
