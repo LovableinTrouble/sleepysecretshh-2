@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-const UA =
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36";
+const BASE = "https://trendimovies.com";
+const HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  Referer: "https://trendimovies.com/",
+};
 
 interface Input {
   tmdbId: string;
@@ -13,205 +19,91 @@ interface Input {
   episode?: number;
 }
 
-function inferType(url: string, format?: string): DownloadItem["type"] {
-  const fmt = (format || "").toUpperCase();
-  if (fmt === "MP4") return "mp4";
-  if (fmt === "MKV") return "mkv";
-  if (fmt === "MOV") return "mp4";
-  const lower = url.toLowerCase();
-  if (lower.includes(".mp4")) return "mp4";
-  if (lower.includes(".mkv")) return "mkv";
-  if (lower.includes(".mov")) return "mp4";
-  if (lower.includes(".m3u8")) return "hls";
-  return "file";
+interface RawLink {
+  url: string;
+  quality: string;
+  size: string | null;
+  type: "mkv";
+  active: boolean;
 }
 
-function fileNameFrom(title: string, quality: string, type: DownloadItem["type"]): string {
-  const ext = type === "mkv" ? "mkv" : type === "hls" ? "m3u8" : "mp4";
+async function fetchPage(path: string): Promise<string> {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: HEADERS,
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!res.ok) throw new Error(`trendimovies ${res.status}`);
+  return res.text();
+}
+
+function unwrap(v: any): any {
+  if (Array.isArray(v) && v.length === 2 && (v[0] === 0 || v[0] === 1)) return v[1];
+  return v;
+}
+
+function extractLinks(propsJson: string): RawLink[] {
+  try {
+    const parsed = JSON.parse(propsJson);
+    const rawLinks = parsed?.links?.[1];
+    if (!Array.isArray(rawLinks)) return [];
+    return rawLinks
+      .map((item: any) => item?.[1])
+      .filter((l: any) => l && typeof l === "object")
+      .map((l: any) => ({
+        url: unwrap(l.url),
+        quality: unwrap(l.quality) || "HD",
+        size: unwrap(l.file_size) || null,
+        type: "mkv" as const,
+        active: unwrap(l.is_active) !== false,
+      }))
+      .filter((l: RawLink) => l.url && l.active);
+  } catch {
+    return [];
+  }
+}
+
+function parseLinks(html: string): RawLink[] {
+  const m =
+    html.match(/DownloadSection[^>]*props="([^"]+)"/s) ||
+    html.match(/props="([^"]+)"[^>]*ssr[^>]*client="load"[^>]*opts="[^"]*DownloadSection/s);
+  if (!m) {
+    if (!html.match(/&quot;DownloadSection&quot;/)) return [];
+    const propsMatch = html.match(/props="({[^"]*DownloadSection[^"]*})"/s);
+    if (!propsMatch) return [];
+    return extractLinks(propsMatch[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
+  }
+  return extractLinks(m[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
+}
+
+function safeFileName(title: string, quality: string): string {
   const safe = title.replace(/[^a-zA-Z0-9]+/g, " ").trim().replace(/\s+/g, "_");
-  return `${safe}_${quality}.${ext}`;
+  return `${safe}_${quality}.mkv`;
 }
-
-function toItem(
-  url: string,
-  source: string,
-  title: string,
-  quality: string,
-  size?: string,
-  format?: string,
-): DownloadItem | null {
-  if (!url) return null;
-  const type = inferType(url, format);
-  return {
-    id: `${source}-${url.slice(0, 60)}`,
-    url,
-    source,
-    quality: quality || "Auto",
-    type,
-    size: size || undefined,
-    fileName: fileNameFrom(title, quality, type),
-  };
-}
-
-/* ============================================================
- * Vyla provider — uses VYLA_API_KEY env var, falls back to
- * the public key "public_api_key" which has access to the
- * /api/downloads/* endpoints (standard tier required for
- * downloads, public key may return 403 — in that case we
- * return null gracefully).
- * API docs: https://github.com/vyla-entertainment/docs
- * ============================================================ */
-
-async function providerVyla(input: Input): Promise<DownloadItem[] | null> {
-  let key: string | undefined;
-  try {
-    key = process.env.VYLA_API_KEY?.trim();
-  } catch {
-    /* no-op */
-  }
-  if (!key) key = "public_api_key";
-
-  const path =
-    input.type === "show"
-      ? `/api/downloads/tv/${input.tmdbId}/${input.season ?? 1}/${input.episode ?? 1}`
-      : `/api/downloads/movie/${input.tmdbId}`;
-
-  try {
-    const res = await fetch(`https://api.vyla.cc${path}`, {
-      headers: {
-        Authorization: `Bearer ${key}`,
-        Accept: "application/json",
-        "User-Agent": UA,
-      },
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const raw = Array.isArray(data?.downloads) ? data.downloads : [];
-    const downloads = raw
-      .map((d: any) =>
-        toItem(
-          String(d?.url || ""),
-          "Vyla",
-          input.title,
-          String(d?.quality || "Auto"),
-          d?.size ? String(d.size) : undefined,
-          d?.format ? String(d.format) : d?.type ? String(d.type) : undefined,
-        ),
-      )
-      .filter(Boolean) as DownloadItem[];
-    return downloads.length ? downloads : null;
-  } catch {
-    return null;
-  }
-}
-
-/* ============================================================
- * AutoEmbed provider — fetches direct stream/download sources
- * from autoembed.cc API. Returns mp4/m3u8 URLs when available.
- * ============================================================ */
-
-async function providerAutoEmbed(input: Input): Promise<DownloadItem[] | null> {
-  const bases = ["https://tom.autoembed.cc", "https://autoembed.cc"];
-  const path =
-    input.type === "show"
-      ? `/api/getVideoSource?type=tv&id=${input.tmdbId}/${input.season ?? 1}/${input.episode ?? 1}`
-      : `/api/getVideoSource?type=movie&id=${input.tmdbId}`;
-
-  for (const base of bases) {
-    try {
-      const res = await fetch(`${base}${path}`, {
-        headers: { Accept: "application/json", "User-Agent": UA },
-        signal: AbortSignal.timeout(10000),
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      const sources: any[] = Array.isArray(data?.videoSource)
-        ? data.videoSource
-        : Array.isArray(data?.sources)
-          ? data.sources
-          : data?.url
-            ? [{ url: data.url, quality: data.quality }]
-            : [];
-      const downloads = sources
-        .map((s: any) =>
-          toItem(
-            String(s?.url || ""),
-            "AutoEmbed",
-            input.title,
-            String(s?.quality || s?.label || "Auto"),
-            s?.size ? String(s.size) : undefined,
-            s?.format ? String(s.format) : undefined,
-          ),
-        )
-        .filter(Boolean) as DownloadItem[];
-      if (downloads.length) return downloads;
-    } catch {
-      /* try next base */
-    }
-  }
-  return null;
-}
-
-/* ============================================================
- * RgShows provider — fetches direct download links from
- * api.rgshows.me by TMDB ID.
- * ============================================================ */
-
-async function providerRgShows(input: Input): Promise<DownloadItem[] | null> {
-  const url =
-    input.type === "show"
-      ? `https://api.rgshows.me/main/tv/${input.tmdbId}/${input.season ?? 1}/${input.episode ?? 1}`
-      : `https://api.rgshows.me/main/movie/${input.tmdbId}`;
-  try {
-    const res = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": UA },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const raw = Array.isArray(data?.downloads) ? data.downloads : Array.isArray(data) ? data : [];
-    const downloads = raw
-      .map((d: any) =>
-        toItem(
-          String(d?.url || ""),
-          "RgShows",
-          input.title,
-          String(d?.quality || "Auto"),
-          d?.size ? String(d.size) : undefined,
-          d?.format ? String(d.format) : undefined,
-        ),
-      )
-      .filter(Boolean) as DownloadItem[];
-    return downloads.length ? downloads : null;
-  } catch {
-    return null;
-  }
-}
-
-/* ============================================================
- * Aggregator — runs all providers in parallel, dedupes by URL.
- * ============================================================ */
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
-  const providers = [providerVyla, providerAutoEmbed, providerRgShows];
-  const results = await Promise.allSettled(providers.map((p) => p(input)));
-
-  const seen = new Set<string>();
-  const downloads: DownloadItem[] = [];
-
-  for (const result of results) {
-    if (result.status !== "fulfilled" || !result.value) continue;
-    for (const item of result.value) {
-      if (seen.has(item.url)) continue;
-      seen.add(item.url);
-      downloads.push(item);
-    }
+  try {
+    const path =
+      input.type === "show"
+        ? `/tv/${input.tmdbId}/season/${input.season ?? 1}/episode/${input.episode ?? 1}`
+        : `/movie/${input.tmdbId}`;
+    const html = await fetchPage(path);
+    const links = parseLinks(html);
+    const downloads: DownloadItem[] = links.map((l, i) => ({
+      id: `trendi-${i}-${l.url.slice(0, 40)}`,
+      url: l.url,
+      source: "TrendiMovies",
+      quality: l.quality,
+      type: "mkv",
+      size: l.size || undefined,
+      fileName: safeFileName(input.title, l.quality),
+    }));
+    return { ok: true, downloads, subtitles: [] };
+  } catch (e) {
+    return {
+      ok: true,
+      downloads: [],
+      subtitles: [],
+      error: (e as Error)?.message || "Failed to fetch downloads",
+    };
   }
-
-  return {
-    ok: true,
-    downloads,
-    subtitles: [],
-  };
 }
