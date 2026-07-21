@@ -52,28 +52,18 @@ function buildEmbeds(i: ResolveInput): EmbedSource[] {
   const season = i.season ?? 1;
   const episode = i.episode ?? 1;
   const path = isShow
-    ? `tv/${i.tmdbId}/${season}/${episode}`
-    : `movie/${i.tmdbId}`;
-  // Cinezo embed with the Sleepy customization (gold primary, near-black secondary).
-  const params = new URLSearchParams({
-    autoplay: "true",
-    poster: "true",
-    chromecast: "true",
-    servericon: "true",
-    setting: "true",
-    pip: "true",
-    font: "Roboto",
-    fontcolor: "6f63ff",
-    fontsize: "20",
-    opacity: "0.5",
-    primarycolor: "e8b86d",
-    secondarycolor: "0a0a12",
-    iconcolor: "ffffff",
-  });
-  const sources: EmbedSource[] = [];
-  sources.push(mkEmbed("cinezo", "Cinezo", "Embed",
-    `https://player.cinezo.live/embed/${path}?${params.toString()}`));
-  return sources;
+    ? `1/tv/${i.tmdbId}/${season}/${episode}`
+    : `1/movie/${i.tmdbId}`;
+  // Viduki API 1 (multi-server). Sleepy gold accent.
+  const params = new URLSearchParams({ color: "e8b86d" });
+  return [
+    mkEmbed(
+      "viduki",
+      "Viduki",
+      "Embed",
+      `https://www.viduki.net/${path}?${params.toString()}`,
+    ),
+  ];
 }
 
 export function buildEmbedsOnly(input: ResolveInput): ResolveResult {
