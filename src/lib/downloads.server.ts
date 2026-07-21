@@ -63,16 +63,16 @@ function extractLinks(propsJson: string): RawLink[] {
 }
 
 function parseLinks(html: string): RawLink[] {
-  const m =
-    html.match(/DownloadSection[^>]*props="([^"]+)"/s) ||
-    html.match(/props="([^"]+)"[^>]*ssr[^>]*client="load"[^>]*opts="[^"]*DownloadSection/s);
-  if (!m) {
-    if (!html.match(/&quot;DownloadSection&quot;/)) return [];
-    const propsMatch = html.match(/props="({[^"]*DownloadSection[^"]*})"/s);
-    if (!propsMatch) return [];
-    return extractLinks(propsMatch[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
+  // Find any props="..." block that contains a links array with quality entries.
+  const re = /props="([^"]+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const raw = m[1];
+    if (raw.includes("&quot;links&quot;") && raw.includes("&quot;quality&quot;") && raw.includes("&quot;url&quot;")) {
+      return extractLinks(raw.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&"));
+    }
   }
-  return extractLinks(m[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
+  return [];
 }
 
 function safeFileName(title: string, quality: string): string {
@@ -84,7 +84,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
   try {
     const path =
       input.type === "show"
-        ? `/tv/${input.tmdbId}/season/${input.season ?? 1}/episode/${input.episode ?? 1}`
+        ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
         : `/movie/${input.tmdbId}`;
     const html = await fetchPage(path);
     const links = parseLinks(html);
