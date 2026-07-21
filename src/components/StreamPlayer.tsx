@@ -162,9 +162,8 @@ function ErrorOverlay({ error, onClose, onRetry }: { error: string; onClose: () 
   );
 }
 
-function EmbedFrame({ source, media, season, episode, onProgress, onClose, onSelectSource }: { source: Extract<ResolvedSource, { kind: "embed" }>; media: Media; season?: number; episode?: number; onProgress: (t: number, d: number, ended: boolean) => void; onClose: () => void; onSelectSource: () => void; }) {
+function EmbedFrame({ source, media, onProgress, onClose }: { source: Extract<ResolvedSource, { kind: "embed" }>; media: Media; onProgress: (t: number, d: number, ended: boolean) => void; onClose: () => void; }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [backVisible, setBackVisible] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -183,34 +182,6 @@ function EmbedFrame({ source, media, season, episode, onProgress, onClose, onSel
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [onProgress]);
-
-  // Sandbox-toggle ad-block: strip allow-popups for a split second on click so
-  // the embed's popup-firing handlers run sandboxed, then restore it.
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    const iframe = iframeRef.current;
-    if (!overlay || !iframe) return;
-
-    const onClick = (event: MouseEvent) => {
-      iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
-      overlay.style.pointerEvents = "none";
-      const clickElement = document.elementFromPoint(event.clientX, event.clientY);
-      if (clickElement) {
-        clickElement.dispatchEvent(new MouseEvent("click", {
-          clientX: event.clientX,
-          clientY: event.clientY,
-          bubbles: true,
-        }));
-      }
-      setTimeout(() => {
-        iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups");
-        overlay.style.pointerEvents = "auto";
-      }, 10);
-    };
-
-    overlay.addEventListener("click", onClick);
-    return () => overlay.removeEventListener("click", onClick);
-  }, []);
 
   // Auto-hide back tab like a normal back button: show on pointer move / scroll,
   // hide after 2.5s of inactivity.
@@ -238,15 +209,9 @@ function EmbedFrame({ source, media, season, episode, onProgress, onClose, onSel
         src={source.url}
         title={media.title}
         className="h-full w-full border-0"
-        sandbox="allow-scripts allow-same-origin allow-popups"
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
         referrerPolicy="no-referrer"
-      />
-      <div
-        id="overlay"
-        ref={overlayRef}
-        className="absolute inset-0"
       />
       {/* Left-side back tab — slides away when hidden, like a normal back btn */}
       <button
@@ -256,53 +221,7 @@ function EmbedFrame({ source, media, season, episode, onProgress, onClose, onSel
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
-      {/* Source picker pill — top-right, stays for manual selection */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-end p-3">
-        <button onClick={onSelectSource} className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur-md hover:bg-black/80 transition"><span className="h-1.5 w-1.5 rounded-full bg-white" />{source.name}<span className="text-white/40">·</span>{source.badge}</button>
-      </div>
     </div>
   );
 }
 
-function SourcePicker({ sources, active, onPick, onClose }: { sources: ResolvedSource[]; active: string | null; onPick: (id: string) => void; onClose: () => void; }) {
-  const direct = sources.filter((s) => s.kind === "direct");
-  const embeds = sources.filter((s) => s.kind === "embed");
-  return (
-    <div className="absolute inset-0 z-30 grid place-items-center bg-black/75 backdrop-blur-md" onClick={onClose}>
-      <div className="w-[min(92vw,500px)] rounded-2xl border border-white/10 bg-black/95 p-4 shadow-2xl backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between">
-          <div><p className="text-sm font-bold text-white">Select source</p><p className="text-[10px] text-white/40">{sources.length} sources available</p></div>
-          <button onClick={onClose} className="rounded-full p-1.5 text-white/40 hover:bg-white/10 hover:text-white transition"><X className="h-4 w-4" /></button>
-        </div>
-        <div className="max-h-[65vh] space-y-3 overflow-y-auto">
-          {direct.length > 0 && (
-            <div>
-              <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-widest text-white/50">Direct HLS</p>
-              <ul className="space-y-1">
-                {direct.map((s) => { const ds = s as DirectSource; const topQ = ds.qualities[0]; return (
-                  <li key={s.id}><SourceButton source={s} active={active === s.id} onPick={onPick}>{topQ && <span className="ml-auto rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">{topQ.label} · {topQ.format.toUpperCase()}</span>}</SourceButton></li>
-                ); })}
-              </ul>
-            </div>
-          )}
-          {embeds.length > 0 && (
-            <div>
-              <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-widest text-white/30">Embed Sources</p>
-              <ul className="space-y-1">{embeds.map((s) => (<li key={s.id}><SourceButton source={s} active={active === s.id} onPick={onPick} /></li>))}</ul>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SourceButton({ source, active, onPick, children }: { source: ResolvedSource; active: boolean; onPick: (id: string) => void; children?: React.ReactNode; }) {
-  return (
-    <button onClick={() => onPick(source.id)} className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${active ? "border-white/40 bg-white/10" : "border-white/8 bg-white/4 hover:bg-white/8"}`}>
-      <div className={`h-2 w-2 rounded-full flex-shrink-0 ${active ? "bg-white" : "bg-white/20"}`} />
-      <div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white">{source.name}</p><p className="text-[10px] uppercase tracking-widest text-white/40">{source.kind === "direct" ? "Direct HLS" : "Embed"} · {source.badge}</p></div>
-      {children}
-    </button>
-  );
-}
