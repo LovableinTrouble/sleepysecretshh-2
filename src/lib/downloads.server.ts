@@ -93,7 +93,7 @@ function parseMovieLinks(html: string): RawLink[] {
   // Movies embed a "links" array directly in the props.
   const parsed = findPropsBlock(html, (d) => d.includes('"links"') && d.includes('"quality"') && d.includes('"url"'));
   if (!parsed?.links) return [];
-  return extractLinks(parsed.links);
+  return extractLinks(unwrap(parsed.links));
 }
 
 function parseTvLinks(html: string, season: number, episode: number): RawLink[] {
@@ -101,7 +101,7 @@ function parseTvLinks(html: string, season: number, episode: number): RawLink[] 
   const parsed = findPropsBlock(html, (d) => d.includes('"episodesBySeason"') && d.includes('"downloadsByEpisode"'));
   if (!parsed) return [];
 
-  const bySeason = parsed.episodesBySeason;
+  const bySeason = unwrap(parsed.episodesBySeason);
   if (!bySeason || typeof bySeason !== "object") return [];
   const seasonKey = String(season);
   const eps = unwrap(bySeason[seasonKey]);
@@ -116,7 +116,7 @@ function parseTvLinks(html: string, season: number, episode: number): RawLink[] 
   const episodeId = unwrap(ep.id);
   if (episodeId == null) return [];
 
-  const dlByEp = parsed.downloadsByEpisode;
+  const dlByEp = unwrap(parsed.downloadsByEpisode);
   if (!dlByEp || typeof dlByEp !== "object") return [];
   const rawLinks = unwrap(dlByEp[String(episodeId)]);
   return extractLinks(rawLinks);
