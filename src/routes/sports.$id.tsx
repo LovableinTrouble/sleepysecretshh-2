@@ -184,6 +184,7 @@ function SportsMatchPage() {
             allowFullScreen
             loading="eager"
             referrerPolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-presentation"
             className="absolute inset-0 h-full w-full border-0 bg-black"
           />
         )}

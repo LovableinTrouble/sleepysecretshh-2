@@ -227,6 +227,12 @@ function EmbedFrame({ source, media, onProgress, onClose }: { source: Extract<Re
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
         referrerPolicy="no-referrer"
+        // Ad-block sandbox: the player needs scripts (to play), same-origin
+        // (CDN cookies + postMessage progress, whose origin we verify against
+        // viduki.net), and presentation (fullscreen/PiP). Everything else is
+        // locked down — popups, popunders, top-level redirect ads, forms, and
+        // modal dialogs are all blocked.
+        sandbox="allow-scripts allow-same-origin allow-presentation"
       />
       {/* Left-side back tab — slides away when hidden, like a normal back btn */}
       <button
