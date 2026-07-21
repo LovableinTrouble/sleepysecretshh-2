@@ -54,9 +54,9 @@ function buildEmbeds(i: ResolveInput): EmbedSource[] {
   const path = isShow
     ? `1/tv/${i.tmdbId}/${season}/${episode}`
     : `1/movie/${i.tmdbId}`;
-  // Viduki API 1 (multi-server). Vivid amber accent — more visible than the
-  // muted gold while staying in the Sleepy warm palette.
-  const params = new URLSearchParams({ color: "f59e0b" });
+  // Viduki API 1 (multi-server). Purple accent passed via the ?color= hex
+  // param so the embedded player's UI chrome matches the app theme.
+  const params = new URLSearchParams({ color: "8b5cf6" });
   return [
     mkEmbed(
       "viduki",
