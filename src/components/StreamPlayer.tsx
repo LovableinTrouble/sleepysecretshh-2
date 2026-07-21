@@ -167,17 +167,32 @@ function EmbedFrame({ source, media, onProgress, onClose }: { source: Extract<Re
   const [backVisible, setBackVisible] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cinezo emits WATCH_PROGRESS postMessages with currentTime/duration/eventType.
+  // Viduki posts MEDIA_DATA progress messages and viduki:all-servers-failed events.
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.origin !== "https://player.cinezo.live") return;
+      if (event.origin !== "https://www.viduki.net" && event.origin !== "https://viduki.net") return;
       const payload = event.data;
-      if (!payload || payload.type !== "WATCH_PROGRESS") return;
-      const data = payload.data;
-      if (!data) return;
-      const currentTime = Number(data.currentTime) || 0;
-      const duration = Number(data.duration) || 0;
-      if (duration > 0) onProgress(currentTime, duration, data.eventType === "ended");
+      if (!payload || typeof payload !== "object") return;
+      if (payload.type === "MEDIA_DATA" && payload.data) {
+        try {
+          const store = payload.data as Record<string, any>;
+          const entry = Object.values(store)[0] as any;
+          if (!entry) return;
+          if (entry.type === "tv" && entry.show_progress) {
+            const key = `s${entry.last_season_watched}e${entry.last_episode_watched}`;
+            const ep = entry.show_progress[key];
+            if (ep?.progress) {
+              const w = Number(ep.progress.watched) || 0;
+              const d = Number(ep.progress.duration) || 0;
+              if (d > 0) onProgress(w, d, false);
+            }
+          } else if (entry.progress) {
+            const w = Number(entry.progress.watched) || 0;
+            const d = Number(entry.progress.duration) || 0;
+            if (d > 0) onProgress(w, d, false);
+          }
+        } catch { /* ignore */ }
+      }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
