@@ -12,13 +12,12 @@ export interface Source {
 
 export type SourceKey = "prionix";
 
-/** Build a Viduki API 1 (multi-server) URL. */
-function buildViduki(m: Media, season?: number, episode?: number): string {
+/** Build a VidGod embed URL. */
+function buildVidGod(m: Media, season?: number, episode?: number): string {
   const isShow = m.type !== "movie" && season != null && episode != null;
-  const base = isShow
-    ? `https://www.viduki.net/1/tv/${m.id}/${season}/${episode}`
-    : `https://www.viduki.net/1/movie/${m.id}`;
-  return `${base}?color=e8b86d`;
+  return isShow
+    ? `https://vidgod.site/tv/${m.id}/${season}/${episode}`
+    : `https://vidgod.site/movie/${m.id}`;
 }
 
 /**
@@ -47,14 +46,14 @@ function buildCineSrc(m: Media, season?: number, episode?: number, febbox?: stri
 
 const PRIONIX: Source = {
   id: "prionix",
-  name: "Viduki",
+  name: "VidGod",
   badge: "Embed",
   kind: "embed",
   tier: "primary",
   build: (m, season, episode, febbox) => {
     return febbox
       ? buildCineSrc(m, season, episode, febbox)
-      : buildViduki(m, season, episode);
+      : buildVidGod(m, season, episode);
   },
 };
 
@@ -69,5 +68,5 @@ export function sourceForKey(_key: SourceKey): Source {
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
-  prionix: "Viduki",
+  prionix: "VidGod",
 };
