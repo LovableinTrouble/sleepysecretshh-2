@@ -164,10 +164,13 @@ function ErrorOverlay({ error, onClose, onRetry }: { error: string; onClose: () 
 
 function EmbedFrame({ source, media, onProgress, onClose }: { source: Extract<ResolvedSource, { kind: "embed" }>; media: Media; onProgress: (t: number, d: number, ended: boolean) => void; onClose: () => void; }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [backVisible, setBackVisible] = useState(true);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Progress messages (Viduki/VidGod post MEDIA_DATA style payloads).
+  // Viduki posts MEDIA_DATA progress messages and viduki:all-servers-failed events.
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      if (event.origin !== "https://www.viduki.net" && event.origin !== "https://viduki.net") return;
       const payload = event.data;
       if (!payload || typeof payload !== "object") return;
       if (payload.type === "MEDIA_DATA" && payload.data) {
@@ -195,8 +198,26 @@ function EmbedFrame({ source, media, onProgress, onClose }: { source: Extract<Re
     return () => window.removeEventListener("message", onMessage);
   }, [onProgress]);
 
+  // Auto-hide back tab like a normal back button: show on pointer move / scroll,
+  // hide after 2.5s of inactivity.
+  const revealBack = useCallback(() => {
+    setBackVisible(true);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setBackVisible(false), 2500);
+  }, []);
+
+  useEffect(() => {
+    revealBack();
+    return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
+  }, [revealBack]);
+
   return (
-    <div className="relative h-full w-full bg-black">
+    <div
+      className="relative h-full w-full bg-black"
+      onPointerMove={revealBack}
+      onPointerDown={revealBack}
+      onWheel={revealBack}
+    >
       <iframe
         ref={iframeRef}
         id="target-iframe"
@@ -206,14 +227,20 @@ function EmbedFrame({ source, media, onProgress, onClose }: { source: Extract<Re
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
         referrerPolicy="no-referrer"
+        // Ad-block sandbox: the player needs scripts (to play), same-origin
+        // (CDN cookies + postMessage progress, whose origin we verify against
+        // viduki.net), and presentation (fullscreen/PiP). Everything else is
+        // locked down — popups, popunders, top-level redirect ads, forms, and
+        // modal dialogs are all blocked.
         sandbox="allow-scripts allow-same-origin allow-presentation"
       />
+      {/* Left-side back tab — slides away when hidden, like a normal back btn */}
       <button
         onClick={onClose}
         aria-label="Back"
-        className="fixed left-4 top-4 z-40 flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-2 text-sm text-white ring-1 ring-white/15 backdrop-blur-md transition hover:bg-black/90"
+        className={`pointer-events-auto fixed left-0 top-1/2 z-40 flex -translate-y-1/2 items-center gap-1.5 rounded-r-2xl bg-black/70 px-2.5 py-4 text-white ring-1 ring-white/15 backdrop-blur-md transition-all duration-300 ease-out hover:bg-black/90 hover:px-3.5 ${backVisible ? "translate-x-0 opacity-100" : "-translate-x-[calc(100%)] opacity-0"}`}
       >
-        <ChevronLeft className="h-4 w-4" /> Back
+        <ChevronLeft className="h-4 w-4" />
       </button>
     </div>
   );
