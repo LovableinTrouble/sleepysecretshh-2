@@ -52,18 +52,10 @@ function buildEmbeds(i: ResolveInput): EmbedSource[] {
   const season = i.season ?? 1;
   const episode = i.episode ?? 1;
   const path = isShow
-    ? `1/tv/${i.tmdbId}/${season}/${episode}`
-    : `1/movie/${i.tmdbId}`;
-  // Viduki API 1 (multi-server). Purple accent passed via the ?color= hex
-  // param so the embedded player's UI chrome matches the app theme.
-  const params = new URLSearchParams({ color: "8b5cf6" });
+    ? `tv/${i.tmdbId}/${season}/${episode}`
+    : `movie/${i.tmdbId}`;
   return [
-    mkEmbed(
-      "viduki",
-      "Viduki",
-      "Embed",
-      `https://www.viduki.net/${path}?${params.toString()}`,
-    ),
+    mkEmbed("vidgod", "VidGod", "Embed", `https://vidgod.site/${path}`),
   ];
 }
 
