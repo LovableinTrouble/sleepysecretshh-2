@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // P-Stream provider pipeline. Runs client-side; all provider fetches are
 // routed through /api/public/pstream-proxy (simpleProxy-compatible).
-import {
-  makeProviders,
-  makeStandardFetcher,
-  makeSimpleProxyFetcher,
-  targets,
-  type RunOutput,
-  type ScrapeMedia,
-} from "@p-stream/providers";
+// NOTE: @p-stream/providers ships an incomplete .d.ts (points at a missing
+// ./src/index). Runtime exports work; we type-cast locally.
+// @ts-expect-error - upstream types file references a nonexistent path
+import * as PStream from "@p-stream/providers";
+const { makeProviders, makeStandardFetcher, makeSimpleProxyFetcher, targets } =
+  PStream as any;
+type RunOutput = any;
+type ScrapeMedia = any;
 
 function proxyUrl(): string {
   if (typeof window === "undefined") return "/api/public/pstream-proxy";
@@ -102,13 +102,13 @@ export async function scrapePStream(
   const providers = getProviders();
   const media = toScrapeMedia(input);
   try {
-    const output = await providers.runAll({
+    const output: RunOutput | null = await providers.runAll({
       media,
       events: {
-        init: (e) => onEvent?.({ type: "init", detail: `${e.sourceIds.length} sources` }),
-        start: (id) => onEvent?.({ type: "start", detail: id }),
-        update: (e) => onEvent?.({ type: "update", detail: `${e.id}:${e.status}` }),
-        discoverEmbeds: (e) =>
+        init: (e: any) => onEvent?.({ type: "init", detail: `${e.sourceIds.length} sources` }),
+        start: (id: any) => onEvent?.({ type: "start", detail: String(id) }),
+        update: (e: any) => onEvent?.({ type: "update", detail: `${e.id}:${e.status}` }),
+        discoverEmbeds: (e: any) =>
           onEvent?.({ type: "discoverEmbeds", detail: `${e.embeds.length} embeds` }),
       },
     });
