@@ -563,6 +563,16 @@ function SettingsPage() {
         </Section>
 
         <Section title="Appearance" desc="Customize how Sleepy looks and feels.">
+          <Row label="Primary player" hint="Which pipeline the watch page uses first.">
+            <select
+              value={s.primarySource}
+              onChange={(e) => set({ primarySource: e.target.value as "viduki" | "pstream" })}
+              className="rounded-lg border border-glass-border bg-black/40 px-3 py-1.5 text-sm text-white"
+            >
+              <option value="viduki">Viduki (default)</option>
+              <option value="pstream">P-Stream (native)</option>
+            </select>
+          </Row>
           <Row label="Animated background" hint="Soft drifting orbs behind the UI.">
             <Toggle value={s.animatedBg} onChange={(v) => set({ animatedBg: v })} />
           </Row>
