@@ -3,7 +3,8 @@
 // routed through /api/public/pstream-proxy (simpleProxy-compatible).
 // NOTE: @p-stream/providers ships an incomplete .d.ts (points at a missing
 // ./src/index). Runtime exports work; we type-cast locally.
-// @ts-expect-error - upstream types file references a nonexistent path
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - upstream types file references a nonexistent path
 import * as PStream from "@p-stream/providers";
 const { makeProviders, makeStandardFetcher, makeSimpleProxyFetcher, targets } =
   PStream as any;
