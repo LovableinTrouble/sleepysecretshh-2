@@ -20,7 +20,7 @@ interface Props {
 
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const navigate = useNavigate();
-  const settings = useSettings();
+  const [settings] = useSettings();
   const [pstreamFallback, setPstreamFallback] = useState(false);
   const usePStream = settings.primarySource === "pstream" && !pstreamFallback;
 
