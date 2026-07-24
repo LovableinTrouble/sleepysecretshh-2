@@ -8,6 +8,8 @@ import type { Media } from "@/lib/catalog";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
 import { resolveStreams, type ResolvedSource } from "@/lib/streams";
 import { CustomPlayer } from "./CustomPlayer";
+import { PStreamPlayer } from "./pstream/PStreamPlayer";
+import { useSettings } from "@/lib/store";
 
 interface Props {
   media: Media;
@@ -18,6 +20,9 @@ interface Props {
 
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const navigate = useNavigate();
+  const [settings] = useSettings();
+  const [pstreamFallback, setPstreamFallback] = useState(false);
+  const usePStream = settings.primarySource === "pstream" && !pstreamFallback;
 
   useEffect(() => {
     const html = document.documentElement;
@@ -99,6 +104,16 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const player = (
     <div className="fixed inset-0 z-[2147483000] flex flex-col bg-black" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, height: "100dvh", width: "100vw" }}>
       <div className="relative flex-1 bg-black overflow-hidden">
+        {usePStream ? (
+          <PStreamPlayer
+            media={media} season={season} episode={episode}
+            startAt={startAt} autoplay autoNext hasNext={hasNext}
+            onProgress={onProgress}
+            onNextEpisode={hasNext ? handleNextEpisode : undefined}
+            onClose={onClose}
+            onFallback={() => setPstreamFallback(true)}
+          />
+        ) : (<>
         {!sources && !error && <LoadingOverlay message={loadMsg} onClose={onClose} title={media.title} />}
         {error && <ErrorOverlay error={error} onClose={onClose} onRetry={() => { setError(null); setSources(null); }} />}
         {active?.kind === "direct" && (
@@ -108,6 +123,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             onNextEpisode={hasNext ? handleNextEpisode : undefined} hasNext={hasNext} autoplay autoNext />
         )}
         {active?.kind === "embed" && <EmbedFrame source={active} media={media} onProgress={onProgress} onClose={onClose} />}
+        </>)}
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ import { Route as ApiDownloadsRouteImport } from './routes/api/downloads'
 import { Route as MediaTypeIdRouteImport } from './routes/media.$type.$id'
 import { Route as ApiPublicYtPlaylistRouteImport } from './routes/api/public/yt-playlist'
 import { Route as ApiPublicSubtitleRouteImport } from './routes/api/public/subtitle'
+import { Route as ApiPublicPstreamProxyRouteImport } from './routes/api/public/pstream-proxy'
 import { Route as ApiPublicIptvProxyRouteImport } from './routes/api/public/iptv-proxy'
 import { Route as ApiPublicIptvOrgRouteImport } from './routes/api/public/iptv-org'
 import { Route as ApiPublicGamesFeedRouteImport } from './routes/api/public/games-feed'
@@ -129,6 +130,11 @@ const ApiPublicSubtitleRoute = ApiPublicSubtitleRouteImport.update({
   path: '/api/public/subtitle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPstreamProxyRoute = ApiPublicPstreamProxyRouteImport.update({
+  id: '/api/public/pstream-proxy',
+  path: '/api/public/pstream-proxy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicIptvProxyRoute = ApiPublicIptvProxyRouteImport.update({
   id: '/api/public/iptv-proxy',
   path: '/api/public/iptv-proxy',
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/api/public/games-feed': typeof ApiPublicGamesFeedRoute
   '/api/public/iptv-org': typeof ApiPublicIptvOrgRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
+  '/api/public/pstream-proxy': typeof ApiPublicPstreamProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
@@ -203,6 +210,7 @@ export interface FileRoutesByTo {
   '/api/public/games-feed': typeof ApiPublicGamesFeedRoute
   '/api/public/iptv-org': typeof ApiPublicIptvOrgRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
+  '/api/public/pstream-proxy': typeof ApiPublicPstreamProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
@@ -230,6 +238,7 @@ export interface FileRoutesById {
   '/api/public/games-feed': typeof ApiPublicGamesFeedRoute
   '/api/public/iptv-org': typeof ApiPublicIptvOrgRoute
   '/api/public/iptv-proxy': typeof ApiPublicIptvProxyRoute
+  '/api/public/pstream-proxy': typeof ApiPublicPstreamProxyRoute
   '/api/public/subtitle': typeof ApiPublicSubtitleRoute
   '/api/public/yt-playlist': typeof ApiPublicYtPlaylistRoute
   '/media/$type/$id': typeof MediaTypeIdRoute
@@ -258,6 +267,7 @@ export interface FileRouteTypes {
     | '/api/public/games-feed'
     | '/api/public/iptv-org'
     | '/api/public/iptv-proxy'
+    | '/api/public/pstream-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
     | '/media/$type/$id'
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
     | '/api/public/games-feed'
     | '/api/public/iptv-org'
     | '/api/public/iptv-proxy'
+    | '/api/public/pstream-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
     | '/media/$type/$id'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/api/public/games-feed'
     | '/api/public/iptv-org'
     | '/api/public/iptv-proxy'
+    | '/api/public/pstream-proxy'
     | '/api/public/subtitle'
     | '/api/public/yt-playlist'
     | '/media/$type/$id'
@@ -336,6 +348,7 @@ export interface RootRouteChildren {
   ApiPublicGamesFeedRoute: typeof ApiPublicGamesFeedRoute
   ApiPublicIptvOrgRoute: typeof ApiPublicIptvOrgRoute
   ApiPublicIptvProxyRoute: typeof ApiPublicIptvProxyRoute
+  ApiPublicPstreamProxyRoute: typeof ApiPublicPstreamProxyRoute
   ApiPublicSubtitleRoute: typeof ApiPublicSubtitleRoute
   ApiPublicYtPlaylistRoute: typeof ApiPublicYtPlaylistRoute
   MediaTypeIdRoute: typeof MediaTypeIdRoute
@@ -476,6 +489,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicSubtitleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/pstream-proxy': {
+      id: '/api/public/pstream-proxy'
+      path: '/api/public/pstream-proxy'
+      fullPath: '/api/public/pstream-proxy'
+      preLoaderRoute: typeof ApiPublicPstreamProxyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/iptv-proxy': {
       id: '/api/public/iptv-proxy'
       path: '/api/public/iptv-proxy'
@@ -546,6 +566,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicGamesFeedRoute: ApiPublicGamesFeedRoute,
   ApiPublicIptvOrgRoute: ApiPublicIptvOrgRoute,
   ApiPublicIptvProxyRoute: ApiPublicIptvProxyRoute,
+  ApiPublicPstreamProxyRoute: ApiPublicPstreamProxyRoute,
   ApiPublicSubtitleRoute: ApiPublicSubtitleRoute,
   ApiPublicYtPlaylistRoute: ApiPublicYtPlaylistRoute,
   MediaTypeIdRoute: MediaTypeIdRoute,
@@ -553,13 +574,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

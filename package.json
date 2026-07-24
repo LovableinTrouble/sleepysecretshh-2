@@ -14,6 +14,7 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.0",
     "@hookform/resolvers": "^5.2.2",
+    "@p-stream/providers": "github:xp-technologies-dev/providers#production",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",
@@ -56,6 +57,7 @@
     "embla-carousel-react": "^8.6.0",
     "hls.js": "^1.6.16",
     "input-otp": "^1.4.2",
+    "jotai": "^2.20.2",
     "lucide-react": "^0.575.0",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",

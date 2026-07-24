@@ -10,6 +10,8 @@ export const DEFAULT_CINEPRO_URL = "https://core-lv20.onrender.com";
 export interface Settings {
   theme: string; // one of THEMES[].id
   animatedBg: boolean;
+  /** Primary player pipeline. */
+  primarySource: "viduki" | "pstream";
   reduceMotion: boolean;
   animationsEnabled: boolean;
   glassIntensity: number;
@@ -76,6 +78,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME_ID,
   animatedBg: true,
+  primarySource: "viduki",
   reduceMotion: false,
   animationsEnabled: true,
   glassIntensity: 60,
