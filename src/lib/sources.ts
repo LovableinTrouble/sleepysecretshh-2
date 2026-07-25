@@ -16,8 +16,8 @@ export type SourceKey = "prionix";
 function buildViduki(m: Media, season?: number, episode?: number): string {
   const isShow = m.type !== "movie" && season != null && episode != null;
   const base = isShow
-    ? `https://www.viduki.net/1/tv/${m.id}/${season}/${episode}`
-    : `https://www.viduki.net/1/movie/${m.id}`;
+    ? `https://www.vidgod.site/tv/${m.id}/${season}/${episode}`
+    : `https://www.viduki.net/movie/${m.id}`;
   return `${base}?color=e8b86d`;
 }
 
@@ -27,9 +27,7 @@ function buildViduki(m: Media, season?: number, episode?: number): string {
  */
 function buildCineSrc(m: Media, season?: number, episode?: number, febbox?: string): string {
   const isShow = m.type !== "movie" && season != null && episode != null;
-  const base = isShow
-    ? `https://cinesrc.st/embed/tv/${m.id}`
-    : `https://cinesrc.st/embed/movie/${m.id}`;
+  const base = isShow ? `https://cinesrc.st/embed/tv/${m.id}` : `https://cinesrc.st/embed/movie/${m.id}`;
   const params = new URLSearchParams();
   if (isShow) {
     params.set("s", String(season));
@@ -52,9 +50,7 @@ const PRIONIX: Source = {
   kind: "embed",
   tier: "primary",
   build: (m, season, episode, febbox) => {
-    return febbox
-      ? buildCineSrc(m, season, episode, febbox)
-      : buildViduki(m, season, episode);
+    return febbox ? buildCineSrc(m, season, episode, febbox) : buildViduki(m, season, episode);
   },
 };
 
