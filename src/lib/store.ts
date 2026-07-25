@@ -76,7 +76,6 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME_ID,
   animatedBg: true,
-  primarySource: "viduki",
   reduceMotion: false,
   animationsEnabled: true,
   glassIntensity: 60,
