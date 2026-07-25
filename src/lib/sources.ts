@@ -17,7 +17,7 @@ function buildViduki(m: Media, season?: number, episode?: number): string {
   const isShow = m.type !== "movie" && season != null && episode != null;
   const base = isShow
     ? `https://www.vidgod.site/tv/${m.id}/${season}/${episode}`
-    : `https://www.viduki.net/movie/${m.id}`;
+    : `https://www.vidgod.site/movie/${m.id}`;
   return `${base}?color=e8b86d`;
 }
 
