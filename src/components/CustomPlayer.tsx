@@ -532,13 +532,25 @@ export function CustomPlayer({
           </button>
 
           {/* Rewind 10s */}
-          <button onClick={() => { const v = videoRef.current; if (v) v.currentTime -= 10; }} className="grid h-9 w-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition" aria-label="Rewind 10s">
-            <RotateCcw className="h-4 w-4" />
+          <button
+            onClick={() => { const v = videoRef.current; if (v) v.currentTime = Math.max(0, v.currentTime - 10); }}
+            className="relative grid h-9 w-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition"
+            aria-label="Rewind 10 seconds"
+            title="Rewind 10s (J / ←)"
+          >
+            <RotateCcw className="h-5 w-5" />
+            <span className="absolute text-[8px] font-bold leading-none tabular-nums mt-0.5">10</span>
           </button>
 
           {/* Forward 10s */}
-          <button onClick={() => { const v = videoRef.current; if (v) v.currentTime += 10; }} className="grid h-9 w-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition" aria-label="Forward 10s">
-            <ChevronRight className="h-4 w-4" />
+          <button
+            onClick={() => { const v = videoRef.current; if (v) v.currentTime = Math.min((v.duration || Infinity), v.currentTime + 10); }}
+            className="relative grid h-9 w-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition"
+            aria-label="Forward 10 seconds"
+            title="Forward 10s (L / →)"
+          >
+            <RotateCcw className="h-5 w-5 scale-x-[-1]" />
+            <span className="absolute text-[8px] font-bold leading-none tabular-nums mt-0.5">10</span>
           </button>
 
           {/* Volume */}
