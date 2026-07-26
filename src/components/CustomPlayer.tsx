@@ -6,7 +6,6 @@ import {
   Maximize, Minimize, PictureInPicture, Download as DownloadIcon,
   Settings as SettingsIcon, Subtitles, ChevronLeft, ChevronRight,
   Loader2, SkipForward, Cast, X, RotateCcw, Monitor,
-  Repeat, FlipHorizontal, Sun, Zap, Gauge,
 } from "lucide-react";
 import type { DirectSource, StreamQuality, StreamSubtitle } from "@/lib/streams";
 
@@ -45,35 +44,6 @@ function fmt(t: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function ToggleRow({ icon, label, active, onToggle }: { icon: React.ReactNode; label: string; active: boolean; onToggle: () => void }) {
-  return (
-    <button
-      onClick={onToggle}
-      className="flex w-full items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition"
-    >
-      <span className="flex items-center gap-2">{icon}{label}</span>
-      <span className={`relative h-4 w-7 rounded-full transition-colors ${active ? "bg-white" : "bg-white/20"}`}>
-        <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-black transition-all duration-200 ${active ? "left-3.5" : "left-0.5 bg-white"}`} />
-      </span>
-    </button>
-  );
-}
-
-function SliderRow({ label, value, min, max, step = 1, onChange, suffix = "" }: { label: string; value: number; min: number; max: number; step?: number; onChange: (v: number) => void; suffix?: string }) {
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-[10px] text-white/50">
-        <span>{label}</span><span className="tabular-nums">{value}{suffix}</span>
-      </div>
-      <input
-        type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(+e.target.value)}
-        className="w-full accent-white cursor-pointer"
-      />
-    </div>
-  );
-}
-
 export function CustomPlayer({
   source, title, season, episode, startAt = 0,
   onProgress, onClose, onSelectSource, onNextEpisode, hasNext,
@@ -99,7 +69,7 @@ export function CustomPlayer({
   const [rate, setRate] = useState(1);
   const [aspect, setAspect] = useState<"auto" | "16/9" | "4/3" | "cover">("auto");
   const [openPanel, setOpenPanel] = useState<null | "settings" | "subs">(null);
-  const [settingsTab, setSettingsTab] = useState<"quality" | "playback" | "display" | "subs">("quality");
+  const [settingsTab, setSettingsTab] = useState<"quality" | "speed" | "aspect" | "source">("quality");
   const [subIdx, setSubIdx] = useState<number>(-1);
   const [subStyle, setSubStyle] = useState<SubStyle>(DEFAULT_SUB);
   const [hlsLevels, setHlsLevels] = useState<{ height: number; index: number }[]>([]);
@@ -107,19 +77,6 @@ export function CustomPlayer({
   const [seekPreview, setSeekPreview] = useState<{ x: number; t: number } | null>(null);
   const [showNextToast, setShowNextToast] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
-  const [loop, setLoop] = useState(false);
-  const [mirror, setMirror] = useState(false);
-  const [brightness, setBrightness] = useState(100);
-  const [contrast, setContrast] = useState(100);
-  const [saturation, setSaturation] = useState(100);
-  const [subOffset, setSubOffset] = useState(0);
-  const [autoNextEnabled, setAutoNextEnabled] = useState(autoNext);
-  const [autoplayEnabled, setAutoplayEnabled] = useState(autoplay);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (v) v.loop = loop;
-  }, [loop]);
 
   const hideTimer = useRef<number | null>(null);
   const seekAmountRef = useRef(0);
@@ -138,73 +95,39 @@ export function CustomPlayer({
 
     let cancelled = false;
 
-    const doAutoplay = autoplayEnabled;
     if (isHls) {
       import("hls.js").then(({ default: Hls }) => {
         if (cancelled || !Hls.isSupported()) {
-          if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (doAutoplay) video.play().catch(() => {}); }
+          if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
           return;
         }
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: false,
-          // Larger buffers → fewer stalls on flaky origins
-          maxBufferLength: 60,
-          maxMaxBufferLength: 600,
-          maxBufferSize: 120 * 1000 * 1000,
-          backBufferLength: 30,
-          // Adaptive bitrate tuning
-          startLevel: -1,
-          capLevelToPlayerSize: true,
-          abrEwmaDefaultEstimate: 1_000_000,
-          // Aggressive retries so a single 502 doesn't kill playback
-          manifestLoadingMaxRetry: 6,
-          manifestLoadingRetryDelay: 500,
-          levelLoadingMaxRetry: 6,
-          levelLoadingRetryDelay: 500,
-          fragLoadingMaxRetry: 8,
-          fragLoadingRetryDelay: 500,
-          fragLoadingTimeOut: 20_000,
-        });
+        const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 60 });
         hlsRef.current = hls;
         hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           setHlsLevels(hls.levels.map((l: any, i: number) => ({ height: l.height, index: i })));
           if (startAt > 0) video.currentTime = startAt;
-          if (doAutoplay) video.play().catch(() => {});
+          if (autoplay) video.play().catch(() => {});
         });
         hls.on(Hls.Events.LEVEL_SWITCHED, (_e: any, d: any) => setHlsLevel(d.level));
-        let mediaRecoverCount = 0;
         hls.on(Hls.Events.ERROR, (_e: any, data: any) => {
-          // Non-fatal buffer stalls: nudge currentTime forward to unfreeze
-          if (!data.fatal) {
-            if (data.details === "bufferStalledError" && video.readyState >= 2) {
-              try { video.currentTime += 0.1; } catch {}
-            }
-            return;
-          }
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            hls.startLoad();
-          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-            mediaRecoverCount++;
-            if (mediaRecoverCount === 1) hls.recoverMediaError();
-            else if (mediaRecoverCount === 2) { hls.swapAudioCodec(); hls.recoverMediaError(); }
-            else setError("Playback error. Try switching source.");
-          } else {
-            setError("Playback error. Try switching source.");
+          if (data.fatal) {
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+            else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+            else setError("Playback error. Try switching quality or source.");
           }
         });
       }).catch(() => {
-        if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (doAutoplay) video.play().catch(() => {}); }
+        if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
       });
     } else {
       video.src = url;
       if (startAt > 0) video.currentTime = startAt;
-      if (doAutoplay) video.play().catch(() => {});
+      if (autoplay) video.play().catch(() => {});
     }
     return () => { cancelled = true; hlsRef.current?.destroy(); hlsRef.current = null; };
-  }, [currentIdx, currentQuality, autoplayEnabled, startAt]);
+  }, [currentIdx, currentQuality, autoplay, startAt]);
 
   useEffect(() => { if (hlsRef.current) hlsRef.current.currentLevel = hlsLevel; }, [hlsLevel]);
 
@@ -212,31 +135,19 @@ export function CustomPlayer({
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    let stallTimer: number | null = null;
-    const clearStall = () => { if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; } };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
     const onTime = () => {
       setTime(v.currentTime);
       if (v.buffered.length) setBuffered(v.buffered.end(v.buffered.length - 1));
       onProgress?.(v.currentTime, v.duration, false);
-      clearStall();
     };
     const onDur = () => setDuration(v.duration);
-    const onWaiting = () => {
-      setLoading(true);
-      // If we stay stalled for >3s, nudge past the bad fragment
-      clearStall();
-      stallTimer = window.setTimeout(() => {
-        if (v.readyState < 3 && !v.paused) {
-          try { v.currentTime = v.currentTime + 0.25; } catch {}
-        }
-      }, 3000);
-    };
-    const onCanPlay = () => { setLoading(false); clearStall(); };
+    const onWaiting = () => setLoading(true);
+    const onCanPlay = () => setLoading(false);
     const onEnded = () => {
       onProgress?.(v.duration, v.duration, true);
-      if (autoNextEnabled && hasNext && onNextEpisode) {
+      if (autoNext && hasNext && onNextEpisode) {
         setShowNextToast(true);
         setTimeout(() => onNextEpisode(), 2500);
       }
@@ -253,9 +164,8 @@ export function CustomPlayer({
       v.removeEventListener("waiting", onWaiting); v.removeEventListener("canplay", onCanPlay);
       v.removeEventListener("playing", onCanPlay); v.removeEventListener("ended", onEnded);
       v.removeEventListener("error", onErr);
-      clearStall();
     };
-  }, [onProgress, autoNextEnabled, hasNext, onNextEpisode]);
+  }, [onProgress, autoNext, hasNext, onNextEpisode]);
 
   useEffect(() => {
     const onFs = () => setFullscreen(!!document.fullscreenElement);
@@ -367,8 +277,6 @@ export function CustomPlayer({
   const progressPct = duration ? (time / duration) * 100 : 0;
   const bufferedPct = duration ? (buffered / duration) * 100 : 0;
 
-  const videoFilter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
-
   return (
     <div
       ref={wrapRef}
@@ -389,9 +297,6 @@ export function CustomPlayer({
         style={{
           objectFit: aspect === "cover" ? "cover" : "contain",
           aspectRatio: aspect === "auto" ? undefined : aspect === "16/9" ? "16 / 9" : "4 / 3",
-          filter: videoFilter,
-          transform: mirror ? "scaleX(-1)" : undefined,
-          transition: "filter 0.2s ease",
         }}
         playsInline
         crossOrigin="anonymous"
@@ -532,25 +437,13 @@ export function CustomPlayer({
           </button>
 
           {/* Rewind 10s */}
-          <button
-            onClick={() => { const v = videoRef.current; if (v) v.currentTime = Math.max(0, v.currentTime - 10); }}
-            className="relative grid h-9 w-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition"
-            aria-label="Rewind 10 seconds"
-            title="Rewind 10s (J / ←)"
-          >
-            <RotateCcw className="h-5 w-5" />
-            <span className="absolute text-[8px] font-bold leading-none tabular-nums mt-0.5">10</span>
+          <button onClick={() => { const v = videoRef.current; if (v) v.currentTime -= 10; }} className="grid h-9 w-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition" aria-label="Rewind 10s">
+            <RotateCcw className="h-4 w-4" />
           </button>
 
           {/* Forward 10s */}
-          <button
-            onClick={() => { const v = videoRef.current; if (v) v.currentTime = Math.min((v.duration || Infinity), v.currentTime + 10); }}
-            className="relative grid h-9 w-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition"
-            aria-label="Forward 10 seconds"
-            title="Forward 10s (L / →)"
-          >
-            <RotateCcw className="h-5 w-5 scale-x-[-1]" />
-            <span className="absolute text-[8px] font-bold leading-none tabular-nums mt-0.5">10</span>
+          <button onClick={() => { const v = videoRef.current; if (v) v.currentTime += 10; }} className="grid h-9 w-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition" aria-label="Forward 10s">
+            <ChevronRight className="h-4 w-4" />
           </button>
 
           {/* Volume */}
@@ -617,21 +510,20 @@ export function CustomPlayer({
 
       {/* ── Settings panel ───────────────────────────── */}
       {openPanel === "settings" && (
-        <div className="absolute right-4 bottom-16 z-30 w-80 origin-bottom-right animate-scale-in rounded-2xl border border-white/10 bg-black/90 p-3 shadow-2xl backdrop-blur-2xl">
+        <div className="absolute right-4 bottom-16 z-30 w-72 rounded-2xl border border-white/10 bg-black/90 p-3 shadow-2xl backdrop-blur-2xl">
           {/* Tabs */}
           <div className="mb-3 flex gap-1 rounded-xl bg-white/5 p-1">
             {([
-              ["quality", "Quality", Zap],
-              ["playback", "Playback", Gauge],
-              ["display", "Display", Sun],
-              ["subs", "Subs", Subtitles],
-            ] as const).map(([tab, label, Icon]) => (
+              ["quality", "Quality"],
+              ["speed", "Speed"],
+              ["aspect", "Aspect"],
+              ["source", "Source"],
+            ] as const).map(([tab, label]) => (
               <button
                 key={tab}
                 onClick={() => setSettingsTab(tab)}
-                className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-semibold transition-all duration-200 ${settingsTab === tab ? "bg-white/15 text-white shadow-inner" : "text-white/40 hover:text-white/70 hover:bg-white/5"}`}
+                className={`flex-1 rounded-lg py-1.5 text-[11px] font-semibold transition ${settingsTab === tab ? "bg-white/15 text-white" : "text-white/40 hover:text-white/70"}`}
               >
-                <Icon className="h-3 w-3" />
                 {label}
               </button>
             ))}
@@ -639,7 +531,7 @@ export function CustomPlayer({
 
           {/* Quality tab */}
           {settingsTab === "quality" && (
-            <div className="max-h-64 space-y-0.5 overflow-y-auto animate-fade-in">
+            <div className="max-h-48 space-y-0.5 overflow-y-auto">
               {/* HLS adaptive levels */}
               {hlsLevels.length > 0 && (
                 <button
@@ -660,13 +552,9 @@ export function CustomPlayer({
                   {hlsLevel === lvl.index && <span className="text-[10px] text-white/40">●</span>}
                 </button>
               ))}
-              {/* Source qualities (server list) */}
-              {source.qualities.length > 1 && (
-                <>
-                  <div className="my-1 border-t border-white/8" />
-                  <p className="px-3 py-1 text-[10px] uppercase tracking-widest text-white/30">Servers · {source.qualities.length}</p>
-                </>
-              )}
+              {/* Source qualities */}
+              <div className="my-1 border-t border-white/8" />
+              <p className="px-3 py-1 text-[10px] uppercase tracking-widest text-white/30">Sources</p>
               {source.qualities.map((q, i) => (
                 <button
                   key={i}
@@ -680,87 +568,54 @@ export function CustomPlayer({
             </div>
           )}
 
-          {/* Playback tab */}
-          {settingsTab === "playback" && (
-            <div className="space-y-3 animate-fade-in">
-              <div>
-                <p className="mb-1.5 text-[10px] uppercase tracking-widest text-white/30">Speed · {rate}x</p>
-                <div className="grid grid-cols-4 gap-1">
-                  {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5].map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => { setRate(r); const v = videoRef.current; if (v) v.playbackRate = r; }}
-                      className={`rounded-lg py-1.5 text-[11px] font-semibold transition-all duration-200 ${rate === r ? "bg-white text-black scale-105" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
-                    >
-                      {r}x
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <ToggleRow icon={<Repeat className="h-3.5 w-3.5" />} label="Loop video" active={loop} onToggle={() => setLoop(!loop)} />
-                <ToggleRow icon={<SkipForward className="h-3.5 w-3.5" />} label="Auto next episode" active={autoNextEnabled} onToggle={() => setAutoNextEnabled(!autoNextEnabled)} />
-                <ToggleRow icon={<Play className="h-3.5 w-3.5" />} label="Autoplay on load" active={autoplayEnabled} onToggle={() => setAutoplayEnabled(!autoplayEnabled)} />
-              </div>
-            </div>
-          )}
-
-          {/* Display tab */}
-          {settingsTab === "display" && (
-            <div className="space-y-3 animate-fade-in">
-              <div>
-                <p className="mb-1.5 text-[10px] uppercase tracking-widest text-white/30">Aspect ratio</p>
-                <div className="grid grid-cols-4 gap-1">
-                  {([["auto", "Auto"], ["16/9", "16:9"], ["4/3", "4:3"], ["cover", "Fill"]] as const).map(([val, label]) => (
-                    <button
-                      key={val}
-                      onClick={() => setAspect(val)}
-                      className={`rounded-lg py-1.5 text-[10px] font-semibold transition ${aspect === val ? "bg-white text-black" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <SliderRow label="Brightness" value={brightness} min={50} max={150} onChange={setBrightness} suffix="%" />
-              <SliderRow label="Contrast" value={contrast} min={50} max={150} onChange={setContrast} suffix="%" />
-              <SliderRow label="Saturation" value={saturation} min={0} max={200} onChange={setSaturation} suffix="%" />
-              <ToggleRow icon={<FlipHorizontal className="h-3.5 w-3.5" />} label="Mirror horizontally" active={mirror} onToggle={() => setMirror(!mirror)} />
-              <button
-                onClick={() => { setBrightness(100); setContrast(100); setSaturation(100); setMirror(false); }}
-                className="w-full rounded-lg bg-white/5 py-1.5 text-[10px] text-white/60 hover:bg-white/10 transition"
-              >
-                Reset display
-              </button>
-            </div>
-          )}
-
-          {/* Subs quick tab */}
-          {settingsTab === "subs" && (
-            <div className="space-y-2 animate-fade-in">
-              <div className="max-h-40 space-y-0.5 overflow-y-auto">
+          {/* Speed tab */}
+          {settingsTab === "speed" && (
+            <div className="grid grid-cols-3 gap-1.5">
+              {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((r) => (
                 <button
-                  onClick={() => setSubIdx(-1)}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${subIdx === -1 ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
+                  key={r}
+                  onClick={() => { setRate(r); const v = videoRef.current; if (v) v.playbackRate = r; }}
+                  className={`rounded-lg py-2 text-xs font-semibold transition ${rate === r ? "bg-white/15 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
                 >
-                  <span>Off</span>{subIdx === -1 && <span className="text-[10px]">●</span>}
+                  {r === 1 ? "1x" : `${r}x`}
                 </button>
-                {source.subtitles.map((sub, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setSubIdx(i)}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${subIdx === i ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
-                  >
-                    <span>{sub.label}</span>{subIdx === i && <span className="text-[10px]">●</span>}
-                  </button>
-                ))}
-                {source.subtitles.length === 0 && (
-                  <p className="px-3 py-4 text-center text-[11px] text-white/30">No subtitles available</p>
-                )}
+              ))}
+            </div>
+          )}
+
+          {/* Aspect tab */}
+          {settingsTab === "aspect" && (
+            <div className="space-y-0.5">
+              {([["auto", "Auto"], ["16/9", "16:9"], ["4/3", "4:3"], ["cover", "Fill"]] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setAspect(val)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${aspect === val ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
+                >
+                  <Monitor className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Source tab */}
+          {settingsTab === "source" && (
+            <div className="space-y-0.5">
+              <div className="mb-2 flex items-center justify-between px-1">
+                <span className="text-[10px] uppercase tracking-widest text-white/30">Current source</span>
+                <span className="text-[10px] text-white/50">{source.qualities.length} streams</span>
               </div>
-              {subIdx >= 0 && (
-                <SliderRow label="Delay" value={subOffset} min={-10} max={10} step={0.25} onChange={setSubOffset} suffix="s" />
-              )}
+              <button
+                onClick={() => onSelectSource?.()}
+                className="w-full rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white hover:bg-white/15 transition"
+              >
+                Switch source provider
+              </button>
+              <div className="mt-2 rounded-lg bg-white/5 px-3 py-2">
+                <p className="text-[10px] text-white/40">Active: {currentQuality?.label}</p>
+                <p className="text-[10px] text-white/40">Format: {currentQuality?.format.toUpperCase()}</p>
+              </div>
             </div>
           )}
         </div>
