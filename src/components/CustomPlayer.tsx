@@ -22,6 +22,7 @@ interface Props {
   hasNext?: boolean;
   autoplay?: boolean;
   autoNext?: boolean;
+  onDownload?: () => void;
 }
 
 type SubStyle = {
@@ -47,7 +48,7 @@ function fmt(t: number): string {
 export function CustomPlayer({
   source, title, season, episode, startAt = 0,
   onProgress, onClose, onSelectSource, onNextEpisode, hasNext,
-  autoplay = true, autoNext = true,
+  autoplay = true, autoNext = true, onDownload,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -240,6 +241,7 @@ export function CustomPlayer({
   };
 
   const handleDownload = () => {
+    if (onDownload) return onDownload();
     if (!currentQuality) return;
     const a = document.createElement("a");
     a.href = currentQuality.url;
@@ -437,13 +439,23 @@ export function CustomPlayer({
           </button>
 
           {/* Rewind 10s */}
-          <button onClick={() => { const v = videoRef.current; if (v) v.currentTime -= 10; }} className="grid h-9 w-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition" aria-label="Rewind 10s">
-            <RotateCcw className="h-4 w-4" />
+          <button
+            onClick={() => { const v = videoRef.current; if (v) v.currentTime = Math.max(0, v.currentTime - 10); flashControls(); }}
+            className="group/seek relative grid h-9 w-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition active:scale-90"
+            aria-label="Rewind 10 seconds"
+          >
+            <RotateCcw className="h-[18px] w-[18px] transition-transform group-hover/seek:-rotate-45" />
+            <span className="absolute inset-0 grid place-items-center text-[9px] font-bold tabular-nums translate-y-[1px]">10</span>
           </button>
 
           {/* Forward 10s */}
-          <button onClick={() => { const v = videoRef.current; if (v) v.currentTime += 10; }} className="grid h-9 w-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition" aria-label="Forward 10s">
-            <ChevronRight className="h-4 w-4" />
+          <button
+            onClick={() => { const v = videoRef.current; if (v) v.currentTime = Math.min((v.duration || Infinity), v.currentTime + 10); flashControls(); }}
+            className="group/seek relative grid h-9 w-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition active:scale-90"
+            aria-label="Forward 10 seconds"
+          >
+            <RotateCcw className="h-[18px] w-[18px] scale-x-[-1] transition-transform group-hover/seek:rotate-45" />
+            <span className="absolute inset-0 grid place-items-center text-[9px] font-bold tabular-nums translate-y-[1px]">10</span>
           </button>
 
           {/* Volume */}
