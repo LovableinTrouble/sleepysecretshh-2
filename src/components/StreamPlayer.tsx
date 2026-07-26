@@ -8,6 +8,7 @@ import type { Media } from "@/lib/catalog";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
 import { resolveStreams, type ResolvedSource } from "@/lib/streams";
 import { CustomPlayer } from "./CustomPlayer";
+import { DownloadsDialog } from "./DownloadsDialog";
 
 interface Props {
   media: Media;
@@ -18,6 +19,7 @@ interface Props {
 
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const navigate = useNavigate();
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -105,10 +107,12 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           <CustomPlayer source={active} title={media.title} season={season} episode={episode}
             startAt={startAt} onProgress={onProgress} onClose={onClose}
             onSelectSource={() => {}}
+            onDownload={() => setDownloadsOpen(true)}
             onNextEpisode={hasNext ? handleNextEpisode : undefined} hasNext={hasNext} autoplay autoNext />
         )}
         {active?.kind === "embed" && <EmbedFrame source={active} media={media} onProgress={onProgress} onClose={onClose} />}
       </div>
+      <DownloadsDialog open={downloadsOpen} media={media} season={season} episode={episode} onClose={() => setDownloadsOpen(false)} />
     </div>
   );
   if (typeof document === "undefined") return player;
