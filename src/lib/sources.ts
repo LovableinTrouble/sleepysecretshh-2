@@ -12,13 +12,19 @@ export interface Source {
 
 export type SourceKey = "prionix";
 
-/** Build a Viduki API 1 (multi-server) URL. */
-function buildViduki(m: Media, season?: number, episode?: number): string {
+/** Build a VidKing embed URL. */
+function buildVidKing(m: Media, season?: number, episode?: number): string {
   const isShow = m.type !== "movie" && season != null && episode != null;
   const base = isShow
-    ? `https://www.vidgod.site/tv/${m.id}/${season}/${episode}`
-    : `https://www.vidgod.site/movie/${m.id}`;
-  return `${base}?color=e8b86d`;
+    ? `https://www.vidking.net/embed/tv/${m.id}/${season}/${episode}`
+    : `https://www.vidking.net/embed/movie/${m.id}`;
+  const params = new URLSearchParams({
+    color: "e8b86d",
+    autoPlay: "true",
+    nextEpisode: "true",
+    episodeSelector: "true",
+  });
+  return `${base}?${params.toString()}`;
 }
 
 /**
@@ -45,12 +51,12 @@ function buildCineSrc(m: Media, season?: number, episode?: number, febbox?: stri
 
 const PRIONIX: Source = {
   id: "prionix",
-  name: "Viduki",
+  name: "VidKing",
   badge: "Embed",
   kind: "embed",
   tier: "primary",
   build: (m, season, episode, febbox) => {
-    return febbox ? buildCineSrc(m, season, episode, febbox) : buildViduki(m, season, episode);
+    return febbox ? buildCineSrc(m, season, episode, febbox) : buildVidKing(m, season, episode);
   },
 };
 
@@ -65,5 +71,5 @@ export function sourceForKey(_key: SourceKey): Source {
 }
 
 export const SOURCE_TIER_LABEL: Record<SourceKey, string> = {
-  prionix: "Viduki",
+  prionix: "VidKing",
 };
