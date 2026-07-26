@@ -164,60 +164,29 @@ function ErrorOverlay({ error, onClose, onRetry }: { error: string; onClose: () 
 
 function EmbedFrame({ source, media, onProgress, onClose }: { source: Extract<ResolvedSource, { kind: "embed" }>; media: Media; onProgress: (t: number, d: number, ended: boolean) => void; onClose: () => void; }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [backVisible, setBackVisible] = useState(true);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Viduki posts MEDIA_DATA progress messages and viduki:all-servers-failed events.
+  // VidKing posts PLAYER_EVENT messages: { type: 'PLAYER_EVENT',
+  // data: { event: 'timeupdate'|'play'|'pause'|'ended', currentTime, duration, ... } }
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.origin !== "https://www.viduki.net" && event.origin !== "https://viduki.net") return;
+      let host = "";
+      try { host = new URL(event.origin).hostname; } catch { return; }
+      if (!/vidking\.(net|site)$/i.test(host)) return;
       const payload = event.data;
       if (!payload || typeof payload !== "object") return;
-      if (payload.type === "MEDIA_DATA" && payload.data) {
-        try {
-          const store = payload.data as Record<string, any>;
-          const entry = Object.values(store)[0] as any;
-          if (!entry) return;
-          if (entry.type === "tv" && entry.show_progress) {
-            const key = `s${entry.last_season_watched}e${entry.last_episode_watched}`;
-            const ep = entry.show_progress[key];
-            if (ep?.progress) {
-              const w = Number(ep.progress.watched) || 0;
-              const d = Number(ep.progress.duration) || 0;
-              if (d > 0) onProgress(w, d, false);
-            }
-          } else if (entry.progress) {
-            const w = Number(entry.progress.watched) || 0;
-            const d = Number(entry.progress.duration) || 0;
-            if (d > 0) onProgress(w, d, false);
-          }
-        } catch { /* ignore */ }
-      }
+      if (payload.type !== "PLAYER_EVENT" || !payload.data) return;
+      const d = payload.data as Record<string, any>;
+      const t = Number(d.currentTime) || 0;
+      const dur = Number(d.duration) || 0;
+      const ended = d.event === "ended";
+      if (dur > 0 || ended) onProgress(t, dur, ended);
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [onProgress]);
 
-  // Auto-hide back tab like a normal back button: show on pointer move / scroll,
-  // hide after 2.5s of inactivity.
-  const revealBack = useCallback(() => {
-    setBackVisible(true);
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setBackVisible(false), 2500);
-  }, []);
-
-  useEffect(() => {
-    revealBack();
-    return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
-  }, [revealBack]);
-
   return (
-    <div
-      className="relative h-full w-full bg-black"
-      onPointerMove={revealBack}
-      onPointerDown={revealBack}
-      onWheel={revealBack}
-    >
+    <div className="relative h-full w-full bg-black">
       <iframe
         ref={iframeRef}
         id="target-iframe"
@@ -227,20 +196,14 @@ function EmbedFrame({ source, media, onProgress, onClose }: { source: Extract<Re
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
         referrerPolicy="no-referrer"
-        // Ad-block sandbox: the player needs scripts (to play), same-origin
-        // (CDN cookies + postMessage progress, whose origin we verify against
-        // viduki.net), and presentation (fullscreen/PiP). Everything else is
-        // locked down — popups, popunders, top-level redirect ads, forms, and
-        // modal dialogs are all blocked.
         sandbox="allow-scripts allow-same-origin allow-presentation"
       />
-      {/* Left-side back tab — slides away when hidden, like a normal back btn */}
       <button
         onClick={onClose}
         aria-label="Back"
-        className={`pointer-events-auto fixed left-0 top-1/2 z-40 flex -translate-y-1/2 items-center gap-1.5 rounded-r-2xl bg-black/70 px-2.5 py-4 text-white ring-1 ring-white/15 backdrop-blur-md transition-all duration-300 ease-out hover:bg-black/90 hover:px-3.5 ${backVisible ? "translate-x-0 opacity-100" : "-translate-x-[calc(100%)] opacity-0"}`}
+        className="pointer-events-auto fixed left-4 top-4 z-40 flex items-center gap-1.5 rounded-full bg-black/70 px-3.5 py-2 text-xs font-semibold text-white ring-1 ring-white/15 backdrop-blur-md transition hover:bg-black/90"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" /> Back
       </button>
     </div>
   );
