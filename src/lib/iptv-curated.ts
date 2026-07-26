@@ -351,6 +351,196 @@ export const CURATED_CHANNELS: CuratedChannel[] = [
     logo: `${LOGO}/united-kingdom/timeline-uk.png`,
     url: "https://lds-abandonedplaces-plex.amagi.tv/playlist.m3u8",
   },
+
+  // ── News · Extra ───────────────────────────────────────────────────────
+  {
+    id: "cbc-news",
+    name: "CBC News",
+    group: "News",
+    country: "INT",
+    logo: `${LOGO}/canada/cbc-news-ca.png`,
+    url: "https://cbcrclinear-tor.akamaized.net/hls/live/2042769/geo_allow_ca/CBCRCLinear_TOR_9/master_1.m3u8",
+  },
+  {
+    id: "trt-world",
+    name: "TRT World",
+    group: "News",
+    country: "INT",
+    logo: `${LOGO}/turkey/trt-world-tr.png`,
+    url: "https://tv-trtworld.live.trt.com.tr/master.m3u8",
+  },
+  {
+    id: "nhk-world",
+    name: "NHK World Japan",
+    group: "News",
+    country: "INT",
+    logo: `${LOGO}/japan/nhk-world-japan-jp.png`,
+    url: "https://nhkwlive-ojp.akamaized.net/hls/live/2003459/nhkwlive-ojp-en/index.m3u8",
+  },
+  {
+    id: "france24-fr",
+    name: "France 24 Français",
+    group: "News",
+    country: "FR",
+    logo: `${LOGO}/france/france-24-fr.png`,
+    url: "https://live.france24.com/hls/live/2037179/F24_FR_HI_HLS/master_5000.m3u8",
+  },
+  {
+    id: "arirang",
+    name: "Arirang TV",
+    group: "News",
+    country: "INT",
+    logo: `${LOGO}/south-korea/arirang-tv-kr.png`,
+    url: "https://amdlive-ch01-ctnd-com.akamaized.net/arirang_1ch/smil:arirang_1ch.smil/playlist.m3u8",
+  },
+  {
+    id: "i24-en",
+    name: "i24 News English",
+    group: "News",
+    country: "INT",
+    logo: `${LOGO}/israel/i24-news-en-il.png`,
+    url: "https://bcovlive-a.akamaihd.net/dcfc3aaa93a3439e8b7c891334af52e6/us-east-1/6314452011001/playlist.m3u8",
+  },
+
+  // ── Sports · Extra ─────────────────────────────────────────────────────
+  {
+    id: "impact-wrestling",
+    name: "Impact Wrestling",
+    group: "Sports",
+    country: "US",
+    logo: `${LOGO}/united-states/impact-wrestling-us.png`,
+    url: "https://dm5tnfpq7suqi.cloudfront.net/v1/master/9d062298f3b18f6a1b0d0f4c26cfa649a2416dd7/impactwrestling-Prod-CDN/154.m3u8",
+  },
+  {
+    id: "world-poker",
+    name: "World Poker Tour",
+    group: "Sports",
+    country: "US",
+    logo: `${LOGO}/united-states/world-poker-tour-us.png`,
+    url: "https://wpt-samsungus.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "surf-now",
+    name: "Surf Now",
+    group: "Sports",
+    country: "US",
+    logo: `${LOGO}/united-states/fuel-tv-us.png`,
+    url: "https://surfnow-samsungau.amagi.tv/playlist.m3u8",
+  },
+
+  // ── Entertainment · Extra ──────────────────────────────────────────────
+  {
+    id: "runtime",
+    name: "Runtime",
+    group: "Entertainment",
+    country: "US",
+    logo: `${LOGO}/united-states/runtime-us.png`,
+    url: "https://runtime-samsungus.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "filmrise-classic",
+    name: "FilmRise Classic TV",
+    group: "Entertainment",
+    country: "US",
+    logo: `${LOGO}/united-states/filmrise-us.png`,
+    url: "https://filmrise-classictv-samsungus.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "filmrise-scifi",
+    name: "FilmRise Sci-Fi",
+    group: "Entertainment",
+    country: "US",
+    logo: `${LOGO}/united-states/filmrise-us.png`,
+    url: "https://filmrise-scifi-samsungus.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "rifftrax",
+    name: "RiffTrax",
+    group: "Entertainment",
+    country: "US",
+    logo: `${LOGO}/united-states/rifftrax-us.png`,
+    url: "https://rifftrax-samsungus.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "johnny-carson",
+    name: "Johnny Carson TV",
+    group: "Entertainment",
+    country: "US",
+    logo: `${LOGO}/united-states/johnny-carson-tv-us.png`,
+    url: "https://johnnycarson-samsungus.amagi.tv/playlist.m3u8",
+  },
+
+  // ── Music · Extra ──────────────────────────────────────────────────────
+  {
+    id: "qello-concerts",
+    name: "Qello Concerts",
+    group: "Music",
+    country: "US",
+    logo: `${LOGO}/united-states/qello-concerts-us.png`,
+    url: "https://qello-concerts-samsungus.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "loudtv",
+    name: "Loud TV",
+    group: "Music",
+    country: "US",
+    logo: `${LOGO}/united-states/loud-tv-us.png`,
+    url: "https://loudtv-samsungau.amagi.tv/playlist.m3u8",
+  },
+
+  // ── Lifestyle · Extra ──────────────────────────────────────────────────
+  {
+    id: "magnolia-network",
+    name: "Magnolia Network",
+    group: "Lifestyle",
+    country: "US",
+    logo: `${LOGO}/united-states/magnolia-network-us.png`,
+    url: "https://magnolia-samsungus.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "dabl",
+    name: "Dabl",
+    group: "Lifestyle",
+    country: "US",
+    logo: `${LOGO}/united-states/dabl-us.png`,
+    url: "https://dabl-plutotv.amagi.tv/playlist.m3u8",
+  },
+
+  // ── History · Extra ────────────────────────────────────────────────────
+  {
+    id: "history-hit",
+    name: "History Hit",
+    group: "History",
+    country: "UK",
+    logo: `${LOGO}/united-kingdom/history-hit-uk.png`,
+    url: "https://lds-historyhit-plex.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "true-crime",
+    name: "True Crime Network",
+    group: "History",
+    country: "US",
+    logo: `${LOGO}/united-states/true-crime-network-us.png`,
+    url: "https://truecrime-samsungus.amagi.tv/playlist.m3u8",
+  },
+
+  // ── Kids · Extra ───────────────────────────────────────────────────────
+  {
+    id: "kidoodle",
+    name: "Kidoodle.TV",
+    group: "Kids",
+    country: "US",
+    logo: `${LOGO}/united-states/kidoodle-tv-us.png`,
+    url: "https://kidoodle-samsungus.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "ryan-and-friends",
+    name: "Ryan and Friends",
+    group: "Kids",
+    country: "US",
+    logo: `${LOGO}/united-states/ryan-and-friends-us.png`,
+    url: "https://ryanandfriends-samsungus.amagi.tv/playlist.m3u8",
+  },
 ];
 
 export const CURATED_GROUPS = ["News", "Sports", "Entertainment", "Music", "Lifestyle", "History", "Kids"];
