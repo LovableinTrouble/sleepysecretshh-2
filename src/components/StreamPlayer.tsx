@@ -169,7 +169,9 @@ function EmbedFrame({ source, media, onProgress, onClose }: { source: Extract<Re
   // data: { event: 'timeupdate'|'play'|'pause'|'ended', currentTime, duration, ... } }
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (!/vidking\.(net|site)$/i.test(new URL(event.origin || "http://x").hostname || "")) return;
+      let host = "";
+      try { host = new URL(event.origin).hostname; } catch { return; }
+      if (!/vidking\.(net|site)$/i.test(host)) return;
       const payload = event.data;
       if (!payload || typeof payload !== "object") return;
       if (payload.type !== "PLAYER_EVENT" || !payload.data) return;
