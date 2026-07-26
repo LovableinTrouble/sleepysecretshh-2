@@ -6,6 +6,7 @@ import {
   Maximize, Minimize, PictureInPicture, Download as DownloadIcon,
   Settings as SettingsIcon, Subtitles, ChevronLeft, ChevronRight,
   Loader2, SkipForward, Cast, X, RotateCcw, Monitor,
+  Repeat, FlipHorizontal, Sun, Zap, Gauge,
 } from "lucide-react";
 import type { DirectSource, StreamQuality, StreamSubtitle } from "@/lib/streams";
 
@@ -69,7 +70,7 @@ export function CustomPlayer({
   const [rate, setRate] = useState(1);
   const [aspect, setAspect] = useState<"auto" | "16/9" | "4/3" | "cover">("auto");
   const [openPanel, setOpenPanel] = useState<null | "settings" | "subs">(null);
-  const [settingsTab, setSettingsTab] = useState<"quality" | "speed" | "aspect" | "source">("quality");
+  const [settingsTab, setSettingsTab] = useState<"quality" | "playback" | "display" | "subs">("quality");
   const [subIdx, setSubIdx] = useState<number>(-1);
   const [subStyle, setSubStyle] = useState<SubStyle>(DEFAULT_SUB);
   const [hlsLevels, setHlsLevels] = useState<{ height: number; index: number }[]>([]);
@@ -77,6 +78,19 @@ export function CustomPlayer({
   const [seekPreview, setSeekPreview] = useState<{ x: number; t: number } | null>(null);
   const [showNextToast, setShowNextToast] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
+  const [loop, setLoop] = useState(false);
+  const [mirror, setMirror] = useState(false);
+  const [brightness, setBrightness] = useState(100);
+  const [contrast, setContrast] = useState(100);
+  const [saturation, setSaturation] = useState(100);
+  const [subOffset, setSubOffset] = useState(0);
+  const [autoNextEnabled, setAutoNextEnabled] = useState(autoNext);
+  const [autoplayEnabled, setAutoplayEnabled] = useState(autoplay);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v) v.loop = loop;
+  }, [loop]);
 
   const hideTimer = useRef<number | null>(null);
   const seekAmountRef = useRef(0);
@@ -277,6 +291,8 @@ export function CustomPlayer({
   const progressPct = duration ? (time / duration) * 100 : 0;
   const bufferedPct = duration ? (buffered / duration) * 100 : 0;
 
+  const videoFilter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+
   return (
     <div
       ref={wrapRef}
@@ -297,6 +313,9 @@ export function CustomPlayer({
         style={{
           objectFit: aspect === "cover" ? "cover" : "contain",
           aspectRatio: aspect === "auto" ? undefined : aspect === "16/9" ? "16 / 9" : "4 / 3",
+          filter: videoFilter,
+          transform: mirror ? "scaleX(-1)" : undefined,
+          transition: "filter 0.2s ease",
         }}
         playsInline
         crossOrigin="anonymous"
