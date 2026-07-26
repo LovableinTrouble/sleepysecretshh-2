@@ -529,20 +529,21 @@ export function CustomPlayer({
 
       {/* ── Settings panel ───────────────────────────── */}
       {openPanel === "settings" && (
-        <div className="absolute right-4 bottom-16 z-30 w-72 rounded-2xl border border-white/10 bg-black/90 p-3 shadow-2xl backdrop-blur-2xl">
+        <div className="absolute right-4 bottom-16 z-30 w-80 origin-bottom-right animate-scale-in rounded-2xl border border-white/10 bg-black/90 p-3 shadow-2xl backdrop-blur-2xl">
           {/* Tabs */}
           <div className="mb-3 flex gap-1 rounded-xl bg-white/5 p-1">
             {([
-              ["quality", "Quality"],
-              ["speed", "Speed"],
-              ["aspect", "Aspect"],
-              ["source", "Source"],
-            ] as const).map(([tab, label]) => (
+              ["quality", "Quality", Zap],
+              ["playback", "Playback", Gauge],
+              ["display", "Display", Sun],
+              ["subs", "Subs", Subtitles],
+            ] as const).map(([tab, label, Icon]) => (
               <button
                 key={tab}
                 onClick={() => setSettingsTab(tab)}
-                className={`flex-1 rounded-lg py-1.5 text-[11px] font-semibold transition ${settingsTab === tab ? "bg-white/15 text-white" : "text-white/40 hover:text-white/70"}`}
+                className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-semibold transition-all duration-200 ${settingsTab === tab ? "bg-white/15 text-white shadow-inner" : "text-white/40 hover:text-white/70 hover:bg-white/5"}`}
               >
+                <Icon className="h-3 w-3" />
                 {label}
               </button>
             ))}
@@ -550,7 +551,7 @@ export function CustomPlayer({
 
           {/* Quality tab */}
           {settingsTab === "quality" && (
-            <div className="max-h-48 space-y-0.5 overflow-y-auto">
+            <div className="max-h-64 space-y-0.5 overflow-y-auto animate-fade-in">
               {/* HLS adaptive levels */}
               {hlsLevels.length > 0 && (
                 <button
@@ -571,9 +572,13 @@ export function CustomPlayer({
                   {hlsLevel === lvl.index && <span className="text-[10px] text-white/40">●</span>}
                 </button>
               ))}
-              {/* Source qualities */}
-              <div className="my-1 border-t border-white/8" />
-              <p className="px-3 py-1 text-[10px] uppercase tracking-widest text-white/30">Sources</p>
+              {/* Source qualities (server list) */}
+              {source.qualities.length > 1 && (
+                <>
+                  <div className="my-1 border-t border-white/8" />
+                  <p className="px-3 py-1 text-[10px] uppercase tracking-widest text-white/30">Servers · {source.qualities.length}</p>
+                </>
+              )}
               {source.qualities.map((q, i) => (
                 <button
                   key={i}
@@ -587,54 +592,87 @@ export function CustomPlayer({
             </div>
           )}
 
-          {/* Speed tab */}
-          {settingsTab === "speed" && (
-            <div className="grid grid-cols-3 gap-1.5">
-              {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((r) => (
-                <button
-                  key={r}
-                  onClick={() => { setRate(r); const v = videoRef.current; if (v) v.playbackRate = r; }}
-                  className={`rounded-lg py-2 text-xs font-semibold transition ${rate === r ? "bg-white/15 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
-                >
-                  {r === 1 ? "1x" : `${r}x`}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Aspect tab */}
-          {settingsTab === "aspect" && (
-            <div className="space-y-0.5">
-              {([["auto", "Auto"], ["16/9", "16:9"], ["4/3", "4:3"], ["cover", "Fill"]] as const).map(([val, label]) => (
-                <button
-                  key={val}
-                  onClick={() => setAspect(val)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${aspect === val ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
-                >
-                  <Monitor className="h-3.5 w-3.5" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Source tab */}
-          {settingsTab === "source" && (
-            <div className="space-y-0.5">
-              <div className="mb-2 flex items-center justify-between px-1">
-                <span className="text-[10px] uppercase tracking-widest text-white/30">Current source</span>
-                <span className="text-[10px] text-white/50">{source.qualities.length} streams</span>
+          {/* Playback tab */}
+          {settingsTab === "playback" && (
+            <div className="space-y-3 animate-fade-in">
+              <div>
+                <p className="mb-1.5 text-[10px] uppercase tracking-widest text-white/30">Speed · {rate}x</p>
+                <div className="grid grid-cols-4 gap-1">
+                  {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5].map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => { setRate(r); const v = videoRef.current; if (v) v.playbackRate = r; }}
+                      className={`rounded-lg py-1.5 text-[11px] font-semibold transition-all duration-200 ${rate === r ? "bg-white text-black scale-105" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+                    >
+                      {r}x
+                    </button>
+                  ))}
+                </div>
               </div>
+              <div className="space-y-1.5">
+                <ToggleRow icon={<Repeat className="h-3.5 w-3.5" />} label="Loop video" active={loop} onToggle={() => setLoop(!loop)} />
+                <ToggleRow icon={<SkipForward className="h-3.5 w-3.5" />} label="Auto next episode" active={autoNextEnabled} onToggle={() => setAutoNextEnabled(!autoNextEnabled)} />
+                <ToggleRow icon={<Play className="h-3.5 w-3.5" />} label="Autoplay on load" active={autoplayEnabled} onToggle={() => setAutoplayEnabled(!autoplayEnabled)} />
+              </div>
+            </div>
+          )}
+
+          {/* Display tab */}
+          {settingsTab === "display" && (
+            <div className="space-y-3 animate-fade-in">
+              <div>
+                <p className="mb-1.5 text-[10px] uppercase tracking-widest text-white/30">Aspect ratio</p>
+                <div className="grid grid-cols-4 gap-1">
+                  {([["auto", "Auto"], ["16/9", "16:9"], ["4/3", "4:3"], ["cover", "Fill"]] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => setAspect(val)}
+                      className={`rounded-lg py-1.5 text-[10px] font-semibold transition ${aspect === val ? "bg-white text-black" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <SliderRow label="Brightness" value={brightness} min={50} max={150} onChange={setBrightness} suffix="%" />
+              <SliderRow label="Contrast" value={contrast} min={50} max={150} onChange={setContrast} suffix="%" />
+              <SliderRow label="Saturation" value={saturation} min={0} max={200} onChange={setSaturation} suffix="%" />
+              <ToggleRow icon={<FlipHorizontal className="h-3.5 w-3.5" />} label="Mirror horizontally" active={mirror} onToggle={() => setMirror(!mirror)} />
               <button
-                onClick={() => onSelectSource?.()}
-                className="w-full rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white hover:bg-white/15 transition"
+                onClick={() => { setBrightness(100); setContrast(100); setSaturation(100); setMirror(false); }}
+                className="w-full rounded-lg bg-white/5 py-1.5 text-[10px] text-white/60 hover:bg-white/10 transition"
               >
-                Switch source provider
+                Reset display
               </button>
-              <div className="mt-2 rounded-lg bg-white/5 px-3 py-2">
-                <p className="text-[10px] text-white/40">Active: {currentQuality?.label}</p>
-                <p className="text-[10px] text-white/40">Format: {currentQuality?.format.toUpperCase()}</p>
+            </div>
+          )}
+
+          {/* Subs quick tab */}
+          {settingsTab === "subs" && (
+            <div className="space-y-2 animate-fade-in">
+              <div className="max-h-40 space-y-0.5 overflow-y-auto">
+                <button
+                  onClick={() => setSubIdx(-1)}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${subIdx === -1 ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
+                >
+                  <span>Off</span>{subIdx === -1 && <span className="text-[10px]">●</span>}
+                </button>
+                {source.subtitles.map((sub, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSubIdx(i)}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${subIdx === i ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
+                  >
+                    <span>{sub.label}</span>{subIdx === i && <span className="text-[10px]">●</span>}
+                  </button>
+                ))}
+                {source.subtitles.length === 0 && (
+                  <p className="px-3 py-4 text-center text-[11px] text-white/30">No subtitles available</p>
+                )}
               </div>
+              {subIdx >= 0 && (
+                <SliderRow label="Delay" value={subOffset} min={-10} max={10} step={0.25} onChange={setSubOffset} suffix="s" />
+              )}
             </div>
           )}
         </div>
