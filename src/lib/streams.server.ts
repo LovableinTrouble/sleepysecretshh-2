@@ -58,6 +58,16 @@ export async function resolveVidPhantom(i: ResolveInput): Promise<ResolveResult>
   const subtitles: StreamSubtitle[] = [];
   const seenSubs = new Set<string>();
 
+  // Fetch 1x2 subtitles in parallel (fast, generous language coverage)
+  const subPath = isShow
+    ? `tv/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}`
+    : `movie/${i.tmdbId}`;
+  const oneXTwoPromise = fetch(`https://sub.1x2.space/api/${subPath}`, {
+    signal: AbortSignal.timeout(8000),
+  })
+    .then((r) => (r.ok ? r.json() : []))
+    .catch(() => [] as any[]);
+
   try {
     const res = await fetch(url, {
       signal: controller.signal,
@@ -117,11 +127,33 @@ export async function resolveVidPhantom(i: ResolveInput): Promise<ResolveResult>
     clearTimeout(timeout);
   }
 
+  // Merge 1x2 subtitles
+  try {
+    const oneXTwo = (await oneXTwoPromise) as any[];
+    if (Array.isArray(oneXTwo)) {
+      for (const s of oneXTwo) {
+        if (!s?.url) continue;
+        const abs = s.url.startsWith("http") ? s.url : `https://sub.1x2.space${s.url}`;
+        if (seenSubs.has(abs)) continue;
+        seenSubs.add(abs);
+        const lang = (s.language || s.label || "en").toString().toLowerCase();
+        subtitles.push({
+          url: abs,
+          language: lang.slice(0, 5),
+          label: (s.label || s.language || "Unknown").toString(),
+          type: abs.toLowerCase().endsWith(".srt") ? "srt" : "vtt",
+        });
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
   if (!providers.length) return { sources: [] };
 
   const qualities: StreamQuality[] = providers.map((p) => ({
     url: p.proxiedUrl,
-    label: p.name,
+    label: prettifyProvider(p.name),
     quality: "auto",
     format: "hls",
   }));
@@ -135,4 +167,35 @@ export async function resolveVidPhantom(i: ResolveInput): Promise<ResolveResult>
     subtitles,
   };
   return { sources: [direct], primary: direct.id };
+}
+
+/** Map raw provider slugs to clean, branded display names. */
+const PROVIDER_NAMES: Record<string, string> = {
+  gtokx: "Nebula",
+  flowcast: "Aurora",
+  showbox: "Orion",
+  febbox: "Vega",
+  filemoon: "Lyra",
+  streamvid: "Comet",
+  streamwish: "Pulsar",
+  doodstream: "Quasar",
+  mixdrop: "Meteor",
+  upstream: "Zenith",
+  vidsrc: "Polaris",
+  vidcloud: "Helios",
+  vidplay: "Solaris",
+  hydrax: "Nova",
+  mp4upload: "Atlas",
+  streamtape: "Titan",
+  voe: "Rigel",
+  netu: "Sirius",
+};
+function prettifyProvider(raw: string): string {
+  if (!raw) return "Server";
+  const key = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (PROVIDER_NAMES[key]) return PROVIDER_NAMES[key];
+  return raw
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
 }
