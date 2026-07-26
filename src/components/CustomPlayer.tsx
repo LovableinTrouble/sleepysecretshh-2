@@ -145,7 +145,27 @@ export function CustomPlayer({
           if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (doAutoplay) video.play().catch(() => {}); }
           return;
         }
-        const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 60 });
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          // Larger buffers → fewer stalls on flaky origins
+          maxBufferLength: 60,
+          maxMaxBufferLength: 600,
+          maxBufferSize: 120 * 1000 * 1000,
+          backBufferLength: 30,
+          // Adaptive bitrate tuning
+          startLevel: -1,
+          capLevelToPlayerSize: true,
+          abrEwmaDefaultEstimate: 1_000_000,
+          // Aggressive retries so a single 502 doesn't kill playback
+          manifestLoadingMaxRetry: 6,
+          manifestLoadingRetryDelay: 500,
+          levelLoadingMaxRetry: 6,
+          levelLoadingRetryDelay: 500,
+          fragLoadingMaxRetry: 8,
+          fragLoadingRetryDelay: 500,
+          fragLoadingTimeOut: 20_000,
+        });
         hlsRef.current = hls;
         hls.loadSource(url);
         hls.attachMedia(video);
@@ -155,11 +175,24 @@ export function CustomPlayer({
           if (doAutoplay) video.play().catch(() => {});
         });
         hls.on(Hls.Events.LEVEL_SWITCHED, (_e: any, d: any) => setHlsLevel(d.level));
+        let mediaRecoverCount = 0;
         hls.on(Hls.Events.ERROR, (_e: any, data: any) => {
-          if (data.fatal) {
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-            else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-            else setError("Playback error. Try switching quality or source.");
+          // Non-fatal buffer stalls: nudge currentTime forward to unfreeze
+          if (!data.fatal) {
+            if (data.details === "bufferStalledError" && video.readyState >= 2) {
+              try { video.currentTime += 0.1; } catch {}
+            }
+            return;
+          }
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            hls.startLoad();
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            mediaRecoverCount++;
+            if (mediaRecoverCount === 1) hls.recoverMediaError();
+            else if (mediaRecoverCount === 2) { hls.swapAudioCodec(); hls.recoverMediaError(); }
+            else setError("Playback error. Try switching source.");
+          } else {
+            setError("Playback error. Try switching source.");
           }
         });
       }).catch(() => {
@@ -179,16 +212,28 @@ export function CustomPlayer({
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
+    let stallTimer: number | null = null;
+    const clearStall = () => { if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; } };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
     const onTime = () => {
       setTime(v.currentTime);
       if (v.buffered.length) setBuffered(v.buffered.end(v.buffered.length - 1));
       onProgress?.(v.currentTime, v.duration, false);
+      clearStall();
     };
     const onDur = () => setDuration(v.duration);
-    const onWaiting = () => setLoading(true);
-    const onCanPlay = () => setLoading(false);
+    const onWaiting = () => {
+      setLoading(true);
+      // If we stay stalled for >3s, nudge past the bad fragment
+      clearStall();
+      stallTimer = window.setTimeout(() => {
+        if (v.readyState < 3 && !v.paused) {
+          try { v.currentTime = v.currentTime + 0.25; } catch {}
+        }
+      }, 3000);
+    };
+    const onCanPlay = () => { setLoading(false); clearStall(); };
     const onEnded = () => {
       onProgress?.(v.duration, v.duration, true);
       if (autoNextEnabled && hasNext && onNextEpisode) {
@@ -208,6 +253,7 @@ export function CustomPlayer({
       v.removeEventListener("waiting", onWaiting); v.removeEventListener("canplay", onCanPlay);
       v.removeEventListener("playing", onCanPlay); v.removeEventListener("ended", onEnded);
       v.removeEventListener("error", onErr);
+      clearStall();
     };
   }, [onProgress, autoNextEnabled, hasNext, onNextEpisode]);
 
