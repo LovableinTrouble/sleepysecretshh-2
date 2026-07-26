@@ -45,6 +45,35 @@ function fmt(t: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function ToggleRow({ icon, label, active, onToggle }: { icon: React.ReactNode; label: string; active: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className="flex w-full items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition"
+    >
+      <span className="flex items-center gap-2">{icon}{label}</span>
+      <span className={`relative h-4 w-7 rounded-full transition-colors ${active ? "bg-white" : "bg-white/20"}`}>
+        <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-black transition-all duration-200 ${active ? "left-3.5" : "left-0.5 bg-white"}`} />
+      </span>
+    </button>
+  );
+}
+
+function SliderRow({ label, value, min, max, step = 1, onChange, suffix = "" }: { label: string; value: number; min: number; max: number; step?: number; onChange: (v: number) => void; suffix?: string }) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-[10px] text-white/50">
+        <span>{label}</span><span className="tabular-nums">{value}{suffix}</span>
+      </div>
+      <input
+        type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(+e.target.value)}
+        className="w-full accent-white cursor-pointer"
+      />
+    </div>
+  );
+}
+
 export function CustomPlayer({
   source, title, season, episode, startAt = 0,
   onProgress, onClose, onSelectSource, onNextEpisode, hasNext,
