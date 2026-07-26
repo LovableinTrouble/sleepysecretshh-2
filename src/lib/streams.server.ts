@@ -52,17 +52,21 @@ function buildEmbeds(i: ResolveInput): EmbedSource[] {
   const season = i.season ?? 1;
   const episode = i.episode ?? 1;
   const path = isShow
-    ? `1/tv/${i.tmdbId}/${season}/${episode}`
-    : `1/movie/${i.tmdbId}`;
-  // Viduki API 1 (multi-server). Purple accent passed via the ?color= hex
-  // param so the embedded player's UI chrome matches the app theme.
-  const params = new URLSearchParams({ color: "8b5cf6" });
+    ? `embed/tv/${i.tmdbId}/${season}/${episode}`
+    : `embed/movie/${i.tmdbId}`;
+  // VidKing embed. Sleepy's gold accent via ?color=, all features enabled.
+  const params = new URLSearchParams({
+    color: "e8b86d",
+    autoPlay: "true",
+    nextEpisode: "true",
+    episodeSelector: "true",
+  });
   return [
     mkEmbed(
-      "viduki",
-      "Viduki",
+      "vidking",
+      "VidKing",
       "Embed",
-      `https://www.viduki.net/${path}?${params.toString()}`,
+      `https://www.vidking.net/${path}?${params.toString()}`,
     ),
   ];
 }
