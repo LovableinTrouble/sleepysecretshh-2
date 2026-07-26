@@ -22,6 +22,7 @@ interface Props {
   hasNext?: boolean;
   autoplay?: boolean;
   autoNext?: boolean;
+  onDownload?: () => void;
 }
 
 type SubStyle = {
@@ -47,7 +48,7 @@ function fmt(t: number): string {
 export function CustomPlayer({
   source, title, season, episode, startAt = 0,
   onProgress, onClose, onSelectSource, onNextEpisode, hasNext,
-  autoplay = true, autoNext = true,
+  autoplay = true, autoNext = true, onDownload,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -240,6 +241,7 @@ export function CustomPlayer({
   };
 
   const handleDownload = () => {
+    if (onDownload) return onDownload();
     if (!currentQuality) return;
     const a = document.createElement("a");
     a.href = currentQuality.url;
