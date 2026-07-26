@@ -15,6 +15,6 @@ const InputSchema = z.object({
 export const resolveStreams = createServerFn({ method: "POST" })
   .inputValidator((d) => InputSchema.parse(d))
   .handler(async ({ data }): Promise<ResolveResult> => {
-    const { buildEmbedsOnly } = await import("./streams.server");
-    return buildEmbedsOnly(data);
+    const { resolveVidPhantom } = await import("./streams.server");
+    return resolveVidPhantom(data);
   });
