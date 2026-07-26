@@ -138,10 +138,11 @@ export function CustomPlayer({
 
     let cancelled = false;
 
+    const doAutoplay = autoplayEnabled;
     if (isHls) {
       import("hls.js").then(({ default: Hls }) => {
         if (cancelled || !Hls.isSupported()) {
-          if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
+          if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (doAutoplay) video.play().catch(() => {}); }
           return;
         }
         const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 60 });
@@ -151,7 +152,7 @@ export function CustomPlayer({
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           setHlsLevels(hls.levels.map((l: any, i: number) => ({ height: l.height, index: i })));
           if (startAt > 0) video.currentTime = startAt;
-          if (autoplay) video.play().catch(() => {});
+          if (doAutoplay) video.play().catch(() => {});
         });
         hls.on(Hls.Events.LEVEL_SWITCHED, (_e: any, d: any) => setHlsLevel(d.level));
         hls.on(Hls.Events.ERROR, (_e: any, data: any) => {
@@ -162,15 +163,15 @@ export function CustomPlayer({
           }
         });
       }).catch(() => {
-        if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
+        if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (doAutoplay) video.play().catch(() => {}); }
       });
     } else {
       video.src = url;
       if (startAt > 0) video.currentTime = startAt;
-      if (autoplay) video.play().catch(() => {});
+      if (doAutoplay) video.play().catch(() => {});
     }
     return () => { cancelled = true; hlsRef.current?.destroy(); hlsRef.current = null; };
-  }, [currentIdx, currentQuality, autoplay, startAt]);
+  }, [currentIdx, currentQuality, autoplayEnabled, startAt]);
 
   useEffect(() => { if (hlsRef.current) hlsRef.current.currentLevel = hlsLevel; }, [hlsLevel]);
 
@@ -190,7 +191,7 @@ export function CustomPlayer({
     const onCanPlay = () => setLoading(false);
     const onEnded = () => {
       onProgress?.(v.duration, v.duration, true);
-      if (autoNext && hasNext && onNextEpisode) {
+      if (autoNextEnabled && hasNext && onNextEpisode) {
         setShowNextToast(true);
         setTimeout(() => onNextEpisode(), 2500);
       }
@@ -208,7 +209,7 @@ export function CustomPlayer({
       v.removeEventListener("playing", onCanPlay); v.removeEventListener("ended", onEnded);
       v.removeEventListener("error", onErr);
     };
-  }, [onProgress, autoNext, hasNext, onNextEpisode]);
+  }, [onProgress, autoNextEnabled, hasNext, onNextEpisode]);
 
   useEffect(() => {
     const onFs = () => setFullscreen(!!document.fullscreenElement);
