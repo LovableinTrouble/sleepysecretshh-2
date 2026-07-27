@@ -132,7 +132,7 @@ async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i:
     const reader = res.body.getReader();
     const dec = new TextDecoder();
     let buf = "";
-    while (results.length < 6) {
+    while (results.length < 1) {
       const { done, value } = await reader.read();
       if (done) break;
       buf += dec.decode(value, { stream: true });
@@ -149,7 +149,7 @@ async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i:
           if (j.proxiedUrl) results.push({ name: String(j.name || "Auto"), url: String(j.proxiedUrl) });
         } catch { /* ignore */ }
       }
-      if (results.length >= 3) break;
+      if (results.length >= 1) break;
     }
   } catch { /* timeout still returns whatever arrived */ }
   finally { clearTimeout(timer); controller.abort(); }
