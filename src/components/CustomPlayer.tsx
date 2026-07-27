@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import {
   Play, Pause, Volume2, VolumeX, Volume1,
   Maximize, Minimize, PictureInPicture, Download as DownloadIcon,
-  Settings as SettingsIcon, Subtitles, ChevronLeft, ChevronRight,
-  Loader2, SkipForward, Cast, X, RotateCcw, Monitor,
+  Settings as SettingsIcon, Subtitles, ChevronLeft,
+  SkipForward, Cast, RotateCcw, Monitor, Cloud, Palette,
 } from "lucide-react";
 import type { DirectSource, StreamQuality, StreamSubtitle } from "@/lib/streams";
+import { getSettings, useSettings, type Settings } from "@/lib/store";
 
 interface Props {
   source: DirectSource;
@@ -33,6 +34,8 @@ type SubStyle = {
   edge: "none" | "shadow" | "outline";
 };
 
+type AspectMode = "contain" | "cover" | "stretch";
+
 const DEFAULT_SUB: SubStyle = {
   fontSize: 22, color: "#ffffff", bg: 40, position: "bottom", edge: "shadow",
 };
@@ -50,6 +53,8 @@ export function CustomPlayer({
   onProgress, onClose, onSelectSource, onNextEpisode, hasNext,
   autoplay = true, autoNext = true, onDownload,
 }: Props) {
+  const [settings, setSettings] = useSettings();
+  const playerPrefs = settings.player;
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<any>(null);
@@ -67,10 +72,10 @@ export function CustomPlayer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
-  const [rate, setRate] = useState(1);
-  const [aspect, setAspect] = useState<"auto" | "16/9" | "4/3" | "cover">("auto");
-  const [openPanel, setOpenPanel] = useState<null | "settings" | "subs">(null);
-  const [settingsTab, setSettingsTab] = useState<"quality" | "speed" | "aspect" | "source">("quality");
+  const [rate, setRate] = useState(() => getSettings().player.defaultSpeed || 1);
+  const [aspect, setAspect] = useState<AspectMode>(() => getSettings().player.fillMode || "contain");
+  const [openPanel, setOpenPanel] = useState<null | "settings" | "subs" | "source">(null);
+  const [settingsTab, setSettingsTab] = useState<"quality" | "playback" | "display" | "captions">("quality");
   const [subIdx, setSubIdx] = useState<number>(-1);
   const [subStyle, setSubStyle] = useState<SubStyle>(DEFAULT_SUB);
   const [hlsLevels, setHlsLevels] = useState<{ height: number; index: number }[]>([]);
@@ -81,6 +86,25 @@ export function CustomPlayer({
 
   const hideTimer = useRef<number | null>(null);
   const seekAmountRef = useRef(0);
+  const errorHitsRef = useRef(0);
+  const stallRef = useRef({ time: 0, hits: 0 });
+
+  const savePlayerPref = useCallback((patch: Partial<Settings["player"]>) => {
+    setSettings({ player: { ...getSettings().player, ...patch } });
+  }, [setSettings]);
+
+  const failoverToNext = useCallback((message = "Source stalled. Trying the next stream…") => {
+    setCurrentIdx((idx) => {
+      const next = idx + 1;
+      if (next < source.qualities.length) {
+        setError(null);
+        setLoading(true);
+        return next;
+      }
+      setError(message);
+      return idx;
+    });
+  }, [source.qualities.length]);
 
   // Load stream
   useEffect(() => {
@@ -88,6 +112,10 @@ export function CustomPlayer({
     if (!video || !currentQuality) return;
     setLoading(true);
     setError(null);
+    setBuffered(0);
+    setHlsLevels([]);
+    errorHitsRef.current = 0;
+    stallRef.current = { time: 0, hits: 0 };
     hlsRef.current?.destroy();
     hlsRef.current = null;
 
@@ -102,21 +130,45 @@ export function CustomPlayer({
           if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
           return;
         }
-        const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 60 });
+        const targetBuffer = Math.max(0, playerPrefs.bufferTarget ?? 0);
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          startFragPrefetch: true,
+          testBandwidth: true,
+          capLevelToPlayerSize: true,
+          backBufferLength: 15,
+          maxBufferLength: targetBuffer <= 0 ? 1 : targetBuffer,
+          maxMaxBufferLength: targetBuffer <= 0 ? 3 : Math.max(30, targetBuffer * 3),
+          maxBufferHole: 0.1,
+          highBufferWatchdogPeriod: 1,
+          nudgeOffset: 0.08,
+          nudgeMaxRetry: 8,
+          manifestLoadingMaxRetry: 4,
+          levelLoadingMaxRetry: 4,
+          fragLoadingMaxRetry: 5,
+          fragLoadingRetryDelay: 500,
+        });
         hlsRef.current = hls;
         hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           setHlsLevels(hls.levels.map((l: any, i: number) => ({ height: l.height, index: i })));
+          hls.currentLevel = playerPrefs.autoQuality === false ? hls.currentLevel : -1;
+          video.playbackRate = rate;
           if (startAt > 0) video.currentTime = startAt;
           if (autoplay) video.play().catch(() => {});
         });
         hls.on(Hls.Events.LEVEL_SWITCHED, (_e: any, d: any) => setHlsLevel(d.level));
         hls.on(Hls.Events.ERROR, (_e: any, data: any) => {
+          if (!data.fatal && data.details) return;
+          errorHitsRef.current += 1;
           if (data.fatal) {
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+            if (playerPrefs.autoFailover !== false && errorHitsRef.current > 1 && currentIdx < source.qualities.length - 1) {
+              failoverToNext();
+            } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
             else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-            else setError("Playback error. Try switching quality or source.");
+            else failoverToNext("Playback error. No more streams are available.");
           }
         });
       }).catch(() => {
@@ -124,11 +176,12 @@ export function CustomPlayer({
       });
     } else {
       video.src = url;
+      video.playbackRate = rate;
       if (startAt > 0) video.currentTime = startAt;
       if (autoplay) video.play().catch(() => {});
     }
     return () => { cancelled = true; hlsRef.current?.destroy(); hlsRef.current = null; };
-  }, [currentIdx, currentQuality, autoplay, startAt]);
+  }, [currentIdx, currentQuality, autoplay, startAt, playerPrefs.bufferTarget, playerPrefs.autoQuality, playerPrefs.autoFailover, rate, failoverToNext, source.qualities.length]);
 
   useEffect(() => { if (hlsRef.current) hlsRef.current.currentLevel = hlsLevel; }, [hlsLevel]);
 
@@ -153,7 +206,10 @@ export function CustomPlayer({
         setTimeout(() => onNextEpisode(), 2500);
       }
     };
-    const onErr = () => setError("Playback failed. Try another source.");
+    const onErr = () => {
+      if (playerPrefs.autoFailover !== false && currentIdx < source.qualities.length - 1) failoverToNext();
+      else setError("Playback failed. No more streams are available.");
+    };
     v.addEventListener("play", onPlay); v.addEventListener("pause", onPause);
     v.addEventListener("timeupdate", onTime); v.addEventListener("durationchange", onDur);
     v.addEventListener("waiting", onWaiting); v.addEventListener("canplay", onCanPlay);
@@ -166,7 +222,40 @@ export function CustomPlayer({
       v.removeEventListener("playing", onCanPlay); v.removeEventListener("ended", onEnded);
       v.removeEventListener("error", onErr);
     };
-  }, [onProgress, autoNext, hasNext, onNextEpisode]);
+  }, [onProgress, autoNext, hasNext, onNextEpisode, playerPrefs.autoFailover, currentIdx, source.qualities.length, failoverToNext]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.playbackRate = rate;
+  }, [rate]);
+
+  useEffect(() => {
+    if (subIdx !== -1 || !playerPrefs.preferEnglishSubs) return;
+    const idx = source.subtitles.findIndex((s) => /english|\ben\b/i.test(`${s.label} ${s.language}`));
+    if (idx >= 0) setSubIdx(idx);
+  }, [source.subtitles, subIdx, playerPrefs.preferEnglishSubs]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const v = videoRef.current;
+      if (!v || v.paused || v.ended || error) return;
+      const delta = Math.abs(v.currentTime - stallRef.current.time);
+      stallRef.current.time = v.currentTime;
+      if (delta > 0.2 || v.readyState >= 3) {
+        stallRef.current.hits = 0;
+        return;
+      }
+      stallRef.current.hits += 1;
+      hlsRef.current?.startLoad?.();
+      if (v.buffered.length) {
+        const end = v.buffered.end(v.buffered.length - 1);
+        if (end > v.currentTime + 0.6) v.currentTime += 0.08;
+      }
+      if (stallRef.current.hits >= 3 && playerPrefs.autoFailover !== false) failoverToNext();
+    }, 3500);
+    return () => window.clearInterval(id);
+  }, [error, playerPrefs.autoFailover, failoverToNext]);
 
   useEffect(() => {
     const onFs = () => setFullscreen(!!document.fullscreenElement);
@@ -209,7 +298,7 @@ export function CustomPlayer({
   function flashControls() {
     setShowControls(true);
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = window.setTimeout(() => setShowControls(false), 3000);
+    hideTimer.current = window.setTimeout(() => setShowControls(false), Math.max(1, playerPrefs.controlsTimeout ?? 3) * 1000);
   }
 
   const togglePlay = () => {
@@ -275,6 +364,7 @@ export function CustomPlayer({
   };
 
   const subPosBottom = subStyle.position === "bottom" ? "8%" : subStyle.position === "middle" ? "45%" : "82%";
+  const objectFit = aspect === "cover" ? "cover" : aspect === "stretch" ? "fill" : "contain";
 
   const progressPct = duration ? (time / duration) * 100 : 0;
   const bufferedPct = duration ? (buffered / duration) * 100 : 0;
@@ -283,6 +373,7 @@ export function CustomPlayer({
     <div
       ref={wrapRef}
       className="relative h-full w-full overflow-hidden bg-black select-none"
+      style={{ "--player-accent": playerPrefs.playerAccent ?? "#ffffff" } as CSSProperties}
       onMouseMove={flashControls}
       onMouseLeave={() => { if (!openPanel) setShowControls(false); }}
       onClick={(e) => {
@@ -297,8 +388,8 @@ export function CustomPlayer({
         ref={videoRef}
         className="h-full w-full"
         style={{
-          objectFit: aspect === "cover" ? "cover" : "contain",
-          aspectRatio: aspect === "auto" ? undefined : aspect === "16/9" ? "16 / 9" : "4 / 3",
+          objectFit,
+          filter: `brightness(${playerPrefs.brightness ?? 100}%) contrast(${playerPrefs.contrast ?? 100}%) saturate(${playerPrefs.saturation ?? 100}%)`,
         }}
         playsInline
         crossOrigin="anonymous"
@@ -314,6 +405,12 @@ export function CustomPlayer({
         style={{ bottom: subPosBottom }}
       >
         <style>{`
+          video::cue {
+            font-size: ${subStyle.fontSize}px;
+            color: ${subStyle.color};
+            background-color: ${subStyle.bg > 0 ? `rgba(0,0,0,${subStyle.bg / 100})` : "transparent"};
+            text-shadow: ${subStyle.edge === "shadow" ? "0 2px 4px rgba(0,0,0,0.8)" : subStyle.edge === "outline" ? "-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000" : "none"};
+          }
           .sub-text {
             font-size: ${subStyle.fontSize}px;
             color: ${subStyle.color};
@@ -336,7 +433,7 @@ export function CustomPlayer({
         <div className="absolute inset-0 z-20 grid place-items-center bg-black/30 backdrop-blur-sm">
           <div className="relative h-14 w-14">
             <div className="absolute inset-0 rounded-full border-2 border-white/10" />
-            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-white/80 animate-spin" style={{ animationDuration: "0.8s" }} />
+            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[var(--player-accent)] animate-spin" style={{ animationDuration: "0.8s" }} />
           </div>
         </div>
       )}
@@ -417,10 +514,10 @@ export function CustomPlayer({
           {/* Buffered */}
           <div className="absolute inset-y-0 left-0 rounded-full bg-white/20" style={{ width: `${bufferedPct}%` }} />
           {/* Progress */}
-          <div className="absolute inset-y-0 left-0 rounded-full bg-white transition-[width] duration-75" style={{ width: `${progressPct}%` }} />
+          <div className="absolute inset-y-0 left-0 rounded-full bg-[var(--player-accent)] transition-[width] duration-75" style={{ width: `${progressPct}%` }} />
           {/* Scrub dot */}
           <div
-            className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
+            className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[var(--player-accent)] shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
             style={{ left: `calc(${progressPct}% - 6px)` }}
           />
           {/* Hover preview */}
@@ -471,7 +568,7 @@ export function CustomPlayer({
               className="relative h-1 w-0 cursor-pointer rounded-full bg-white/20 overflow-hidden transition-all duration-200 group-hover/vol:w-16"
               onClick={onVolChange}
             >
-              <div className="absolute inset-y-0 left-0 rounded-full bg-white" style={{ width: `${(muted ? 0 : volume) * 100}%` }} />
+              <div className="absolute inset-y-0 left-0 rounded-full bg-[var(--player-accent)]" style={{ width: `${(muted ? 0 : volume) * 100}%` }} />
             </div>
           </div>
 
@@ -508,6 +605,16 @@ export function CustomPlayer({
             <SettingsIcon className="h-4 w-4" />
           </button>
 
+          {/* Source cloud */}
+          <button
+            onClick={() => setOpenPanel(openPanel === "source" ? null : "source")}
+            className={`grid h-9 w-9 place-items-center rounded-lg transition ${openPanel === "source" ? "text-white bg-white/10" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
+            aria-label="Sources"
+            title="Sources"
+          >
+            <Cloud className="h-4 w-4" />
+          </button>
+
           {/* Download */}
           <button onClick={handleDownload} className="grid h-9 w-9 place-items-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition" aria-label="Download">
             <DownloadIcon className="h-4 w-4" />
@@ -522,14 +629,14 @@ export function CustomPlayer({
 
       {/* ── Settings panel ───────────────────────────── */}
       {openPanel === "settings" && (
-        <div className="absolute right-4 bottom-16 z-30 w-72 rounded-2xl border border-white/10 bg-black/90 p-3 shadow-2xl backdrop-blur-2xl">
+        <div className="absolute right-4 bottom-16 z-30 w-[min(26rem,calc(100vw-2rem))] rounded-3xl border border-white/10 bg-black/92 p-4 shadow-2xl backdrop-blur-2xl">
           {/* Tabs */}
-          <div className="mb-3 flex gap-1 rounded-xl bg-white/5 p-1">
+          <div className="mb-4 grid grid-cols-4 gap-1 rounded-2xl bg-white/5 p-1">
             {([
               ["quality", "Quality"],
-              ["speed", "Speed"],
-              ["aspect", "Aspect"],
-              ["source", "Source"],
+              ["playback", "Play"],
+              ["display", "Display"],
+              ["captions", "Captions"],
             ] as const).map(([tab, label]) => (
               <button
                 key={tab}
@@ -543,11 +650,11 @@ export function CustomPlayer({
 
           {/* Quality tab */}
           {settingsTab === "quality" && (
-            <div className="max-h-48 space-y-0.5 overflow-y-auto">
+            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
               {/* HLS adaptive levels */}
               {hlsLevels.length > 0 && (
                 <button
-                  onClick={() => setHlsLevel(-1)}
+                  onClick={() => { setHlsLevel(-1); savePlayerPref({ autoQuality: true }); }}
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${hlsLevel === -1 ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
                 >
                   <span>Auto</span>
@@ -557,79 +664,110 @@ export function CustomPlayer({
               {hlsLevels.map((lvl) => (
                 <button
                   key={lvl.index}
-                  onClick={() => setHlsLevel(lvl.index)}
+                  onClick={() => { setHlsLevel(lvl.index); savePlayerPref({ autoQuality: false }); }}
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${hlsLevel === lvl.index ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
                 >
                   <span>{lvl.height}p</span>
                   {hlsLevel === lvl.index && <span className="text-[10px] text-white/40">●</span>}
                 </button>
               ))}
-              {/* Source qualities */}
-              <div className="my-1 border-t border-white/8" />
-              <p className="px-3 py-1 text-[10px] uppercase tracking-widest text-white/30">Sources</p>
-              {source.qualities.map((q, i) => (
-                <button
-                  key={i}
-                  onClick={() => { setCurrentIdx(i); setHlsLevels([]); }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${currentIdx === i ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
-                >
-                  <span className="truncate">{q.label}</span>
-                  <span className="text-[9px] uppercase text-white/30">{q.format}</span>
-                </button>
-              ))}
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-semibold text-white">Auto failover</div>
+                    <div className="mt-0.5 text-[10px] text-white/45">Switch streams automatically when one fails.</div>
+                  </div>
+                  <TogglePill value={playerPrefs.autoFailover !== false} onChange={(v) => savePlayerPref({ autoFailover: v })} />
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Speed tab */}
-          {settingsTab === "speed" && (
-            <div className="grid grid-cols-3 gap-1.5">
+          {/* Playback tab */}
+          {settingsTab === "playback" && (
+            <div className="space-y-4">
+              <div>
+                <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-widest text-white/35">
+                  <span>Speed</span><span>{rate}x</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
               {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((r) => (
                 <button
                   key={r}
-                  onClick={() => { setRate(r); const v = videoRef.current; if (v) v.playbackRate = r; }}
+                  onClick={() => { setRate(r); savePlayerPref({ defaultSpeed: r }); const v = videoRef.current; if (v) v.playbackRate = r; }}
                   className={`rounded-lg py-2 text-xs font-semibold transition ${rate === r ? "bg-white/15 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
                 >
                   {r === 1 ? "1x" : `${r}x`}
                 </button>
               ))}
+                </div>
+              </div>
+              <PanelSwitch label="Autoplay" hint="Start as soon as the stream connects." value={playerPrefs.autoplay} onChange={(v) => savePlayerPref({ autoplay: v })} />
+              <PanelSwitch label="Auto-next" hint="Continue to the next episode." value={playerPrefs.autoNext} onChange={(v) => savePlayerPref({ autoNext: v })} />
+              <PanelSlider label="Hide controls" value={playerPrefs.controlsTimeout ?? 3} min={1} max={8} suffix="s" onChange={(v) => savePlayerPref({ controlsTimeout: v })} />
+              <PanelSlider label="Buffer target" value={playerPrefs.bufferTarget ?? 0} min={0} max={30} suffix="s" onChange={(v) => savePlayerPref({ bufferTarget: v })} />
             </div>
           )}
 
-          {/* Aspect tab */}
-          {settingsTab === "aspect" && (
-            <div className="space-y-0.5">
-              {([["auto", "Auto"], ["16/9", "16:9"], ["4/3", "4:3"], ["cover", "Fill"]] as const).map(([val, label]) => (
+          {/* Display tab */}
+          {settingsTab === "display" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-1.5">
+              {([["contain", "Fit"], ["cover", "Fill"], ["stretch", "Stretch"]] as const).map(([val, label]) => (
                 <button
                   key={val}
-                  onClick={() => setAspect(val)}
+                  onClick={() => { setAspect(val); savePlayerPref({ fillMode: val }); }}
                   className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${aspect === val ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
                 >
                   <Monitor className="h-3.5 w-3.5" />
                   {label}
                 </button>
               ))}
+              </div>
+              <PanelSlider label="Brightness" value={playerPrefs.brightness ?? 100} min={50} max={150} suffix="%" onChange={(v) => savePlayerPref({ brightness: v })} />
+              <PanelSlider label="Contrast" value={playerPrefs.contrast ?? 100} min={50} max={150} suffix="%" onChange={(v) => savePlayerPref({ contrast: v })} />
+              <PanelSlider label="Saturation" value={playerPrefs.saturation ?? 100} min={0} max={180} suffix="%" onChange={(v) => savePlayerPref({ saturation: v })} />
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-white"><Palette className="h-3.5 w-3.5" /> Accent</div>
+                <input type="color" value={playerPrefs.playerAccent ?? "#ffffff"} onChange={(e) => savePlayerPref({ playerAccent: e.target.value })} className="h-8 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
+              </div>
             </div>
           )}
 
-          {/* Source tab */}
-          {settingsTab === "source" && (
-            <div className="space-y-0.5">
-              <div className="mb-2 flex items-center justify-between px-1">
-                <span className="text-[10px] uppercase tracking-widest text-white/30">Current source</span>
-                <span className="text-[10px] text-white/50">{source.qualities.length} streams</span>
-              </div>
-              <button
-                onClick={() => onSelectSource?.()}
-                className="w-full rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white hover:bg-white/15 transition"
-              >
-                Switch source provider
-              </button>
-              <div className="mt-2 rounded-lg bg-white/5 px-3 py-2">
-                <p className="text-[10px] text-white/40">Active: {currentQuality?.label}</p>
-                <p className="text-[10px] text-white/40">Format: {currentQuality?.format.toUpperCase()}</p>
+          {/* Captions tab */}
+          {settingsTab === "captions" && (
+            <div className="space-y-4">
+              <PanelSwitch label="Prefer English" hint="Enable the English 1x2.Space track when available." value={playerPrefs.preferEnglishSubs !== false} onChange={(v) => savePlayerPref({ preferEnglishSubs: v })} />
+              <PanelSlider label="Subtitle size" value={subStyle.fontSize} min={12} max={48} suffix="px" onChange={(v) => setSubStyle({ ...subStyle, fontSize: v })} />
+              <PanelSlider label="Subtitle background" value={subStyle.bg} min={0} max={100} suffix="%" onChange={(v) => setSubStyle({ ...subStyle, bg: v })} />
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="text-xs font-semibold text-white">Subtitle color</div>
+                <input type="color" value={subStyle.color} onChange={(e) => setSubStyle({ ...subStyle, color: e.target.value })} className="h-8 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Source cloud panel ───────────────────────── */}
+      {openPanel === "source" && (
+        <div className="absolute right-4 bottom-16 z-30 w-[min(22rem,calc(100vw-2rem))] rounded-3xl border border-white/10 bg-black/92 p-4 shadow-2xl backdrop-blur-2xl">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-bold text-white"><Cloud className="h-4 w-4" /> Sources</div>
+            <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/45">{source.qualities.length}</span>
+          </div>
+          <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+            {source.qualities.map((q, i) => (
+              <button
+                key={`${q.label}-${i}`}
+                onClick={() => { setCurrentIdx(i); setHlsLevels([]); setOpenPanel(null); }}
+                className={`flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition ${currentIdx === i ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/65 hover:bg-white/10 hover:text-white"}`}
+              >
+                <span className="min-w-0 truncate text-xs font-semibold">{q.label}</span>
+                <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-[9px] uppercase text-white/40">{q.quality || q.format}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

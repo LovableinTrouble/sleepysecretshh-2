@@ -43,58 +43,37 @@ export interface ResolveResult {
   primary?: string;
 }
 
-function mkEmbed(id: string, name: string, badge: string, url: string): EmbedSource {
-  return { kind: "embed", id, name, badge, url };
-}
-
-function buildEmbeds(i: ResolveInput): EmbedSource[] {
-  const isShow = i.type !== "movie";
-  const season = i.season ?? 1;
-  const episode = i.episode ?? 1;
-  const path = isShow
-    ? `embed/tv/${i.tmdbId}/${season}/${episode}`
-    : `embed/movie/${i.tmdbId}`;
-  // VidKing embed. Sleepy's gold accent via ?color=, all features enabled.
-  const params = new URLSearchParams({
-    color: "e8b86d",
-    autoPlay: "true",
-    nextEpisode: "true",
-    episodeSelector: "true",
-  });
-  return [
-    mkEmbed(
-      "vidking",
-      "VidKing",
-      "Embed",
-      `https://www.vidking.net/${path}?${params.toString()}`,
-    ),
-  ];
-}
-
 export function buildEmbedsOnly(input: ResolveInput): ResolveResult {
-  const sources = buildEmbeds(input);
-  return { sources, primary: sources[0]?.id };
+  return { sources: [], primary: undefined };
 }
 
 // ============================================================
-// Direct HLS scraper — VidPhantom (primary) with fallback to
-// stream-providers (Vidlink, NoTorrent, VidSrc). All URLs proxied
-// through /api/public/iptv-proxy so browser plays them without
-// CORS/referer issues.
+// Direct HLS scraper — VidPhantom only. It returns raw provider HLS
+// URLs through its signed proxy endpoint; we pass every URL through
+// our own playlist proxy so hls.js can load manifests, keys and
+// segments without browser CORS/referer stalls.
 // ============================================================
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
 
-const CLEAN_NAMES: Record<string, string> = {
-  StreamVault: "Nebula",
-  VidKing: "Aurora",
-  VidRock: "Orion",
-  VidRock2: "Orion",
-  Vidzee: "Vega",
-  Xprime: "Lyra",
-  Vidsrc: "Polaris",
+const SOURCE_ALIASES = [
+  "Nimbus", "Aurora", "Orion", "Vega", "Atlas", "Nova", "Lyra", "Polaris",
+  "Zenith", "Pulse", "Echo", "Astra", "Comet", "Halo", "Prism", "Vertex",
+];
+
+const LANGUAGE_CODES: Record<string, string> = {
+  english: "en", spanish: "es", french: "fr", german: "de", italian: "it", portuguese: "pt",
+  arabic: "ar", bengali: "bn", bulgarian: "bg", chinese: "zh", croatian: "hr", czech: "cs",
+  danish: "da", dutch: "nl", estonian: "et", filipino: "tl", finnish: "fi", greek: "el",
+  hebrew: "he", hindi: "hi", hungarian: "hu", indonesian: "id", japanese: "ja", korean: "ko",
+  malay: "ms", norwegian: "no", polish: "pl", romanian: "ro", russian: "ru", swedish: "sv",
+  thai: "th", turkish: "tr", ukrainian: "uk", urdu: "ur", vietnamese: "vi",
 };
+
+function aliasFor(_name: string, index: number): string {
+  return SOURCE_ALIASES[index % SOURCE_ALIASES.length];
+}
 
 function proxyUrl(raw: string, referer?: string) {
   const p = new URLSearchParams();
@@ -109,11 +88,11 @@ async function scrapeVidPhantom(i: ResolveInput): Promise<StreamQuality[]> {
       ? `movie/${i.tmdbId}`
       : `tv/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}`;
   const results: { name: string; url: string; subs: any[] }[] = [];
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch(`https://vidphantom.com/api/hls/${path}`, {
         headers: { "User-Agent": UA, Accept: "text/event-stream" },
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(22000),
       });
       if (!res.ok || !res.body) continue;
       const reader = res.body.getReader();
@@ -133,40 +112,24 @@ async function scrapeVidPhantom(i: ResolveInput): Promise<StreamQuality[]> {
           try {
             const j = JSON.parse(line.slice(5).trim());
             if (j.done) break;
-            if (j.proxiedUrl) results.push({ name: j.name, url: j.proxiedUrl, subs: j.subtitles ?? [] });
+            if (j.proxiedUrl) results.push({ name: String(j.name || "Source"), url: String(j.proxiedUrl), subs: j.subtitles ?? [] });
           } catch { /* ignore */ }
         }
       }
       if (results.length) break;
     } catch { /* retry */ }
   }
-  return results.map((r) => ({
-    url: r.url,
-    label: CLEAN_NAMES[r.name] ?? r.name,
-    quality: "Auto",
-    format: "hls" as const,
-  }));
-}
-
-async function scrapeFallback(i: ResolveInput): Promise<StreamQuality[]> {
-  const { PROVIDERS } = await import("./stream-providers");
-  const type: "movie" | "tv" = i.type === "movie" ? "movie" : "tv";
-  const out: StreamQuality[] = [];
-  for (const p of PROVIDERS) {
-    try {
-      const streams = await p.fetch(i.tmdbId, type, i.season, i.episode);
-      for (const s of streams) {
-        out.push({
-          url: s.url,
-          label: CLEAN_NAMES[p.nickname] ?? p.nickname,
-          quality: s.quality || "Auto",
-          format: s.type === "hls" ? "hls" : "mp4",
-        });
-      }
-      if (out.length) break;
-    } catch { /* try next */ }
+  const unique = new Map<string, { name: string; url: string }>();
+  for (const r of results) {
+    if (!unique.has(r.url)) unique.set(r.url, { name: r.name, url: r.url });
   }
-  return out;
+  return [...unique.values()].map((r, index) => ({
+    url: proxyUrl(r.url),
+    label: aliasFor(r.name, index),
+    quality: /2160|4k/i.test(r.url) ? "4K" : /1080/i.test(r.url) ? "1080p" : /720/i.test(r.url) ? "720p" : "Auto",
+    format: "hls" as const,
+    resolution: /2160|4k/i.test(r.url) ? 2160 : /1080/i.test(r.url) ? 1080 : /720/i.test(r.url) ? 720 : undefined,
+  }));
 }
 
 async function fetchSubs(i: ResolveInput): Promise<StreamSubtitle[]> {
@@ -179,36 +142,37 @@ async function fetchSubs(i: ResolveInput): Promise<StreamSubtitle[]> {
     if (!res.ok) return [];
     const arr = await res.json();
     if (!Array.isArray(arr)) return [];
-    return arr.slice(0, 30).map((s: any) => ({
-      url: proxyUrl(String(s.url)),
-      language: String(s.language || "en"),
-      label: String(s.label || s.language || "Subtitle"),
-      type: /\.srt/i.test(String(s.url)) ? "srt" : "vtt",
-    }));
+    return arr
+      .filter((s: any) => String(s.status || "cached") === "cached" && s.url)
+      .slice(0, 40)
+      .map((s: any) => {
+        const rawUrl = String(s.url);
+        const absolute = rawUrl.startsWith("http") ? rawUrl : `https://sub.1x2.space${rawUrl}`;
+        const lang = String(s.language || s.label || "English").toLowerCase();
+        return {
+          url: `/api/public/subtitle?url=${encodeURIComponent(absolute)}`,
+          language: (LANGUAGE_CODES[lang] ?? lang.slice(0, 2)) || "en",
+          label: String(s.label || s.language || "Subtitle"),
+          type: /\.srt/i.test(rawUrl) ? "srt" : "vtt",
+        };
+      });
   } catch { return []; }
 }
 
 export async function resolveDirect(input: ResolveInput): Promise<ResolveResult> {
-  // Try VidPhantom, then fallback scrapers (Vidlink/NoTorrent/VidSrc).
   const [primary, subs] = await Promise.all([
     scrapeVidPhantom(input),
     fetchSubs(input),
   ]);
-  let qualities = primary;
-  if (!qualities.length) qualities = await scrapeFallback(input);
-
-  const embeds = buildEmbeds(input);
-  if (!qualities.length) {
-    return { sources: embeds, primary: embeds[0]?.id };
-  }
+  if (!primary.length) throw new Error("No VidPhantom streams connected for this title yet. Try again in a moment.");
 
   const direct: DirectSource = {
     kind: "direct",
     id: "direct",
     name: "Sleepy Player",
     badge: "HLS",
-    qualities,
+    qualities: primary,
     subtitles: subs,
   };
-  return { sources: [direct, ...embeds], primary: direct.id };
+  return { sources: [direct], primary: direct.id };
 }
