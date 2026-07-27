@@ -870,3 +870,74 @@ export function CustomPlayer({
     </div>
   );
 }
+
+function TogglePill({ value, onChange }: { value: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={value}
+      onClick={() => onChange(!value)}
+      className={`relative h-6 w-11 rounded-full border transition ${value ? "border-white/25 bg-[var(--player-accent)]/80" : "border-white/10 bg-white/10"}`}
+    >
+      <span className={`absolute top-1/2 h-4.5 w-4.5 -translate-y-1/2 rounded-full bg-white shadow-lg transition ${value ? "translate-x-5" : "translate-x-0.5"}`} />
+    </button>
+  );
+}
+
+function PanelSwitch({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+      <div className="min-w-0">
+        <div className="text-xs font-semibold text-white">{label}</div>
+        {hint && <div className="mt-0.5 text-[10px] leading-relaxed text-white/45">{hint}</div>}
+      </div>
+      <TogglePill value={value} onChange={onChange} />
+    </div>
+  );
+}
+
+function PanelSlider({
+  label,
+  value,
+  min,
+  max,
+  suffix,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  suffix?: string;
+  onChange: (value: number) => void;
+}) {
+  const pct = ((value - min) / (max - min)) * 100;
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+      <div className="mb-2 flex items-center justify-between text-xs">
+        <span className="font-semibold text-white">{label}</span>
+        <span className="font-mono text-[10px] text-white/45">{value}{suffix ?? ""}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-white outline-none"
+        style={{ background: `linear-gradient(to right, var(--player-accent) 0%, var(--player-accent) ${pct}%, rgba(255,255,255,.12) ${pct}%, rgba(255,255,255,.12) 100%)` }}
+      />
+    </div>
+  );
+}
