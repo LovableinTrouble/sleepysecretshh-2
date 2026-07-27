@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Check, X, Loader2 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 import type { Media } from "@/lib/catalog";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-import { resolveStreams, type ResolvedSource } from "@/lib/streams";
+import { resolveProvider, PROVIDER_LIST, type DirectSource, type ProviderId, type StreamQuality, type StreamSubtitle } from "@/lib/streams";
 import { useSettings } from "@/lib/store";
 import { CustomPlayer } from "./CustomPlayer";
 import { DownloadsDialog } from "./DownloadsDialog";
@@ -46,36 +46,61 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const [sources, setSources] = useState<ResolvedSource[] | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  type ProviderStatus = "pending" | "checking" | "ready" | "failed";
+  const [statuses, setStatuses] = useState<Record<ProviderId, { state: ProviderStatus; count: number }>>(
+    () => Object.fromEntries(PROVIDER_LIST.map((p) => [p.id, { state: "pending", count: 0 }])) as any
+  );
+  const [qualities, setQualities] = useState<StreamQuality[]>([]);
+  const [subtitles, setSubtitles] = useState<StreamSubtitle[]>([]);
+  const [scanning, setScanning] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [loadMsg, setLoadMsg] = useState("Scanning sources…");
-
-  const msgTimerRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (sources || error) return;
-    const msgs = ["Scanning sources…", "Connecting to streams…", "Finding best quality…", "Almost there…"];
-    let idx = 0;
-    msgTimerRef.current = window.setInterval(() => { idx = (idx + 1) % msgs.length; setLoadMsg(msgs[idx]); }, 2200);
-    return () => { if (msgTimerRef.current) clearInterval(msgTimerRef.current); };
-  }, [sources, error]);
 
   useEffect(() => {
     let dead = false;
-    setSources(null); setError(null); setLoadMsg("Scanning sources…");
-    resolveStreams({
-      data: { tmdbId: String(media.id), title: media.title, type: media.type === "movie" ? "movie" : "show", season, episode },
-    })
-      .then((res) => {
-        if (dead) return;
-        setSources(res.sources);
-        setActiveId(res.primary ?? res.sources[0]?.id ?? null);
-      })
-      .catch((e) => { if (!dead) setError(e?.message || "Failed to resolve sources"); });
+    setStatuses(Object.fromEntries(PROVIDER_LIST.map((p) => [p.id, { state: "pending", count: 0 }])) as any);
+    setQualities([]); setSubtitles([]); setScanning(true); setError(null);
+
+    const input = { tmdbId: String(media.id), title: media.title, type: media.type === "movie" ? "movie" as const : "show" as const, season, episode };
+
+    // Stagger start so the scan animation is visible.
+    const promises = PROVIDER_LIST.map((p, i) => new Promise<void>((resolve) => {
+      setTimeout(() => {
+        if (dead) return resolve();
+        setStatuses((s) => ({ ...s, [p.id]: { ...s[p.id], state: "checking" } }));
+        resolveProvider({ data: { provider: p.id, ...input } })
+          .then((res) => {
+            if (dead) return;
+            const count = res.qualities.length;
+            setStatuses((s) => ({ ...s, [p.id]: { state: count > 0 ? "ready" : "failed", count } }));
+            if (count > 0) {
+              setQualities((q) => [...q, ...res.qualities]);
+              if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
+            }
+          })
+          .catch(() => { if (!dead) setStatuses((s) => ({ ...s, [p.id]: { state: "failed", count: 0 } })); })
+          .finally(() => resolve());
+      }, i * 220);
+    }));
+
+    Promise.all(promises).then(() => {
+      if (dead) return;
+      setScanning(false);
+      setQualities((q) => {
+        if (q.length === 0) setError("No working streams found across providers. Try again in a moment.");
+        return q;
+      });
+    });
+
     return () => { dead = true; };
   }, [media.id, media.title, media.type, season, episode]);
 
-  const active = useMemo(() => sources?.find((s) => s.id === activeId), [sources, activeId]);
+  const active: DirectSource | null = useMemo(() => {
+    if (qualities.length === 0) return null;
+    return { kind: "direct", id: "merged", name: "Sleepy", badge: "HLS", qualities, subtitles };
+  }, [qualities, subtitles]);
+
+  const readyCount = Object.values(statuses).filter((s) => s.state === "ready").length;
+  const settledCount = Object.values(statuses).filter((s) => s.state === "ready" || s.state === "failed").length;
 
   const savedProgress = useMemo(() => getLocalProgressFor(media.id, season ?? null, episode ?? null), [media.id, season, episode]);
   const startAt = savedProgress && savedProgress.positionSeconds > 10 ? savedProgress.positionSeconds : 0;
@@ -97,15 +122,17 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   const hasNext = !!(season && episode);
   const onProgress = useCallback((t: number, d: number, ended: boolean) => {
-    recordProgress(media, season, episode, t, d, ended, active?.id ?? "unknown");
-  }, [media, season, episode, active?.id]);
+    recordProgress(media, season, episode, t, d, ended, "sleepy");
+  }, [media, season, episode]);
 
   const player = (
     <div className="fixed inset-0 z-[2147483000] flex flex-col bg-black" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, height: "100dvh", width: "100vw" }}>
       <div className="relative flex-1 bg-black overflow-hidden">
-        {!sources && !error && <LoadingOverlay message={loadMsg} onClose={onClose} title={media.title} />}
-        {error && <ErrorOverlay error={error} onClose={onClose} onRetry={() => { setError(null); setSources(null); }} />}
-        {active?.kind === "direct" && (
+        {scanning && !active && !error && (
+          <ScanOverlay title={media.title} statuses={statuses} readyCount={readyCount} settledCount={settledCount} total={PROVIDER_LIST.length} onClose={onClose} />
+        )}
+        {error && !active && <ErrorOverlay error={error} onClose={onClose} onRetry={() => { setError(null); setQualities([]); }} />}
+        {active && (
           <CustomPlayer source={active} title={media.title} season={season} episode={episode}
             startAt={startAt} onProgress={onProgress} onClose={onClose}
             onSelectSource={() => {}}
@@ -136,21 +163,85 @@ function recordProgress(media: Media, season: number | undefined, episode: numbe
   });
 }
 
-function LoadingOverlay({ message, onClose, title }: { message: string; onClose: () => void; title: string }) {
+function ScanOverlay({
+  title, statuses, readyCount, settledCount, total, onClose,
+}: {
+  title: string;
+  statuses: Record<ProviderId, { state: "pending" | "checking" | "ready" | "failed"; count: number }>;
+  readyCount: number; settledCount: number; total: number; onClose: () => void;
+}) {
+  const pct = Math.round((settledCount / total) * 100);
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-6 bg-black">
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative h-16 w-16">
-          <div className="absolute inset-0 rounded-full border-4 border-white/10" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-white animate-spin" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-white/40 animate-spin" style={{ animationDuration: "1.5s", animationDirection: "reverse" }} />
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-8 bg-black px-6">
+      {/* Radar */}
+      <div className="relative h-32 w-32">
+        <div className="absolute inset-0 rounded-full border border-white/10" />
+        <div className="absolute inset-3 rounded-full border border-white/10" />
+        <div className="absolute inset-6 rounded-full border border-white/10" />
+        <div className="absolute inset-0 rounded-full overflow-hidden">
+          <div
+            className="absolute left-1/2 top-1/2 h-1/2 w-1/2 origin-top-left animate-spin"
+            style={{
+              animationDuration: "2.4s",
+              background: "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.18) 40deg, transparent 90deg)",
+              transformOrigin: "0 0",
+            }}
+          />
         </div>
-        <p className="text-sm font-semibold text-white">{title}</p>
-        <p className="text-xs uppercase tracking-[0.3em] text-white/40 transition-all duration-500">{message}</p>
+        <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_20px_rgba(255,255,255,0.6)]" />
       </div>
-      <button onClick={onClose} className="mt-4 rounded-full border border-white/10 px-4 py-2 text-xs text-white/50 transition hover:border-white/30 hover:text-white/80">Cancel</button>
+
+      <div className="text-center">
+        <p className="text-sm font-semibold text-white">{title}</p>
+        <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-white/40">
+          Scanning · {readyCount}/{total} online
+        </p>
+      </div>
+
+      {/* Provider list */}
+      <div className="w-full max-w-sm space-y-1.5">
+        {PROVIDER_LIST.map((p) => {
+          const s = statuses[p.id];
+          return (
+            <div
+              key={p.id}
+              className={`flex items-center justify-between rounded-2xl border px-3.5 py-2.5 backdrop-blur-xl transition-all duration-300 ${
+                s.state === "ready" ? "border-emerald-400/30 bg-emerald-400/5"
+                : s.state === "failed" ? "border-white/5 bg-white/2 opacity-50"
+                : s.state === "checking" ? "border-white/20 bg-white/5"
+                : "border-white/5 bg-white/2"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <StatusDot state={s.state} />
+                <span className="text-xs font-semibold text-white">{p.name}</span>
+              </div>
+              <div className="text-[10px] uppercase tracking-widest text-white/40">
+                {s.state === "ready" && `${s.count} stream${s.count === 1 ? "" : "s"}`}
+                {s.state === "checking" && "Checking…"}
+                {s.state === "pending" && "Queued"}
+                {s.state === "failed" && "No hit"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1 w-full max-w-sm overflow-hidden rounded-full bg-white/8">
+        <div className="h-full bg-white transition-all duration-500" style={{ width: `${pct}%` }} />
+      </div>
+
+      <button onClick={onClose} className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/50 transition hover:border-white/30 hover:text-white/80">Cancel</button>
     </div>
   );
+}
+
+function StatusDot({ state }: { state: "pending" | "checking" | "ready" | "failed" }) {
+  if (state === "ready") return <div className="grid h-5 w-5 place-items-center rounded-full bg-emerald-400/20 text-emerald-300"><Check className="h-3 w-3" /></div>;
+  if (state === "failed") return <div className="grid h-5 w-5 place-items-center rounded-full bg-white/5 text-white/30"><X className="h-3 w-3" /></div>;
+  if (state === "checking") return <div className="grid h-5 w-5 place-items-center rounded-full bg-white/10 text-white"><Loader2 className="h-3 w-3 animate-spin" /></div>;
+  return <div className="h-5 w-5 rounded-full border border-white/10" />;
 }
 
 function ErrorOverlay({ error, onClose, onRetry }: { error: string; onClose: () => void; onRetry: () => void }) {
