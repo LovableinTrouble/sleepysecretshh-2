@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 import type { Media } from "@/lib/catalog";
@@ -163,53 +163,6 @@ function ErrorOverlay({ error, onClose, onRetry }: { error: string; onClose: () 
           <button onClick={onClose} className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white">Close</button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function EmbedFrame({ source, media, onProgress, onClose }: { source: Extract<ResolvedSource, { kind: "embed" }>; media: Media; onProgress: (t: number, d: number, ended: boolean) => void; onClose: () => void; }) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  // VidKing posts PLAYER_EVENT messages: { type: 'PLAYER_EVENT',
-  // data: { event: 'timeupdate'|'play'|'pause'|'ended', currentTime, duration, ... } }
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      let host = "";
-      try { host = new URL(event.origin).hostname; } catch { return; }
-      if (!/vidking\.(net|site)$/i.test(host)) return;
-      const payload = event.data;
-      if (!payload || typeof payload !== "object") return;
-      if (payload.type !== "PLAYER_EVENT" || !payload.data) return;
-      const d = payload.data as Record<string, any>;
-      const t = Number(d.currentTime) || 0;
-      const dur = Number(d.duration) || 0;
-      const ended = d.event === "ended";
-      if (dur > 0 || ended) onProgress(t, dur, ended);
-    };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [onProgress]);
-
-  return (
-    <div className="relative h-full w-full bg-black">
-      <iframe
-        ref={iframeRef}
-        id="target-iframe"
-        src={source.url}
-        title={media.title}
-        className="h-full w-full border-0"
-        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-        allowFullScreen
-        referrerPolicy="no-referrer"
-        sandbox="allow-scripts allow-same-origin allow-presentation"
-      />
-      <button
-        onClick={onClose}
-        aria-label="Back"
-        className="pointer-events-auto fixed left-4 top-4 z-40 flex items-center gap-1.5 rounded-full bg-black/70 px-3.5 py-2 text-xs font-semibold text-white ring-1 ring-white/15 backdrop-blur-md transition hover:bg-black/90"
-      >
-        <ChevronLeft className="h-4 w-4" /> Back
-      </button>
     </div>
   );
 }
