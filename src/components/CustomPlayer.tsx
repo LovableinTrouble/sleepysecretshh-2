@@ -677,7 +677,7 @@ export function CustomPlayer({
                     <div className="text-xs font-semibold text-white">Auto failover</div>
                     <div className="mt-0.5 text-[10px] text-white/45">Switch streams automatically when one fails.</div>
                   </div>
-                  <TogglePill value={playerPrefs.autoFailover !== false} onChange={(v) => savePlayerPref({ autoFailover: v })} />
+                  <TogglePill value={playerPrefs.autoFailover !== false} onChange={(v: boolean) => savePlayerPref({ autoFailover: v })} />
                 </div>
               </div>
             </div>
@@ -702,10 +702,10 @@ export function CustomPlayer({
               ))}
                 </div>
               </div>
-              <PanelSwitch label="Autoplay" hint="Start as soon as the stream connects." value={playerPrefs.autoplay} onChange={(v) => savePlayerPref({ autoplay: v })} />
-              <PanelSwitch label="Auto-next" hint="Continue to the next episode." value={playerPrefs.autoNext} onChange={(v) => savePlayerPref({ autoNext: v })} />
-              <PanelSlider label="Hide controls" value={playerPrefs.controlsTimeout ?? 3} min={1} max={8} suffix="s" onChange={(v) => savePlayerPref({ controlsTimeout: v })} />
-              <PanelSlider label="Buffer target" value={playerPrefs.bufferTarget ?? 0} min={0} max={30} suffix="s" onChange={(v) => savePlayerPref({ bufferTarget: v })} />
+              <PanelSwitch label="Autoplay" hint="Start as soon as the stream connects." value={playerPrefs.autoplay} onChange={(v: boolean) => savePlayerPref({ autoplay: v })} />
+              <PanelSwitch label="Auto-next" hint="Continue to the next episode." value={playerPrefs.autoNext} onChange={(v: boolean) => savePlayerPref({ autoNext: v })} />
+              <PanelSlider label="Hide controls" value={playerPrefs.controlsTimeout ?? 3} min={1} max={8} suffix="s" onChange={(v: number) => savePlayerPref({ controlsTimeout: v })} />
+              <PanelSlider label="Buffer target" value={playerPrefs.bufferTarget ?? 0} min={0} max={30} suffix="s" onChange={(v: number) => savePlayerPref({ bufferTarget: v })} />
             </div>
           )}
 
@@ -724,9 +724,9 @@ export function CustomPlayer({
                 </button>
               ))}
               </div>
-              <PanelSlider label="Brightness" value={playerPrefs.brightness ?? 100} min={50} max={150} suffix="%" onChange={(v) => savePlayerPref({ brightness: v })} />
-              <PanelSlider label="Contrast" value={playerPrefs.contrast ?? 100} min={50} max={150} suffix="%" onChange={(v) => savePlayerPref({ contrast: v })} />
-              <PanelSlider label="Saturation" value={playerPrefs.saturation ?? 100} min={0} max={180} suffix="%" onChange={(v) => savePlayerPref({ saturation: v })} />
+              <PanelSlider label="Brightness" value={playerPrefs.brightness ?? 100} min={50} max={150} suffix="%" onChange={(v: number) => savePlayerPref({ brightness: v })} />
+              <PanelSlider label="Contrast" value={playerPrefs.contrast ?? 100} min={50} max={150} suffix="%" onChange={(v: number) => savePlayerPref({ contrast: v })} />
+              <PanelSlider label="Saturation" value={playerPrefs.saturation ?? 100} min={0} max={180} suffix="%" onChange={(v: number) => savePlayerPref({ saturation: v })} />
               <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3">
                 <div className="flex items-center gap-2 text-xs font-semibold text-white"><Palette className="h-3.5 w-3.5" /> Accent</div>
                 <input type="color" value={playerPrefs.playerAccent ?? "#ffffff"} onChange={(e) => savePlayerPref({ playerAccent: e.target.value })} className="h-8 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
@@ -737,9 +737,9 @@ export function CustomPlayer({
           {/* Captions tab */}
           {settingsTab === "captions" && (
             <div className="space-y-4">
-              <PanelSwitch label="Prefer English" hint="Enable the English 1x2.Space track when available." value={playerPrefs.preferEnglishSubs !== false} onChange={(v) => savePlayerPref({ preferEnglishSubs: v })} />
-              <PanelSlider label="Subtitle size" value={subStyle.fontSize} min={12} max={48} suffix="px" onChange={(v) => setSubStyle({ ...subStyle, fontSize: v })} />
-              <PanelSlider label="Subtitle background" value={subStyle.bg} min={0} max={100} suffix="%" onChange={(v) => setSubStyle({ ...subStyle, bg: v })} />
+              <PanelSwitch label="Prefer English" hint="Enable the English 1x2.Space track when available." value={playerPrefs.preferEnglishSubs !== false} onChange={(v: boolean) => savePlayerPref({ preferEnglishSubs: v })} />
+              <PanelSlider label="Subtitle size" value={subStyle.fontSize} min={12} max={48} suffix="px" onChange={(v: number) => setSubStyle({ ...subStyle, fontSize: v })} />
+              <PanelSlider label="Subtitle background" value={subStyle.bg} min={0} max={100} suffix="%" onChange={(v: number) => setSubStyle({ ...subStyle, bg: v })} />
               <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3">
                 <div className="text-xs font-semibold text-white">Subtitle color</div>
                 <input type="color" value={subStyle.color} onChange={(e) => setSubStyle({ ...subStyle, color: e.target.value })} className="h-8 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
@@ -878,7 +878,7 @@ function TogglePill({ value, onChange }: { value: boolean; onChange: (value: boo
       role="switch"
       aria-checked={value}
       onClick={() => onChange(!value)}
-      className={`relative h-6 w-11 rounded-full border transition ${value ? "border-white/25 bg-[var(--player-accent)]/80" : "border-white/10 bg-white/10"}`}
+      className={`relative h-6 w-11 rounded-full border transition ${value ? "border-white/25 bg-white/70" : "border-white/10 bg-white/10"}`}
     >
       <span className={`absolute top-1/2 h-4.5 w-4.5 -translate-y-1/2 rounded-full bg-white shadow-lg transition ${value ? "translate-x-5" : "translate-x-0.5"}`} />
     </button>
