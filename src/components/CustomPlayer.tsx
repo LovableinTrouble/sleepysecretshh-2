@@ -50,17 +50,49 @@ function fmt(t: number): string {
 
 function pickStartupQualityIndex(qualities: StreamQuality[]): number {
   if (!qualities.length) return 0;
-  if (getSettings().player.autoQuality !== false) return 0;
+  return 0;
+}
+
+function qualityKey(quality: StreamQuality): string {
+  const label = (quality.quality || "Auto").toLowerCase().replace(/\s+\d+$/, "").trim();
+  if (quality.resolution) return String(quality.resolution);
+  if (/4k|uhd/.test(label)) return "2160";
+  const parsed = label.match(/(\d{3,4})p?/);
+  if (parsed) return parsed[1] ?? label;
+  return label.startsWith("auto") ? "auto" : label;
+}
+
+function displayQualityLabel(quality: StreamQuality): string {
+  const key = qualityKey(quality);
+  if (key === "auto") return "Auto";
+  if (key === "2160") return "4K";
+  if (/^\d{3,4}$/.test(key)) return `${key}p`;
+  return quality.quality || "Auto";
+}
+
+function qualityRankValue(quality: StreamQuality): number {
+  const key = qualityKey(quality);
+  if (key === "auto") return Number.MAX_SAFE_INTEGER;
+  return Number(key) || 0;
+}
+
+function pickPreferredSourceQuality(group: Array<{ quality: StreamQuality; index: number }>, currentResolution?: number): number | undefined {
+  if (!group.length) return undefined;
+  if (currentResolution) {
+    const sameResolution = group.find((item) => item.quality.resolution === currentResolution);
+    if (sameResolution) return sameResolution.index;
+  }
+  const auto = group.find((item) => qualityKey(item.quality) === "auto");
+  if (auto) return auto.index;
   const pref = getSettings().player.quality;
   const target = pref === "4k" ? 2160 : pref === "1080p" ? 1080 : pref === "720p" ? 720 : 720;
-  const ranked = qualities
-    .map((quality, index) => {
+  const ranked = group
+    .map(({ quality, index }) => {
       const resolution = quality.resolution ?? (/4k|uhd/i.test(quality.quality) ? 2160 : Number(quality.quality.match(/(\d{3,4})/)?.[1] ?? 0));
-      const autoPenalty = pref === "auto" && resolution > 1080 ? 800 : 0;
       return { index, score: Math.abs((resolution || target) - target) + autoPenalty };
     })
     .sort((a, b) => a.score - b.score);
-  return ranked[0]?.index ?? 0;
+  return ranked[0]?.index ?? group[0]?.index;
 }
 
 export function CustomPlayer({
@@ -78,25 +110,32 @@ export function CustomPlayer({
   const sourceGroups = useMemo(() => {
     const groups: Array<{ id: string; name: string; qualities: Array<{ quality: StreamQuality; index: number }> }> = [];
     const indexById = new Map<string, number>();
+    const seenById = new Map<string, Set<string>>();
     source.qualities.forEach((quality, index) => {
       const id = quality.sourceId ?? quality.label ?? `source-${index}`;
       const name = quality.sourceName ?? quality.label ?? "Source";
+      const key = qualityKey(quality);
       const existing = indexById.get(id);
       if (existing === undefined) {
         indexById.set(id, groups.length);
+        seenById.set(id, new Set([key]));
         groups.push({ id, name, qualities: [{ quality, index }] });
         return;
       }
+      const seen = seenById.get(id);
+      if (seen?.has(key)) return;
+      seen?.add(key);
       groups[existing]?.qualities.push({ quality, index });
     });
     return groups.map((group) => ({
       ...group,
-      qualities: [...group.qualities].sort((a, b) => (b.quality.resolution ?? 0) - (a.quality.resolution ?? 0)),
+      qualities: [...group.qualities].sort((a, b) => qualityRankValue(b.quality) - qualityRankValue(a.quality)),
     }));
   }, [source.qualities]);
   const sourceGroupsRef = useRef(sourceGroups);
   const currentQuality: StreamQuality | undefined = source.qualities[currentIdx];
   const currentSourceGroup = sourceGroups.find((group) => group.qualities.some((item) => item.index === currentIdx));
+  const currentSourceQualities = useMemo(() => currentSourceGroup?.qualities ?? [], [currentSourceGroup]);
 
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -162,14 +201,10 @@ export function CustomPlayer({
   }, []);
 
   const selectSourceGroup = useCallback((group: { qualities: Array<{ quality: StreamQuality; index: number }> }) => {
-    const currentResolution = currentQuality?.resolution;
-    const bestMatch = currentResolution
-      ? group.qualities.find((item) => item.quality.resolution === currentResolution)
-      : undefined;
-    const next = bestMatch ?? group.qualities[0];
-    if (!next) return;
+    const nextIndex = pickPreferredSourceQuality(group.qualities, currentQuality?.resolution);
+    if (nextIndex === undefined) return;
     attemptedRef.current.clear();
-    setCurrentIdx(next.index);
+    setCurrentIdx(nextIndex);
     setHlsLevels([]);
     setHlsLevel(-1);
     setOpenPanel(null);
