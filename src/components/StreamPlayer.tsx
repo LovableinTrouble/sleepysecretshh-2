@@ -73,30 +73,36 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   useEffect(() => {
     let dead = false;
+    let backgroundTimer: number | undefined;
     setStatuses(Object.fromEntries(PROVIDER_LIST.map((p) => [p.id, { state: "pending", count: 0 }])) as any);
     setQualities([]); setSubtitles([]); setScanning(true); setError(null);
 
     const input = { tmdbId: String(media.id), title: media.title, type: media.type === "movie" ? "movie" as const : "show" as const, season, episode };
+    let gotFastStream = false;
 
-    const promises = PROVIDER_LIST.map((p) => {
+    const updateFromResult = (provider: ProviderId, res: { qualities: StreamQuality[]; subtitles: StreamSubtitle[] }) => {
+      if (dead) return Promise.resolve();
+      const count = res.qualities.length;
+      if (count > 0) {
+        gotFastStream = true;
+        setStatuses((s) => ({ ...s, [provider]: { state: "ready", count: Math.max(s[provider]?.count ?? 0, count) } }));
+        mergeQualities(res.qualities);
+        if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
+      }
+    };
+
+    const fastPasses = PROVIDER_LIST.map((p) => {
       if (dead) return Promise.resolve();
       setStatuses((s) => ({ ...s, [p.id]: { ...s[p.id], state: "checking" } }));
-      const updateFromResult = (res: { qualities: StreamQuality[]; subtitles: StreamSubtitle[] }) => {
-        if (dead) return;
-        const count = res.qualities.length;
-        if (count > 0) {
-          setStatuses((s) => ({ ...s, [p.id]: { state: "ready", count: Math.max(s[p.id]?.count ?? 0, count) } }));
-          mergeQualities(res.qualities);
-          if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
-        }
-      };
-
-      const fastPass = resolveProvider({ data: { provider: p.id, ...input, fast: true } })
-        .then(updateFromResult)
+      return resolveProvider({ data: { provider: p.id, ...input, fast: true } })
+        .then((res) => updateFromResult(p.id, res))
         .catch(() => undefined);
+    });
 
-      return fastPass
-        .then(() => resolveProvider({ data: { provider: p.id, ...input } }))
+    Promise.all(fastPasses).then(() => {
+      if (dead) return;
+      backgroundTimer = window.setTimeout(() => {
+        const fullPasses = PROVIDER_LIST.map((p) => resolveProvider({ data: { provider: p.id, ...input } })
         .then((res) => {
           if (dead) return;
           const count = res.qualities.length;
@@ -105,21 +111,22 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             if (count === 0 && previous?.state === "ready") return s;
             return { ...s, [p.id]: { state: count > 0 ? "ready" : "failed", count: count || previous?.count || 0 } };
           });
-          updateFromResult(res);
+          updateFromResult(p.id, res);
         })
-        .catch(() => { if (!dead) setStatuses((s) => ({ ...s, [p.id]: { state: "failed", count: 0 } })); });
+        .catch(() => { if (!dead) setStatuses((s) => ({ ...s, [p.id]: { state: "failed", count: 0 } })); }));
+
+        Promise.all(fullPasses).then(() => {
+          if (dead) return;
+          setScanning(false);
+          setQualities((q) => {
+            if (q.length === 0) setError("No working streams found across providers. Try again in a moment.");
+            return q;
+          });
+        });
+      }, gotFastStream ? 2800 : 0);
     });
 
-    Promise.all(promises).then(() => {
-      if (dead) return;
-      setScanning(false);
-      setQualities((q) => {
-        if (q.length === 0) setError("No working streams found across providers. Try again in a moment.");
-        return q;
-      });
-    });
-
-    return () => { dead = true; };
+    return () => { dead = true; if (backgroundTimer) window.clearTimeout(backgroundTimer); };
   }, [media.id, media.title, media.type, season, episode, scanKey, mergeQualities]);
 
   const active: DirectSource | null = useMemo(() => {
