@@ -29,6 +29,18 @@ export interface Settings {
     skipIntro: boolean;
     pip: boolean;
     quality: "auto" | "4k" | "1080p" | "720p";
+    defaultSpeed: number;
+    autoQuality: boolean;
+    autoFailover: boolean;
+    controlsTimeout: number;
+    bufferTarget: number;
+    rememberPrefs: boolean;
+    preferEnglishSubs: boolean;
+    fillMode: "contain" | "cover" | "stretch";
+    brightness: number;
+    contrast: number;
+    saturation: number;
+    playerAccent: string;
   };
   integrations: {
     cineproUrl: string;
@@ -81,7 +93,25 @@ export const DEFAULT_SETTINGS: Settings = {
   glassIntensity: 60,
   disableIframeSources: false,
   subtitle: { size: 18, color: "#ffffff", bgOpacity: 60, font: "Inter", edgeStyle: "shadow" },
-  player: { autoplay: true, autoNext: true, skipIntro: false, pip: true, quality: "auto" },
+  player: {
+    autoplay: true,
+    autoNext: true,
+    skipIntro: false,
+    pip: true,
+    quality: "auto",
+    defaultSpeed: 1,
+    autoQuality: true,
+    autoFailover: true,
+    controlsTimeout: 3,
+    bufferTarget: 0,
+    rememberPrefs: true,
+    preferEnglishSubs: true,
+    fillMode: "contain",
+    brightness: 100,
+    contrast: 100,
+    saturation: 100,
+    playerAccent: "#ffffff",
+  },
   integrations: {
     cineproUrl: DEFAULT_CINEPRO_URL,
     realDebrid: "",
