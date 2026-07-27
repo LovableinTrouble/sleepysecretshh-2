@@ -89,7 +89,7 @@ function pickPreferredSourceQuality(group: Array<{ quality: StreamQuality; index
   const ranked = group
     .map(({ quality, index }) => {
       const resolution = quality.resolution ?? (/4k|uhd/i.test(quality.quality) ? 2160 : Number(quality.quality.match(/(\d{3,4})/)?.[1] ?? 0));
-      return { index, score: Math.abs((resolution || target) - target) + autoPenalty };
+      return { index, score: Math.abs((resolution || target) - target) };
     })
     .sort((a, b) => a.score - b.score);
   return ranked[0]?.index ?? group[0]?.index;
