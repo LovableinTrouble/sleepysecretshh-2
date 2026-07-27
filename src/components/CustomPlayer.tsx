@@ -141,13 +141,17 @@ export function CustomPlayer({
     setCurrentIdx((idx) => {
       const groups = sourceGroupsRef.current;
       const groupIndex = groups.findIndex((group) => group.qualities.some((item) => item.index === idx));
-      const nextGroup = groupIndex >= 0 ? groups[groupIndex + 1] : undefined;
-      const next = nextGroup?.qualities[0]?.index;
+      const currentGroup = groupIndex >= 0 ? groups[groupIndex] : undefined;
+      const qualityIndex = currentGroup?.qualities.findIndex((item) => item.index === idx) ?? -1;
+      const nextSameSource = qualityIndex >= 0 ? currentGroup?.qualities[qualityIndex + 1]?.index : undefined;
+      const nextGroup = groupIndex >= 0 ? groups[groupIndex + 1] : groups[0];
+      const next = nextSameSource ?? nextGroup?.qualities[0]?.index;
       if (next !== undefined) {
         setError(null);
         setLoading(true);
         return next;
       }
+      setLoading(false);
       setError(message);
       return idx;
     });
