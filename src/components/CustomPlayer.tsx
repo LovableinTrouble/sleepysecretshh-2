@@ -130,23 +130,28 @@ export function CustomPlayer({
           if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
           return;
         }
-        const targetBuffer = Math.max(0, playerPrefs.bufferTarget ?? 0);
+        // VOD-friendly buffer profile — enough headroom to hide network jitter
+        // without wasting bandwidth. Users can widen it in settings but we
+        // never drop below 30s (which is the setting we ignored before).
+        const userBuf = Math.max(0, playerPrefs.bufferTarget ?? 0);
+        const targetBuffer = Math.max(30, userBuf);
         const hls = new Hls({
           enableWorker: true,
-          lowLatencyMode: true,
+          lowLatencyMode: false,
           startFragPrefetch: true,
           testBandwidth: true,
           capLevelToPlayerSize: true,
-          backBufferLength: 15,
-          maxBufferLength: targetBuffer <= 0 ? 1 : targetBuffer,
-          maxMaxBufferLength: targetBuffer <= 0 ? 3 : Math.max(30, targetBuffer * 3),
-          maxBufferHole: 0.1,
-          highBufferWatchdogPeriod: 1,
-          nudgeOffset: 0.08,
-          nudgeMaxRetry: 8,
+          backBufferLength: 30,
+          maxBufferLength: targetBuffer,
+          maxMaxBufferLength: Math.max(120, targetBuffer * 4),
+          maxBufferSize: 60 * 1000 * 1000,
+          maxBufferHole: 0.3,
+          highBufferWatchdogPeriod: 2,
+          nudgeOffset: 0.1,
+          nudgeMaxRetry: 10,
           manifestLoadingMaxRetry: 4,
           levelLoadingMaxRetry: 4,
-          fragLoadingMaxRetry: 5,
+          fragLoadingMaxRetry: 6,
           fragLoadingRetryDelay: 500,
         });
         hlsRef.current = hls;
@@ -263,14 +268,29 @@ export function CustomPlayer({
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
 
-  // Subtitle track management
+  // Subtitle track management — match by label so we don't pick up an HLS-in-
+  // manifest subtitle track that shifts indices.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     const tracks = v.textTracks;
     for (let i = 0; i < tracks.length; i++) tracks[i].mode = "hidden";
-    if (subIdx >= 0 && subIdx < tracks.length) tracks[subIdx].mode = "showing";
-  }, [subIdx, loading]);
+    if (subIdx < 0) return;
+    const wanted = source.subtitles[subIdx];
+    if (!wanted) return;
+    // Try label match first, then language, then positional fallback.
+    let match = -1;
+    for (let i = 0; i < tracks.length; i++) {
+      if (tracks[i].label === wanted.label) { match = i; break; }
+    }
+    if (match < 0) {
+      for (let i = 0; i < tracks.length; i++) {
+        if (tracks[i].language === wanted.language) { match = i; break; }
+      }
+    }
+    if (match < 0 && subIdx < tracks.length) match = subIdx;
+    if (match >= 0) tracks[match].mode = "showing";
+  }, [subIdx, loading, source.subtitles]);
 
   // Keyboard
   useEffect(() => {
