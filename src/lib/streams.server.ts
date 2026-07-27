@@ -105,7 +105,7 @@ function uniqueByQuality(items: StreamQuality[]): StreamQuality[] {
     seen.add(key);
     out.push(item);
   }
-  return out.slice(0, 6);
+  return out.slice(0, 1);
 }
 
 function proxyUrl(raw: string, referer?: string) {
