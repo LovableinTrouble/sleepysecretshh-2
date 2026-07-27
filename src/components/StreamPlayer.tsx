@@ -100,7 +100,11 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
         .then((res) => {
           if (dead) return;
           const count = res.qualities.length;
-          setStatuses((s) => ({ ...s, [p.id]: { state: count > 0 ? "ready" : "failed", count } }));
+          setStatuses((s) => {
+            const previous = s[p.id];
+            if (count === 0 && previous?.state === "ready") return s;
+            return { ...s, [p.id]: { state: count > 0 ? "ready" : "failed", count: count || previous?.count || 0 } };
+          });
           updateFromResult(res);
         })
         .catch(() => { if (!dead) setStatuses((s) => ({ ...s, [p.id]: { state: "failed", count: 0 } })); });
