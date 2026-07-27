@@ -62,6 +62,16 @@ const SOURCE_ALIASES = [
   "Zenith", "Pulse", "Echo", "Astra", "Comet", "Halo", "Prism", "Vertex",
 ];
 
+export type ProviderId = "nimbus" | "aurora" | "orion" | "vega" | "atlas";
+export interface ProviderMeta { id: ProviderId; name: string; }
+export const PROVIDERS: ProviderMeta[] = [
+  { id: "nimbus", name: "Nimbus" },
+  { id: "aurora", name: "Aurora" },
+  { id: "orion",  name: "Orion"  },
+  { id: "vega",   name: "Vega"   },
+  { id: "atlas",  name: "Atlas"  },
+];
+
 const LANGUAGE_CODES: Record<string, string> = {
   english: "en", spanish: "es", french: "fr", german: "de", italian: "it", portuguese: "pt",
   arabic: "ar", bengali: "bn", bulgarian: "bg", chinese: "zh", croatian: "hr", czech: "cs",
@@ -75,6 +85,17 @@ function aliasFor(_name: string, index: number): string {
   return SOURCE_ALIASES[index % SOURCE_ALIASES.length];
 }
 
+function detectQuality(url: string, hint?: string): { quality: string; resolution?: number } {
+  const s = `${url} ${hint ?? ""}`;
+  if (/2160|4k|uhd/i.test(s)) return { quality: "4K", resolution: 2160 };
+  if (/1440/i.test(s)) return { quality: "1440p", resolution: 1440 };
+  if (/1080/i.test(s)) return { quality: "1080p", resolution: 1080 };
+  if (/720/i.test(s)) return { quality: "720p", resolution: 720 };
+  if (/480/i.test(s)) return { quality: "480p", resolution: 480 };
+  if (/360/i.test(s)) return { quality: "360p", resolution: 360 };
+  return { quality: "Auto" };
+}
+
 function proxyUrl(raw: string, referer?: string) {
   const p = new URLSearchParams();
   p.set("url", raw);
@@ -82,7 +103,7 @@ function proxyUrl(raw: string, referer?: string) {
   return `/api/public/iptv-proxy?${p.toString()}`;
 }
 
-async function scrapeVidPhantom(i: ResolveInput): Promise<StreamQuality[]> {
+async function scrapeVidPhantom(providerName: string, i: ResolveInput): Promise<StreamQuality[]> {
   const path =
     i.type === "movie"
       ? `movie/${i.tmdbId}`
@@ -123,13 +144,66 @@ async function scrapeVidPhantom(i: ResolveInput): Promise<StreamQuality[]> {
   for (const r of results) {
     if (!unique.has(r.url)) unique.set(r.url, { name: r.name, url: r.url });
   }
-  return [...unique.values()].map((r, index) => ({
-    url: proxyUrl(r.url),
-    label: aliasFor(r.name, index),
-    quality: /2160|4k/i.test(r.url) ? "4K" : /1080/i.test(r.url) ? "1080p" : /720/i.test(r.url) ? "720p" : "Auto",
-    format: "hls" as const,
-    resolution: /2160|4k/i.test(r.url) ? 2160 : /1080/i.test(r.url) ? 1080 : /720/i.test(r.url) ? 720 : undefined,
-  }));
+  return [...unique.values()].map((r) => {
+    const q = detectQuality(r.url, r.name);
+    return {
+      url: proxyUrl(r.url),
+      label: providerName,
+      quality: q.quality,
+      format: "hls" as const,
+      resolution: q.resolution,
+    };
+  });
+}
+
+async function scrapeStreamVault(host: string, providerName: string, i: ResolveInput): Promise<StreamQuality[]> {
+  const path =
+    i.type === "movie"
+      ? `movie/${i.tmdbId}`
+      : `tv/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}`;
+  try {
+    const res = await fetch(`https://${host}/api/embed-streams/${path}`, {
+      headers: { "User-Agent": UA, Accept: "application/json" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return [];
+    const json: any = await res.json();
+    const streams: any[] = Array.isArray(json?.streams) ? json.streams : [];
+    const seen = new Set<string>();
+    const out: StreamQuality[] = [];
+    for (const s of streams) {
+      const url = String(s?.url || "");
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      const kind = String(s?.type || "").toLowerCase();
+      const format: StreamQuality["format"] =
+        kind === "hls" || url.toLowerCase().includes(".m3u8") ? "hls"
+        : kind === "mp4" ? "mp4"
+        : kind === "mkv" ? "mkv"
+        : "unknown";
+      const q = detectQuality(url, String(s?.quality || ""));
+      // StreamVault already fronts CORS; use direct.
+      out.push({ url, label: providerName, quality: q.quality, format, resolution: q.resolution });
+    }
+    return out;
+  } catch { return []; }
+}
+
+const PROVIDER_HOSTS: Record<Exclude<ProviderId, "nimbus">, string> = {
+  aurora: "storage1.streamvaultsrc.click",
+  orion:  "storage2.streamvaultsrc.click",
+  vega:   "storage3.streamvaultsrc.click",
+  atlas:  "storage4.streamvaultsrc.click",
+};
+
+export async function resolveProviderById(id: ProviderId, input: ResolveInput): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
+  const meta = PROVIDERS.find((p) => p.id === id)!;
+  const [qualities, subs] = await Promise.all([
+    id === "nimbus" ? scrapeVidPhantom(meta.name, input) : scrapeStreamVault(PROVIDER_HOSTS[id], meta.name, input),
+    // Only Nimbus fetches subtitles from 1x2 to keep things fast; other providers reuse via merge on the client.
+    id === "nimbus" ? fetchSubs(input) : Promise.resolve<StreamSubtitle[]>([]),
+  ]);
+  return { qualities, subtitles: subs };
 }
 
 async function fetchSubs(i: ResolveInput): Promise<StreamSubtitle[]> {
@@ -161,10 +235,10 @@ async function fetchSubs(i: ResolveInput): Promise<StreamSubtitle[]> {
 
 export async function resolveDirect(input: ResolveInput): Promise<ResolveResult> {
   const [primary, subs] = await Promise.all([
-    scrapeVidPhantom(input),
+    scrapeVidPhantom("Nimbus", input),
     fetchSubs(input),
   ]);
-  if (!primary.length) throw new Error("No VidPhantom streams connected for this title yet. Try again in a moment.");
+  if (!primary.length) throw new Error("No streams connected for this title yet. Try again in a moment.");
 
   const direct: DirectSource = {
     kind: "direct",
