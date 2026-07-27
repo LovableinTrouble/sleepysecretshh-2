@@ -280,9 +280,14 @@ export function CustomPlayer({
         hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          const seenHeights = new Set<number>();
           const levels = hls.levels
             .map((l: any, i: number) => ({ height: Number(l.height) || 0, index: i }))
-            .filter((l: { height: number; index: number }) => l.height > 0)
+            .filter((l: { height: number; index: number }) => {
+              if (l.height <= 0 || seenHeights.has(l.height)) return false;
+              seenHeights.add(l.height);
+              return true;
+            })
             .sort((a: { height: number }, b: { height: number }) => b.height - a.height);
           setHlsLevels(levels);
           hls.currentLevel = getSettings().player.autoQuality === false ? hlsLevel : -1;
@@ -530,6 +535,11 @@ export function CustomPlayer({
 
   const progressPct = duration ? (time / duration) * 100 : 0;
   const bufferedPct = duration ? (buffered / duration) * 100 : 0;
+  const autoSourceQuality = currentSourceQualities.find(({ quality }) => qualityKey(quality) === "auto");
+  const sourceQualityOptions = currentSourceQualities.filter(({ quality }) => qualityKey(quality) !== "auto");
+  const sourceQualityKeys = new Set(sourceQualityOptions.map(({ quality }) => qualityKey(quality)));
+  const hlsQualityOptions = hlsLevels.filter((level) => !sourceQualityKeys.has(String(level.height)));
+  const selectedSourceQualityKey = currentQuality ? qualityKey(currentQuality) : "auto";
 
   return (
     <div
@@ -814,45 +824,44 @@ export function CustomPlayer({
           {/* Quality tab */}
           {settingsTab === "quality" && (
             <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-              {currentSourceGroup && currentSourceGroup.qualities.length > 1 && (
+              {currentSourceGroup && (
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-2">
                   <div className="mb-2 flex items-center justify-between px-1 text-[10px] uppercase tracking-widest text-white/35">
                     <span>{currentSourceGroup.name}</span>
-                    <span>{currentSourceGroup.qualities.length} streams</span>
+                    <span>{Math.max(1, sourceQualityOptions.length + hlsQualityOptions.length)} qualities</span>
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {currentSourceGroup.qualities.map(({ quality, index }) => (
+                    <button
+                      onClick={() => {
+                        if (autoSourceQuality) setCurrentIdx(autoSourceQuality.index);
+                        setHlsLevel(-1);
+                        savePlayerPref({ autoQuality: true });
+                      }}
+                      className={`rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${hlsLevel === -1 && selectedSourceQualityKey === "auto" ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
+                    >
+                      Auto
+                    </button>
+                    {sourceQualityOptions.map(({ quality, index }) => (
                       <button
                         key={`${quality.url}-${index}`}
-                        onClick={() => { setCurrentIdx(index); setHlsLevels([]); setHlsLevel(-1); }}
+                        onClick={() => { setCurrentIdx(index); setHlsLevels([]); setHlsLevel(-1); savePlayerPref({ autoQuality: false }); }}
                         className={`rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${currentIdx === index ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
                       >
-                        {quality.quality || "Auto"}
+                        {displayQualityLabel(quality)}
+                      </button>
+                    ))}
+                    {hlsQualityOptions.map((lvl) => (
+                      <button
+                        key={lvl.index}
+                        onClick={() => { setHlsLevel(lvl.index); savePlayerPref({ autoQuality: false }); }}
+                        className={`rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${hlsLevel === lvl.index ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
+                      >
+                        {lvl.height}p
                       </button>
                     ))}
                   </div>
                 </div>
               )}
-              {/* HLS adaptive levels */}
-              {hlsLevels.length > 0 && (
-                <button
-                  onClick={() => { setHlsLevel(-1); savePlayerPref({ autoQuality: true }); }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${hlsLevel === -1 ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
-                >
-                  <span>Auto</span>
-                  {hlsLevel === -1 && <span className="text-[10px] text-white/40">●</span>}
-                </button>
-              )}
-              {hlsLevels.map((lvl) => (
-                <button
-                  key={lvl.index}
-                  onClick={() => { setHlsLevel(lvl.index); savePlayerPref({ autoQuality: false }); }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${hlsLevel === lvl.index ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
-                >
-                  <span>{lvl.height}p</span>
-                  {hlsLevel === lvl.index && <span className="text-[10px] text-white/40">●</span>}
-                </button>
-              ))}
               <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
