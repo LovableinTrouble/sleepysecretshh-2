@@ -140,20 +140,19 @@ async function scrapeVidPhantom(providerName: string, i: ResolveInput): Promise<
       if (results.length) break;
     } catch { /* retry */ }
   }
-  const unique = new Map<string, { name: string; url: string }>();
-  for (const r of results) {
-    if (!unique.has(r.url)) unique.set(r.url, { name: r.name, url: r.url });
-  }
-  return [...unique.values()].map((r) => {
-    const q = detectQuality(r.url, r.name);
-    return {
-      url: proxyUrl(r.url),
-      label: providerName,
-      quality: q.quality,
-      format: "hls" as const,
-      resolution: q.resolution,
-    };
-  });
+  // Only return the top result — one manifest per provider. Quality is then
+  // driven by HLS adaptive levels inside that manifest, not by picking a
+  // different upstream provider.
+  const first = results[0];
+  if (!first) return [];
+  const q = detectQuality(first.url, first.name);
+  return [{
+    url: proxyUrl(first.url),
+    label: providerName,
+    quality: q.quality,
+    format: "hls" as const,
+    resolution: q.resolution,
+  }];
 }
 
 async function scrapeStreamVault(host: string, providerName: string, i: ResolveInput): Promise<StreamQuality[]> {
@@ -169,23 +168,30 @@ async function scrapeStreamVault(host: string, providerName: string, i: ResolveI
     if (!res.ok) return [];
     const json: any = await res.json();
     const streams: any[] = Array.isArray(json?.streams) ? json.streams : [];
-    const seen = new Set<string>();
-    const out: StreamQuality[] = [];
-    for (const s of streams) {
-      const url = String(s?.url || "");
-      if (!url || seen.has(url)) continue;
-      seen.add(url);
-      const kind = String(s?.type || "").toLowerCase();
-      const format: StreamQuality["format"] =
-        kind === "hls" || url.toLowerCase().includes(".m3u8") ? "hls"
-        : kind === "mp4" ? "mp4"
-        : kind === "mkv" ? "mkv"
-        : "unknown";
-      const q = detectQuality(url, String(s?.quality || ""));
-      // StreamVault already fronts CORS; use direct.
-      out.push({ url, label: providerName, quality: q.quality, format, resolution: q.resolution });
-    }
-    return out;
+    // Pick the best single manifest — prefer HLS, then highest resolution.
+    const rated = streams
+      .map((s) => {
+        const url = String(s?.url || "");
+        if (!url) return null;
+        const kind = String(s?.type || "").toLowerCase();
+        const format: StreamQuality["format"] =
+          kind === "hls" || url.toLowerCase().includes(".m3u8") ? "hls"
+          : kind === "mp4" ? "mp4"
+          : kind === "mkv" ? "mkv"
+          : "unknown";
+        const q = detectQuality(url, String(s?.quality || ""));
+        return { url, format, q, hint: String(s?.quality || "") };
+      })
+      .filter(Boolean) as { url: string; format: StreamQuality["format"]; q: { quality: string; resolution?: number }; hint: string }[];
+    if (!rated.length) return [];
+    rated.sort((a, b) => {
+      const af = a.format === "hls" ? 1 : 0;
+      const bf = b.format === "hls" ? 1 : 0;
+      if (af !== bf) return bf - af;
+      return (b.q.resolution ?? 0) - (a.q.resolution ?? 0);
+    });
+    const best = rated[0];
+    return [{ url: best.url, label: providerName, quality: best.q.quality, format: best.format, resolution: best.q.resolution }];
   } catch { return []; }
 }
 
