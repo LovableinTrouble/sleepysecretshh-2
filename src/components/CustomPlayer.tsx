@@ -50,17 +50,49 @@ function fmt(t: number): string {
 
 function pickStartupQualityIndex(qualities: StreamQuality[]): number {
   if (!qualities.length) return 0;
-  if (getSettings().player.autoQuality !== false) return 0;
+  return 0;
+}
+
+function qualityKey(quality: StreamQuality): string {
+  const label = (quality.quality || "Auto").toLowerCase().replace(/\s+\d+$/, "").trim();
+  if (quality.resolution) return String(quality.resolution);
+  if (/4k|uhd/.test(label)) return "2160";
+  const parsed = label.match(/(\d{3,4})p?/);
+  if (parsed) return parsed[1] ?? label;
+  return label.startsWith("auto") ? "auto" : label;
+}
+
+function displayQualityLabel(quality: StreamQuality): string {
+  const key = qualityKey(quality);
+  if (key === "auto") return "Auto";
+  if (key === "2160") return "4K";
+  if (/^\d{3,4}$/.test(key)) return `${key}p`;
+  return quality.quality || "Auto";
+}
+
+function qualityRankValue(quality: StreamQuality): number {
+  const key = qualityKey(quality);
+  if (key === "auto") return Number.MAX_SAFE_INTEGER;
+  return Number(key) || 0;
+}
+
+function pickPreferredSourceQuality(group: Array<{ quality: StreamQuality; index: number }>, currentResolution?: number): number | undefined {
+  if (!group.length) return undefined;
+  if (currentResolution) {
+    const sameResolution = group.find((item) => item.quality.resolution === currentResolution);
+    if (sameResolution) return sameResolution.index;
+  }
+  const auto = group.find((item) => qualityKey(item.quality) === "auto");
+  if (auto) return auto.index;
   const pref = getSettings().player.quality;
   const target = pref === "4k" ? 2160 : pref === "1080p" ? 1080 : pref === "720p" ? 720 : 720;
-  const ranked = qualities
-    .map((quality, index) => {
+  const ranked = group
+    .map(({ quality, index }) => {
       const resolution = quality.resolution ?? (/4k|uhd/i.test(quality.quality) ? 2160 : Number(quality.quality.match(/(\d{3,4})/)?.[1] ?? 0));
-      const autoPenalty = pref === "auto" && resolution > 1080 ? 800 : 0;
-      return { index, score: Math.abs((resolution || target) - target) + autoPenalty };
+      return { index, score: Math.abs((resolution || target) - target) };
     })
     .sort((a, b) => a.score - b.score);
-  return ranked[0]?.index ?? 0;
+  return ranked[0]?.index ?? group[0]?.index;
 }
 
 export function CustomPlayer({
@@ -78,25 +110,32 @@ export function CustomPlayer({
   const sourceGroups = useMemo(() => {
     const groups: Array<{ id: string; name: string; qualities: Array<{ quality: StreamQuality; index: number }> }> = [];
     const indexById = new Map<string, number>();
+    const seenById = new Map<string, Set<string>>();
     source.qualities.forEach((quality, index) => {
       const id = quality.sourceId ?? quality.label ?? `source-${index}`;
       const name = quality.sourceName ?? quality.label ?? "Source";
+      const key = qualityKey(quality);
       const existing = indexById.get(id);
       if (existing === undefined) {
         indexById.set(id, groups.length);
+        seenById.set(id, new Set([key]));
         groups.push({ id, name, qualities: [{ quality, index }] });
         return;
       }
+      const seen = seenById.get(id);
+      if (seen?.has(key)) return;
+      seen?.add(key);
       groups[existing]?.qualities.push({ quality, index });
     });
     return groups.map((group) => ({
       ...group,
-      qualities: [...group.qualities].sort((a, b) => (b.quality.resolution ?? 0) - (a.quality.resolution ?? 0)),
+      qualities: [...group.qualities].sort((a, b) => qualityRankValue(b.quality) - qualityRankValue(a.quality)),
     }));
   }, [source.qualities]);
   const sourceGroupsRef = useRef(sourceGroups);
   const currentQuality: StreamQuality | undefined = source.qualities[currentIdx];
   const currentSourceGroup = sourceGroups.find((group) => group.qualities.some((item) => item.index === currentIdx));
+  const currentSourceQualities = useMemo(() => currentSourceGroup?.qualities ?? [], [currentSourceGroup]);
 
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -162,14 +201,10 @@ export function CustomPlayer({
   }, []);
 
   const selectSourceGroup = useCallback((group: { qualities: Array<{ quality: StreamQuality; index: number }> }) => {
-    const currentResolution = currentQuality?.resolution;
-    const bestMatch = currentResolution
-      ? group.qualities.find((item) => item.quality.resolution === currentResolution)
-      : undefined;
-    const next = bestMatch ?? group.qualities[0];
-    if (!next) return;
+    const nextIndex = pickPreferredSourceQuality(group.qualities, currentQuality?.resolution);
+    if (nextIndex === undefined) return;
     attemptedRef.current.clear();
-    setCurrentIdx(next.index);
+    setCurrentIdx(nextIndex);
     setHlsLevels([]);
     setHlsLevel(-1);
     setOpenPanel(null);
@@ -245,9 +280,14 @@ export function CustomPlayer({
         hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          const seenHeights = new Set<number>();
           const levels = hls.levels
             .map((l: any, i: number) => ({ height: Number(l.height) || 0, index: i }))
-            .filter((l: { height: number; index: number }) => l.height > 0)
+            .filter((l: { height: number; index: number }) => {
+              if (l.height <= 0 || seenHeights.has(l.height)) return false;
+              seenHeights.add(l.height);
+              return true;
+            })
             .sort((a: { height: number }, b: { height: number }) => b.height - a.height);
           setHlsLevels(levels);
           hls.currentLevel = getSettings().player.autoQuality === false ? hlsLevel : -1;
@@ -495,6 +535,11 @@ export function CustomPlayer({
 
   const progressPct = duration ? (time / duration) * 100 : 0;
   const bufferedPct = duration ? (buffered / duration) * 100 : 0;
+  const autoSourceQuality = currentSourceQualities.find(({ quality }) => qualityKey(quality) === "auto");
+  const sourceQualityOptions = currentSourceQualities.filter(({ quality }) => qualityKey(quality) !== "auto");
+  const sourceQualityKeys = new Set(sourceQualityOptions.map(({ quality }) => qualityKey(quality)));
+  const hlsQualityOptions = hlsLevels.filter((level) => !sourceQualityKeys.has(String(level.height)));
+  const selectedSourceQualityKey = currentQuality ? qualityKey(currentQuality) : "auto";
 
   return (
     <div
@@ -779,45 +824,44 @@ export function CustomPlayer({
           {/* Quality tab */}
           {settingsTab === "quality" && (
             <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-              {currentSourceGroup && currentSourceGroup.qualities.length > 1 && (
+              {currentSourceGroup && (
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-2">
                   <div className="mb-2 flex items-center justify-between px-1 text-[10px] uppercase tracking-widest text-white/35">
                     <span>{currentSourceGroup.name}</span>
-                    <span>{currentSourceGroup.qualities.length} streams</span>
+                    <span>{Math.max(1, sourceQualityOptions.length + hlsQualityOptions.length)} qualities</span>
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {currentSourceGroup.qualities.map(({ quality, index }) => (
+                    <button
+                      onClick={() => {
+                        if (autoSourceQuality) setCurrentIdx(autoSourceQuality.index);
+                        setHlsLevel(-1);
+                        savePlayerPref({ autoQuality: true });
+                      }}
+                      className={`rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${hlsLevel === -1 && selectedSourceQualityKey === "auto" ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
+                    >
+                      Auto
+                    </button>
+                    {sourceQualityOptions.map(({ quality, index }) => (
                       <button
                         key={`${quality.url}-${index}`}
-                        onClick={() => { setCurrentIdx(index); setHlsLevels([]); setHlsLevel(-1); }}
+                        onClick={() => { setCurrentIdx(index); setHlsLevels([]); setHlsLevel(-1); savePlayerPref({ autoQuality: false }); }}
                         className={`rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${currentIdx === index ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
                       >
-                        {quality.quality || "Auto"}
+                        {displayQualityLabel(quality)}
+                      </button>
+                    ))}
+                    {hlsQualityOptions.map((lvl) => (
+                      <button
+                        key={lvl.index}
+                        onClick={() => { setHlsLevel(lvl.index); savePlayerPref({ autoQuality: false }); }}
+                        className={`rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${hlsLevel === lvl.index ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
+                      >
+                        {lvl.height}p
                       </button>
                     ))}
                   </div>
                 </div>
               )}
-              {/* HLS adaptive levels */}
-              {hlsLevels.length > 0 && (
-                <button
-                  onClick={() => { setHlsLevel(-1); savePlayerPref({ autoQuality: true }); }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${hlsLevel === -1 ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
-                >
-                  <span>Auto</span>
-                  {hlsLevel === -1 && <span className="text-[10px] text-white/40">●</span>}
-                </button>
-              )}
-              {hlsLevels.map((lvl) => (
-                <button
-                  key={lvl.index}
-                  onClick={() => { setHlsLevel(lvl.index); savePlayerPref({ autoQuality: false }); }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${hlsLevel === lvl.index ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
-                >
-                  <span>{lvl.height}p</span>
-                  {hlsLevel === lvl.index && <span className="text-[10px] text-white/40">●</span>}
-                </button>
-              ))}
               <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>

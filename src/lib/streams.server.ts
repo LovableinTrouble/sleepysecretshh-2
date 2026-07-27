@@ -100,7 +100,8 @@ function uniqueByQuality(items: StreamQuality[]): StreamQuality[] {
   const seen = new Set<string>();
   const out: StreamQuality[] = [];
   for (const item of items.sort((a, b) => qualityRank(b) - qualityRank(a))) {
-    const key = item.resolution ? String(item.resolution) : item.quality.toLowerCase();
+    const label = item.quality.toLowerCase().replace(/\s+\d+$/, "").trim();
+    const key = item.resolution ? String(item.resolution) : label.startsWith("auto") ? "auto" : label;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(item);
@@ -169,11 +170,10 @@ function toQualities(results: { name: string; url: string; quality?: string; typ
         : kind === "mkv" ? "mkv"
         : "unknown";
       const q = detectQuality(s.url, `${s.quality ?? ""} ${s.name}`);
-      const quality = q.quality === "Auto" && idx > 0 ? `Auto ${idx + 1}` : q.quality;
       return {
         url: alreadyProxied ? s.url : proxyUrl(s.url),
         label: providerName,
-        quality,
+        quality: q.quality,
         format,
         resolution: q.resolution,
         sourceId: providerId,
