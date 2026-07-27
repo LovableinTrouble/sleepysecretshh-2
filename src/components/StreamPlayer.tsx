@@ -57,6 +57,20 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [scanKey, setScanKey] = useState(0);
 
+  const mergeQualities = useCallback((incoming: StreamQuality[]) => {
+    setQualities((current) => {
+      const next = [...current];
+      const seen = new Set(next.map((item) => `${item.sourceId ?? item.label}:${item.quality.toLowerCase()}:${item.url}`));
+      for (const item of incoming) {
+        const key = `${item.sourceId ?? item.label}:${item.quality.toLowerCase()}:${item.url}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        next.push(item);
+      }
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     let dead = false;
     setStatuses(Object.fromEntries(PROVIDER_LIST.map((p) => [p.id, { state: "pending", count: 0 }])) as any);
@@ -67,19 +81,27 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     const promises = PROVIDER_LIST.map((p) => {
       if (dead) return Promise.resolve();
       setStatuses((s) => ({ ...s, [p.id]: { ...s[p.id], state: "checking" } }));
-      return resolveProvider({ data: { provider: p.id, ...input } })
+      const updateFromResult = (res: { qualities: StreamQuality[]; subtitles: StreamSubtitle[] }) => {
+        if (dead) return;
+        const count = res.qualities.length;
+        if (count > 0) {
+          setStatuses((s) => ({ ...s, [p.id]: { state: "ready", count: Math.max(s[p.id]?.count ?? 0, count) } }));
+          mergeQualities(res.qualities);
+          if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
+        }
+      };
+
+      const fastPass = resolveProvider({ data: { provider: p.id, ...input, fast: true } })
+        .then(updateFromResult)
+        .catch(() => undefined);
+
+      return fastPass
+        .then(() => resolveProvider({ data: { provider: p.id, ...input } }))
         .then((res) => {
           if (dead) return;
           const count = res.qualities.length;
           setStatuses((s) => ({ ...s, [p.id]: { state: count > 0 ? "ready" : "failed", count } }));
-          if (count > 0) {
-            setQualities((q) => {
-              const seen = new Set(q.map((item) => `${item.sourceId ?? item.label}:${item.quality}:${item.url}`));
-              const additions = res.qualities.filter((item) => !seen.has(`${item.sourceId ?? item.label}:${item.quality}:${item.url}`));
-              return [...q, ...additions];
-            });
-            if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
-          }
+          updateFromResult(res);
         })
         .catch(() => { if (!dead) setStatuses((s) => ({ ...s, [p.id]: { state: "failed", count: 0 } })); });
     });
@@ -94,7 +116,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     });
 
     return () => { dead = true; };
-  }, [media.id, media.title, media.type, season, episode, scanKey]);
+  }, [media.id, media.title, media.type, season, episode, scanKey, mergeQualities]);
 
   const active: DirectSource | null = useMemo(() => {
     if (qualities.length === 0) return null;
