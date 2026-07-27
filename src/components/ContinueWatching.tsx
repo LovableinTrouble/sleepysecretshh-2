@@ -62,7 +62,7 @@ export function ContinueWatchingRow() {
                   s: it.season ?? undefined,
                   e: it.episode ?? undefined,
                 }}
-                className="block overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-1 hover:ring-primary/40 hover:shadow-lg hover:shadow-primary/10"
+                className="block overflow-hidden rounded-2xl ring-1 ring-white/10 transition-[transform,box-shadow,border-color] duration-300 ease-out hover:ring-white/20 hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)]"
               >
                 <div className="relative aspect-video bg-black">
                   {tmdbBackdrop(it.backdrop, it.poster) && (
@@ -70,12 +70,12 @@ export function ContinueWatchingRow() {
                       src={tmdbBackdrop(it.backdrop, it.poster)}
                       alt={it.title}
                       loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.015]"
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                    <div className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent transition-opacity duration-300 group-hover:from-black/95" />
+                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-90 opacity-0 transition-all duration-300 ease-out group-hover:scale-100 group-hover:opacity-100">
+                    <div className="grid h-11 w-11 place-items-center rounded-full bg-white/95 text-black shadow-lg">
                       <Play className="h-5 w-5 fill-current" />
                     </div>
                   </div>

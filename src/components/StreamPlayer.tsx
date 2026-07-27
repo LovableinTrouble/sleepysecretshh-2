@@ -172,55 +172,46 @@ function ScanOverlay({
 }) {
   const pct = Math.round((settledCount / total) * 100);
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-8 bg-black px-6">
-      {/* Radar */}
-      <div className="relative h-32 w-32">
-        <div className="absolute inset-0 rounded-full border border-white/10" />
-        <div className="absolute inset-3 rounded-full border border-white/10" />
-        <div className="absolute inset-6 rounded-full border border-white/10" />
-        <div className="absolute inset-0 rounded-full overflow-hidden">
-          <div
-            className="absolute left-1/2 top-1/2 h-1/2 w-1/2 origin-top-left animate-spin"
-            style={{
-              animationDuration: "2.4s",
-              background: "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.18) 40deg, transparent 90deg)",
-              transformOrigin: "0 0",
-            }}
-          />
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-6 bg-black px-6">
+      {/* Pulse mark */}
+      <div className="relative h-16 w-16">
+        <div className="absolute inset-0 animate-ping rounded-full bg-white/10" style={{ animationDuration: "1.8s" }} />
+        <div className="absolute inset-2 rounded-full bg-white/5 ring-1 ring-white/15" />
+        <div className="absolute inset-0 grid place-items-center">
+          <div className="h-2.5 w-2.5 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.7)]" />
         </div>
-        <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_20px_rgba(255,255,255,0.6)]" />
       </div>
 
       <div className="text-center">
         <p className="text-sm font-semibold text-white">{title}</p>
-        <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-white/40">
-          Scanning · {readyCount}/{total} online
+        <p className="mt-1 text-[10px] uppercase tracking-[0.4em] text-white/40">
+          Finding streams · {readyCount}/{total}
         </p>
       </div>
 
       {/* Provider list */}
-      <div className="w-full max-w-sm space-y-1.5">
+      <div className="w-full max-w-xs space-y-1">
         {PROVIDER_LIST.map((p) => {
           const s = statuses[p.id];
           return (
             <div
               key={p.id}
-              className={`flex items-center justify-between rounded-2xl border px-3.5 py-2.5 backdrop-blur-xl transition-all duration-300 ${
-                s.state === "ready" ? "border-emerald-400/30 bg-emerald-400/5"
-                : s.state === "failed" ? "border-white/5 bg-white/2 opacity-50"
-                : s.state === "checking" ? "border-white/20 bg-white/5"
-                : "border-white/5 bg-white/2"
+              className={`flex items-center justify-between rounded-xl px-3 py-2 transition-all duration-500 ease-out ${
+                s.state === "ready" ? "bg-white/10 text-white"
+                : s.state === "failed" ? "bg-white/[0.02] opacity-40"
+                : s.state === "checking" ? "bg-white/[0.06]"
+                : "bg-white/[0.02]"
               }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 <StatusDot state={s.state} />
-                <span className="text-xs font-semibold text-white">{p.name}</span>
+                <span className="text-[12px] font-medium text-white/85">{p.name}</span>
               </div>
-              <div className="text-[10px] uppercase tracking-widest text-white/40">
-                {s.state === "ready" && `${s.count} stream${s.count === 1 ? "" : "s"}`}
-                {s.state === "checking" && "Checking…"}
-                {s.state === "pending" && "Queued"}
-                {s.state === "failed" && "No hit"}
+              <div className="text-[10px] uppercase tracking-widest text-white/35">
+                {s.state === "ready" && "Ready"}
+                {s.state === "checking" && "…"}
+                {s.state === "pending" && ""}
+                {s.state === "failed" && "Miss"}
               </div>
             </div>
           );
@@ -228,11 +219,11 @@ function ScanOverlay({
       </div>
 
       {/* Progress bar */}
-      <div className="h-1 w-full max-w-sm overflow-hidden rounded-full bg-white/8">
-        <div className="h-full bg-white transition-all duration-500" style={{ width: `${pct}%` }} />
+      <div className="h-[2px] w-full max-w-xs overflow-hidden rounded-full bg-white/8">
+        <div className="h-full bg-white transition-all duration-500 ease-out" style={{ width: `${pct}%` }} />
       </div>
 
-      <button onClick={onClose} className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/50 transition hover:border-white/30 hover:text-white/80">Cancel</button>
+      <button onClick={onClose} className="text-[11px] uppercase tracking-[0.3em] text-white/40 transition hover:text-white/70">Cancel</button>
     </div>
   );
 }
