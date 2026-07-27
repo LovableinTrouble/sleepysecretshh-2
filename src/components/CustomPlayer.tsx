@@ -120,6 +120,7 @@ export function CustomPlayer({
   const [scrubbing, setScrubbing] = useState(false);
 
   const hideTimer = useRef<number | null>(null);
+  const loadGuardRef = useRef<number | null>(null);
   const seekAmountRef = useRef(0);
   const errorHitsRef = useRef(0);
   const stallRef = useRef({ time: 0, hits: 0 });
@@ -169,6 +170,7 @@ export function CustomPlayer({
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !currentQuality) return;
+    if (loadGuardRef.current) window.clearTimeout(loadGuardRef.current);
     setLoading(true);
     setError(null);
     setBuffered(0);
@@ -183,6 +185,19 @@ export function CustomPlayer({
     const isHls = currentQuality.format === "hls" || url.toLowerCase().includes(".m3u8");
 
     let cancelled = false;
+    const clearLoadGuard = () => {
+      if (loadGuardRef.current) window.clearTimeout(loadGuardRef.current);
+      loadGuardRef.current = null;
+    };
+    const armLoadGuard = (delay = 4200) => {
+      clearLoadGuard();
+      loadGuardRef.current = window.setTimeout(() => {
+        if (cancelled) return;
+        const hasData = video.readyState >= 2 || video.buffered.length > 0 || video.currentTime > 0.25;
+        if (!hasData) failoverToNext("This stream did not start. Trying another source…");
+      }, delay);
+    };
+    armLoadGuard();
 
     if (isHls) {
       import("hls.js").then(({ default: Hls }) => {
@@ -232,9 +247,9 @@ export function CustomPlayer({
           if (startAt > 0) video.currentTime = startAt;
           if (autoplay) video.play().catch(() => {});
         });
-        hls.on(Hls.Events.FRAG_BUFFERED, () => setLoading(false));
+        hls.on(Hls.Events.FRAG_BUFFERED, () => { clearLoadGuard(); setLoading(false); });
         hls.on(Hls.Events.BUFFER_APPENDED, () => {
-          if (video.readyState >= 2 || video.buffered.length) setLoading(false);
+          if (video.readyState >= 2 || video.buffered.length) { clearLoadGuard(); setLoading(false); }
         });
         hls.on(Hls.Events.LEVEL_SWITCHED, (_e: any, d: any) => setHlsLevel(d.level));
         hls.on(Hls.Events.ERROR, (_e: any, data: any) => {
@@ -261,7 +276,7 @@ export function CustomPlayer({
       if (startAt > 0) video.currentTime = startAt;
       if (autoplay) video.play().catch(() => {});
     }
-    return () => { cancelled = true; hlsRef.current?.destroy(); hlsRef.current = null; };
+    return () => { cancelled = true; clearLoadGuard(); hlsRef.current?.destroy(); hlsRef.current = null; };
   }, [currentIdx, currentQuality, autoplay, startAt, failoverToNext]);
 
   useEffect(() => { if (hlsRef.current) hlsRef.current.currentLevel = hlsLevel; }, [hlsLevel]);
@@ -279,8 +294,12 @@ export function CustomPlayer({
     };
     const onDur = () => setDuration(v.duration);
     const onWaiting = () => setLoading(true);
-    const onCanPlay = () => setLoading(false);
-    const onLoaded = () => { if (v.readyState >= 2 || v.buffered.length) setLoading(false); };
+    const clearLoadGuard = () => {
+      if (loadGuardRef.current) window.clearTimeout(loadGuardRef.current);
+      loadGuardRef.current = null;
+    };
+    const onCanPlay = () => { clearLoadGuard(); setLoading(false); };
+    const onLoaded = () => { if (v.readyState >= 2 || v.buffered.length) { clearLoadGuard(); setLoading(false); } };
     const onEnded = () => {
       onProgress?.(v.duration, v.duration, true);
       if (autoNext && hasNext && onNextEpisode) {
