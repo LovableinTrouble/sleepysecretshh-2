@@ -48,6 +48,20 @@ function fmt(t: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function pickStartupQualityIndex(qualities: StreamQuality[]): number {
+  if (!qualities.length) return 0;
+  const pref = getSettings().player.quality;
+  const target = pref === "4k" ? 2160 : pref === "1080p" ? 1080 : pref === "720p" ? 720 : 720;
+  const ranked = qualities
+    .map((quality, index) => {
+      const resolution = quality.resolution ?? (/4k|uhd/i.test(quality.quality) ? 2160 : Number(quality.quality.match(/(\d{3,4})/)?.[1] ?? 0));
+      const autoPenalty = pref === "auto" && resolution > 1080 ? 800 : 0;
+      return { index, score: Math.abs((resolution || target) - target) + autoPenalty };
+    })
+    .sort((a, b) => a.score - b.score);
+  return ranked[0]?.index ?? 0;
+}
+
 export function CustomPlayer({
   source, title, season, episode, startAt = 0,
   onProgress, onClose, onSelectSource, onNextEpisode, hasNext,
@@ -59,8 +73,29 @@ export function CustomPlayer({
   const wrapRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<any>(null);
 
-  const [currentIdx, setCurrentIdx] = useState(0);
+  const [currentIdx, setCurrentIdx] = useState(() => pickStartupQualityIndex(source.qualities));
+  const sourceGroups = useMemo(() => {
+    const groups: Array<{ id: string; name: string; qualities: Array<{ quality: StreamQuality; index: number }> }> = [];
+    const indexById = new Map<string, number>();
+    source.qualities.forEach((quality, index) => {
+      const id = quality.sourceId ?? quality.label ?? `source-${index}`;
+      const name = quality.sourceName ?? quality.label ?? "Source";
+      const existing = indexById.get(id);
+      if (existing === undefined) {
+        indexById.set(id, groups.length);
+        groups.push({ id, name, qualities: [{ quality, index }] });
+        return;
+      }
+      groups[existing]?.qualities.push({ quality, index });
+    });
+    return groups.map((group) => ({
+      ...group,
+      qualities: [...group.qualities].sort((a, b) => (b.quality.resolution ?? 0) - (a.quality.resolution ?? 0)),
+    }));
+  }, [source.qualities]);
+  const sourceGroupsRef = useRef(sourceGroups);
   const currentQuality: StreamQuality | undefined = source.qualities[currentIdx];
+  const currentSourceGroup = sourceGroups.find((group) => group.qualities.some((item) => item.index === currentIdx));
 
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -85,35 +120,70 @@ export function CustomPlayer({
   const [scrubbing, setScrubbing] = useState(false);
 
   const hideTimer = useRef<number | null>(null);
+  const loadGuardRef = useRef<number | null>(null);
+  const attemptedRef = useRef<Set<number>>(new Set());
   const seekAmountRef = useRef(0);
   const errorHitsRef = useRef(0);
   const stallRef = useRef({ time: 0, hits: 0 });
+
+  useEffect(() => {
+    sourceGroupsRef.current = sourceGroups;
+    if (error && sourceGroups.some((group) => group.qualities.some((item) => !attemptedRef.current.has(item.index)))) {
+      failoverToNext();
+    }
+  }, [sourceGroups]);
+
+  useEffect(() => {
+    if (!source.qualities[currentIdx] && source.qualities.length) setCurrentIdx(pickStartupQualityIndex(source.qualities));
+  }, [currentIdx, source.qualities]);
 
   const savePlayerPref = useCallback((patch: Partial<Settings["player"]>) => {
     setSettings({ player: { ...getSettings().player, ...patch } });
   }, [setSettings]);
 
-  const failoverToNext = useCallback((message = "Source stalled. Trying the next stream…") => {
+  const failoverToNext = useCallback((message = "Source stalled. Trying the next source…") => {
     setCurrentIdx((idx) => {
-      const next = idx + 1;
-      if (next < source.qualities.length) {
+      attemptedRef.current.add(idx);
+      const groups = sourceGroupsRef.current;
+      const flat = groups.flatMap((group) => group.qualities.map((item) => item.index));
+      const pos = Math.max(0, flat.indexOf(idx));
+      const ordered = [...flat.slice(pos + 1), ...flat.slice(0, pos)];
+      const next = ordered.find((index) => !attemptedRef.current.has(index));
+      if (next !== undefined) {
         setError(null);
         setLoading(true);
         return next;
       }
+      setLoading(false);
       setError(message);
       return idx;
     });
-  }, [source.qualities.length]);
+  }, []);
+
+  const selectSourceGroup = useCallback((group: { qualities: Array<{ quality: StreamQuality; index: number }> }) => {
+    const currentResolution = currentQuality?.resolution;
+    const bestMatch = currentResolution
+      ? group.qualities.find((item) => item.quality.resolution === currentResolution)
+      : undefined;
+    const next = bestMatch ?? group.qualities[0];
+    if (!next) return;
+    attemptedRef.current.clear();
+    setCurrentIdx(next.index);
+    setHlsLevels([]);
+    setHlsLevel(-1);
+    setOpenPanel(null);
+  }, [currentQuality?.resolution]);
 
   // Load stream
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !currentQuality) return;
+    if (loadGuardRef.current) window.clearTimeout(loadGuardRef.current);
     setLoading(true);
     setError(null);
     setBuffered(0);
     setHlsLevels([]);
+    setHlsLevel(-1);
     errorHitsRef.current = 0;
     stallRef.current = { time: 0, hits: 0 };
     hlsRef.current?.destroy();
@@ -123,53 +193,81 @@ export function CustomPlayer({
     const isHls = currentQuality.format === "hls" || url.toLowerCase().includes(".m3u8");
 
     let cancelled = false;
+    const clearLoadGuard = () => {
+      if (loadGuardRef.current) window.clearTimeout(loadGuardRef.current);
+      loadGuardRef.current = null;
+    };
+    const armLoadGuard = (delay = 4200) => {
+      clearLoadGuard();
+      loadGuardRef.current = window.setTimeout(() => {
+        if (cancelled) return;
+        const hasData = video.readyState >= 2 || video.buffered.length > 0 || video.currentTime > 0.25;
+        if (!hasData) failoverToNext("This stream did not start. Trying another source…");
+      }, delay);
+    };
+    armLoadGuard();
 
     if (isHls) {
       import("hls.js").then(({ default: Hls }) => {
         if (cancelled || !Hls.isSupported()) {
-          if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
+          if (!cancelled) { video.preload = "auto"; video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
           return;
         }
-        // VOD-friendly buffer profile — enough headroom to hide network jitter
-        // without wasting bandwidth. Users can widen it in settings but we
-        // never drop below 30s (which is the setting we ignored before).
-        const userBuf = Math.max(0, playerPrefs.bufferTarget ?? 0);
-        const targetBuffer = Math.max(30, userBuf);
+        const prefs = getSettings().player;
+        const userBuf = Math.max(0, prefs.bufferTarget ?? 0);
+        const targetBuffer = userBuf > 0 ? Math.max(6, userBuf) : 8;
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
           startFragPrefetch: true,
+          startLevel: 0,
           testBandwidth: true,
           capLevelToPlayerSize: true,
-          backBufferLength: 30,
+          backBufferLength: 10,
           maxBufferLength: targetBuffer,
-          maxMaxBufferLength: Math.max(120, targetBuffer * 4),
-          maxBufferSize: 60 * 1000 * 1000,
-          maxBufferHole: 0.3,
-          highBufferWatchdogPeriod: 2,
+          maxMaxBufferLength: Math.max(20, targetBuffer * 2),
+          maxBufferSize: 28 * 1000 * 1000,
+          maxBufferHole: 0.5,
+          highBufferWatchdogPeriod: 1,
           nudgeOffset: 0.1,
-          nudgeMaxRetry: 10,
-          manifestLoadingMaxRetry: 4,
-          levelLoadingMaxRetry: 4,
-          fragLoadingMaxRetry: 6,
-          fragLoadingRetryDelay: 500,
+          nudgeMaxRetry: 6,
+          manifestLoadingTimeOut: 5500,
+          levelLoadingTimeOut: 5500,
+          fragLoadingTimeOut: 8500,
+          manifestLoadingMaxRetry: 2,
+          levelLoadingMaxRetry: 2,
+          fragLoadingMaxRetry: 4,
+          fragLoadingRetryDelay: 350,
+          abrEwmaDefaultEstimate: 1_400_000,
         });
         hlsRef.current = hls;
         hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          setHlsLevels(hls.levels.map((l: any, i: number) => ({ height: l.height, index: i })));
-          hls.currentLevel = playerPrefs.autoQuality === false ? hls.currentLevel : -1;
+          const levels = hls.levels
+            .map((l: any, i: number) => ({ height: Number(l.height) || 0, index: i }))
+            .filter((l: { height: number; index: number }) => l.height > 0)
+            .sort((a: { height: number }, b: { height: number }) => b.height - a.height);
+          setHlsLevels(levels);
+          hls.currentLevel = getSettings().player.autoQuality === false ? hlsLevel : -1;
+          setHlsLevel(-1);
           video.playbackRate = rate;
           if (startAt > 0) video.currentTime = startAt;
           if (autoplay) video.play().catch(() => {});
         });
+        hls.on(Hls.Events.FRAG_BUFFERED, () => { clearLoadGuard(); setLoading(false); });
+        hls.on(Hls.Events.BUFFER_APPENDED, () => {
+          if (video.readyState >= 2 || video.buffered.length) { clearLoadGuard(); setLoading(false); }
+        });
         hls.on(Hls.Events.LEVEL_SWITCHED, (_e: any, d: any) => setHlsLevel(d.level));
         hls.on(Hls.Events.ERROR, (_e: any, data: any) => {
-          if (!data.fatal && data.details) return;
+          if (!data.fatal && data.details) {
+            if (String(data.details).includes("bufferStalled")) hls.startLoad();
+            return;
+          }
           errorHitsRef.current += 1;
           if (data.fatal) {
-            if (playerPrefs.autoFailover !== false && errorHitsRef.current > 1 && currentIdx < source.qualities.length - 1) {
+            if (getSettings().player.autoFailover !== false && errorHitsRef.current > 1 && sourceGroupsRef.current.length > 1) {
               failoverToNext();
             } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
             else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
@@ -177,16 +275,17 @@ export function CustomPlayer({
           }
         });
       }).catch(() => {
-        if (!cancelled) { video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
+        if (!cancelled) { video.preload = "auto"; video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
       });
     } else {
+      video.preload = "auto";
       video.src = url;
       video.playbackRate = rate;
       if (startAt > 0) video.currentTime = startAt;
       if (autoplay) video.play().catch(() => {});
     }
-    return () => { cancelled = true; hlsRef.current?.destroy(); hlsRef.current = null; };
-  }, [currentIdx, currentQuality, autoplay, startAt, playerPrefs.bufferTarget, playerPrefs.autoQuality, playerPrefs.autoFailover, rate, failoverToNext, source.qualities.length]);
+    return () => { cancelled = true; clearLoadGuard(); hlsRef.current?.destroy(); hlsRef.current = null; };
+  }, [currentIdx, currentQuality?.url, currentQuality?.format, autoplay, startAt, failoverToNext]);
 
   useEffect(() => { if (hlsRef.current) hlsRef.current.currentLevel = hlsLevel; }, [hlsLevel]);
 
@@ -203,7 +302,12 @@ export function CustomPlayer({
     };
     const onDur = () => setDuration(v.duration);
     const onWaiting = () => setLoading(true);
-    const onCanPlay = () => setLoading(false);
+    const clearLoadGuard = () => {
+      if (loadGuardRef.current) window.clearTimeout(loadGuardRef.current);
+      loadGuardRef.current = null;
+    };
+    const onCanPlay = () => { clearLoadGuard(); setLoading(false); };
+    const onLoaded = () => { if (v.readyState >= 2 || v.buffered.length) { clearLoadGuard(); setLoading(false); } };
     const onEnded = () => {
       onProgress?.(v.duration, v.duration, true);
       if (autoNext && hasNext && onNextEpisode) {
@@ -212,22 +316,24 @@ export function CustomPlayer({
       }
     };
     const onErr = () => {
-      if (playerPrefs.autoFailover !== false && currentIdx < source.qualities.length - 1) failoverToNext();
+      if (playerPrefs.autoFailover !== false && sourceGroups.length > 1) failoverToNext();
       else setError("Playback failed. No more streams are available.");
     };
     v.addEventListener("play", onPlay); v.addEventListener("pause", onPause);
     v.addEventListener("timeupdate", onTime); v.addEventListener("durationchange", onDur);
     v.addEventListener("waiting", onWaiting); v.addEventListener("canplay", onCanPlay);
+    v.addEventListener("loadedmetadata", onLoaded); v.addEventListener("loadeddata", onLoaded); v.addEventListener("progress", onLoaded);
     v.addEventListener("playing", onCanPlay); v.addEventListener("ended", onEnded);
     v.addEventListener("error", onErr);
     return () => {
       v.removeEventListener("play", onPlay); v.removeEventListener("pause", onPause);
       v.removeEventListener("timeupdate", onTime); v.removeEventListener("durationchange", onDur);
       v.removeEventListener("waiting", onWaiting); v.removeEventListener("canplay", onCanPlay);
+      v.removeEventListener("loadedmetadata", onLoaded); v.removeEventListener("loadeddata", onLoaded); v.removeEventListener("progress", onLoaded);
       v.removeEventListener("playing", onCanPlay); v.removeEventListener("ended", onEnded);
       v.removeEventListener("error", onErr);
     };
-  }, [onProgress, autoNext, hasNext, onNextEpisode, playerPrefs.autoFailover, currentIdx, source.qualities.length, failoverToNext]);
+  }, [onProgress, autoNext, hasNext, onNextEpisode, playerPrefs.autoFailover, sourceGroups.length, failoverToNext]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -257,7 +363,7 @@ export function CustomPlayer({
         const end = v.buffered.end(v.buffered.length - 1);
         if (end > v.currentTime + 0.6) v.currentTime += 0.08;
       }
-      if (stallRef.current.hits >= 3 && playerPrefs.autoFailover !== false) failoverToNext();
+      if (stallRef.current.hits >= 4 && playerPrefs.autoFailover !== false) failoverToNext();
     }, 3500);
     return () => window.clearInterval(id);
   }, [error, playerPrefs.autoFailover, failoverToNext]);
@@ -412,6 +518,7 @@ export function CustomPlayer({
           filter: `brightness(${playerPrefs.brightness ?? 100}%) contrast(${playerPrefs.contrast ?? 100}%) saturate(${playerPrefs.saturation ?? 100}%)`,
         }}
         playsInline
+        preload="auto"
         crossOrigin="anonymous"
       >
         {source.subtitles.map((sub, i) => (
@@ -671,6 +778,25 @@ export function CustomPlayer({
           {/* Quality tab */}
           {settingsTab === "quality" && (
             <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+              {currentSourceGroup && currentSourceGroup.qualities.length > 1 && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-2">
+                  <div className="mb-2 flex items-center justify-between px-1 text-[10px] uppercase tracking-widest text-white/35">
+                    <span>{currentSourceGroup.name}</span>
+                    <span>{currentSourceGroup.qualities.length} streams</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {currentSourceGroup.qualities.map(({ quality, index }) => (
+                      <button
+                        key={`${quality.url}-${index}`}
+                        onClick={() => { setCurrentIdx(index); setHlsLevels([]); setHlsLevel(-1); }}
+                        className={`rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${currentIdx === index ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
+                      >
+                        {quality.quality || "Auto"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* HLS adaptive levels */}
               {hlsLevels.length > 0 && (
                 <button
@@ -774,19 +900,26 @@ export function CustomPlayer({
         <div className="absolute right-4 bottom-16 z-30 w-[min(22rem,calc(100vw-2rem))] rounded-3xl border border-white/10 bg-black/92 p-4 shadow-2xl backdrop-blur-2xl">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm font-bold text-white"><Cloud className="h-4 w-4" /> Sources</div>
-            <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/45">{source.qualities.length}</span>
+            <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/45">{sourceGroups.length}</span>
           </div>
           <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
-            {source.qualities.map((q, i) => (
+            {sourceGroups.map((group) => {
+              const selected = group.id === currentSourceGroup?.id;
+              const qualityLabels = group.qualities.map(({ quality }) => quality.quality || quality.format).join(" · ");
+              return (
               <button
-                key={`${q.label}-${i}`}
-                onClick={() => { setCurrentIdx(i); setHlsLevels([]); setOpenPanel(null); }}
-                className={`flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition ${currentIdx === i ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/65 hover:bg-white/10 hover:text-white"}`}
+                key={group.id}
+                onClick={() => selectSourceGroup(group)}
+                className={`flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition ${selected ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/65 hover:bg-white/10 hover:text-white"}`}
               >
-                <span className="min-w-0 truncate text-xs font-semibold">{q.label}</span>
-                <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-[9px] uppercase text-white/40">{q.quality || q.format}</span>
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-semibold">{group.name}</span>
+                  <span className="mt-0.5 block truncate text-[10px] text-white/35">{qualityLabels}</span>
+                </span>
+                <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-[9px] uppercase text-white/40">{group.qualities.length}</span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -897,10 +1030,10 @@ function TogglePill({ value, onChange }: { value: boolean; onChange: (value: boo
       type="button"
       role="switch"
       aria-checked={value}
-      onClick={() => onChange(!value)}
-      className={`relative h-6 w-11 rounded-full border transition ${value ? "border-white/25 bg-white/70" : "border-white/10 bg-white/10"}`}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onChange(!value); }}
+      className={`relative h-6 w-11 shrink-0 rounded-full border transition ${value ? "border-white/25 bg-[var(--player-accent)]/80" : "border-white/10 bg-white/10"}`}
     >
-      <span className={`absolute top-1/2 h-4.5 w-4.5 -translate-y-1/2 rounded-full bg-white shadow-lg transition ${value ? "translate-x-5" : "translate-x-0.5"}`} />
+      <span className={`absolute left-0.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 rounded-full bg-white shadow-lg transition-transform ${value ? "translate-x-5" : "translate-x-0"}`} />
     </button>
   );
 }

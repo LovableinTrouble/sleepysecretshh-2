@@ -6,7 +6,8 @@ import { useNavigate } from "@tanstack/react-router";
 
 import type { Media } from "@/lib/catalog";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-import { resolveProvider, PROVIDER_LIST, type DirectSource, type ProviderId, type StreamQuality, type StreamSubtitle } from "@/lib/streams";
+import { resolveProvider, type DirectSource, type ProviderId, type StreamQuality, type StreamSubtitle } from "@/lib/streams";
+import { PROVIDER_LIST } from "@/lib/provider-list";
 import { useSettings } from "@/lib/store";
 import { CustomPlayer } from "./CustomPlayer";
 import { DownloadsDialog } from "./DownloadsDialog";
@@ -54,6 +55,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const [subtitles, setSubtitles] = useState<StreamSubtitle[]>([]);
   const [scanning, setScanning] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scanKey, setScanKey] = useState(0);
 
   useEffect(() => {
     let dead = false;
@@ -62,25 +64,25 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
     const input = { tmdbId: String(media.id), title: media.title, type: media.type === "movie" ? "movie" as const : "show" as const, season, episode };
 
-    // Stagger start so the scan animation is visible.
-    const promises = PROVIDER_LIST.map((p, i) => new Promise<void>((resolve) => {
-      setTimeout(() => {
-        if (dead) return resolve();
-        setStatuses((s) => ({ ...s, [p.id]: { ...s[p.id], state: "checking" } }));
-        resolveProvider({ data: { provider: p.id, ...input } })
-          .then((res) => {
-            if (dead) return;
-            const count = res.qualities.length;
-            setStatuses((s) => ({ ...s, [p.id]: { state: count > 0 ? "ready" : "failed", count } }));
-            if (count > 0) {
-              setQualities((q) => [...q, ...res.qualities]);
-              if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
-            }
-          })
-          .catch(() => { if (!dead) setStatuses((s) => ({ ...s, [p.id]: { state: "failed", count: 0 } })); })
-          .finally(() => resolve());
-      }, i * 220);
-    }));
+    const promises = PROVIDER_LIST.map((p) => {
+      if (dead) return Promise.resolve();
+      setStatuses((s) => ({ ...s, [p.id]: { ...s[p.id], state: "checking" } }));
+      return resolveProvider({ data: { provider: p.id, ...input } })
+        .then((res) => {
+          if (dead) return;
+          const count = res.qualities.length;
+          setStatuses((s) => ({ ...s, [p.id]: { state: count > 0 ? "ready" : "failed", count } }));
+          if (count > 0) {
+            setQualities((q) => {
+              const seen = new Set(q.map((item) => `${item.sourceId ?? item.label}:${item.quality}:${item.url}`));
+              const additions = res.qualities.filter((item) => !seen.has(`${item.sourceId ?? item.label}:${item.quality}:${item.url}`));
+              return [...q, ...additions];
+            });
+            if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
+          }
+        })
+        .catch(() => { if (!dead) setStatuses((s) => ({ ...s, [p.id]: { state: "failed", count: 0 } })); });
+    });
 
     Promise.all(promises).then(() => {
       if (dead) return;
@@ -92,7 +94,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     });
 
     return () => { dead = true; };
-  }, [media.id, media.title, media.type, season, episode]);
+  }, [media.id, media.title, media.type, season, episode, scanKey]);
 
   const active: DirectSource | null = useMemo(() => {
     if (qualities.length === 0) return null;
@@ -131,7 +133,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
         {scanning && !active && !error && (
           <ScanOverlay title={media.title} statuses={statuses} readyCount={readyCount} settledCount={settledCount} total={PROVIDER_LIST.length} onClose={onClose} />
         )}
-        {error && !active && <ErrorOverlay error={error} onClose={onClose} onRetry={() => { setError(null); setQualities([]); }} />}
+        {error && !active && <ErrorOverlay error={error} onClose={onClose} onRetry={() => { setError(null); setQualities([]); setScanKey((key) => key + 1); }} />}
         {active && (
           <CustomPlayer source={active} title={media.title} season={season} episode={episode}
             startAt={startAt} onProgress={onProgress} onClose={onClose}
@@ -184,8 +186,8 @@ function ScanOverlay({
 
       <div className="text-center">
         <p className="text-sm font-semibold text-white">{title}</p>
-        <p className="mt-1 text-[10px] uppercase tracking-[0.4em] text-white/40">
-          Finding streams · {readyCount}/{total}
+        <p className="mt-1 text-[10px] uppercase tracking-[0.35em] text-white/40">
+          Fast source scan · {readyCount}/{total}
         </p>
       </div>
 
@@ -208,8 +210,8 @@ function ScanOverlay({
                 <span className="text-[12px] font-medium text-white/85">{p.name}</span>
               </div>
               <div className="text-[10px] uppercase tracking-widest text-white/35">
-                {s.state === "ready" && "Ready"}
-                {s.state === "checking" && "…"}
+                {s.state === "ready" && `${s.count} q`}
+                {s.state === "checking" && "Scan"}
                 {s.state === "pending" && ""}
                 {s.state === "failed" && "Miss"}
               </div>
