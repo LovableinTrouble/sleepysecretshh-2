@@ -141,11 +141,11 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       const currentSeason = seasons.find((s) => s.number === season);
       if (currentSeason && nextEp > currentSeason.episodes.length) {
         const nextSeason = seasons.find((s) => s.number === season + 1);
-        if (nextSeason) { navigate({ to: "/watch/$id", params: { id: String(media.id) }, search: { t: media.type as any, s: season + 1, e: 1 }, replace: true }); return; }
+        if (nextSeason) { navigate({ to: "/watch/$id", params: { id: String(media.id) }, search: { t: media.type as any, s: season + 1, e: 1, party: undefined }, replace: true }); return; }
         return;
       }
     }
-    navigate({ to: "/watch/$id", params: { id: String(media.id) }, search: { t: media.type as any, s: season, e: nextEp }, replace: true });
+    navigate({ to: "/watch/$id", params: { id: String(media.id) }, search: { t: media.type as any, s: season, e: nextEp, party: undefined }, replace: true });
   }, [navigate, media.id, media.type, media.seasons, season, episode]);
 
   const hasNext = !!(season && episode);

@@ -296,7 +296,7 @@ function MediaPage() {
               <Link
                 to="/watch/$id"
                 params={{ id: String(media.id) }}
-                search={{ t: media.type, ...(isSeries ? { s: season, e: episode } : {}) }}
+                search={{ t: media.type, s: isSeries ? season : undefined, e: isSeries ? episode : undefined, party: undefined }}
                 onClick={() => stashWatchMedia(media)}
                 className="group/btn relative z-10 mr-1 inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-primary px-6 text-sm font-bold text-primary-foreground shadow-[inset_0_0_18px_color-mix(in_oklab,var(--primary-foreground)_18%,transparent),0_6px_18px_-8px_color-mix(in_oklab,var(--primary)_65%,transparent)] ring-1 ring-primary/35 transition-all duration-200 hover:bg-primary/90 hover:shadow-[inset_0_0_22px_color-mix(in_oklab,var(--primary-foreground)_24%,transparent),0_8px_22px_-10px_color-mix(in_oklab,var(--primary)_75%,transparent)]"
               >
@@ -426,7 +426,7 @@ function MediaPage() {
                     <Link
                       to="/watch/$id"
                       params={{ id: String(media.id) }}
-                      search={{ t: media.type, s: season, e: ep.number }}
+                      search={{ t: media.type, s: season, e: ep.number, party: undefined }}
                       onClick={() => stashWatchMedia(media)}
                       className="absolute inset-0 z-0 rounded-2xl"
                       aria-label={`Play episode ${ep.number}`}
