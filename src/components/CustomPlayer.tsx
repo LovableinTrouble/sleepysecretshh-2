@@ -121,12 +121,16 @@ export function CustomPlayer({
 
   const hideTimer = useRef<number | null>(null);
   const loadGuardRef = useRef<number | null>(null);
+  const attemptedRef = useRef<Set<number>>(new Set());
   const seekAmountRef = useRef(0);
   const errorHitsRef = useRef(0);
   const stallRef = useRef({ time: 0, hits: 0 });
 
   useEffect(() => {
     sourceGroupsRef.current = sourceGroups;
+    if (error && sourceGroups.some((group) => group.qualities.some((item) => !attemptedRef.current.has(item.index)))) {
+      failoverToNext();
+    }
   }, [sourceGroups]);
 
   useEffect(() => {
@@ -139,13 +143,12 @@ export function CustomPlayer({
 
   const failoverToNext = useCallback((message = "Source stalled. Trying the next source…") => {
     setCurrentIdx((idx) => {
+      attemptedRef.current.add(idx);
       const groups = sourceGroupsRef.current;
-      const groupIndex = groups.findIndex((group) => group.qualities.some((item) => item.index === idx));
-      const currentGroup = groupIndex >= 0 ? groups[groupIndex] : undefined;
-      const qualityIndex = currentGroup?.qualities.findIndex((item) => item.index === idx) ?? -1;
-      const nextSameSource = qualityIndex >= 0 ? currentGroup?.qualities[qualityIndex + 1]?.index : undefined;
-      const nextGroup = groupIndex >= 0 ? groups[groupIndex + 1] : groups[0];
-      const next = nextSameSource ?? nextGroup?.qualities[0]?.index;
+      const flat = groups.flatMap((group) => group.qualities.map((item) => item.index));
+      const pos = Math.max(0, flat.indexOf(idx));
+      const ordered = [...flat.slice(pos + 1), ...flat.slice(0, pos)];
+      const next = ordered.find((index) => !attemptedRef.current.has(index));
       if (next !== undefined) {
         setError(null);
         setLoading(true);
@@ -164,6 +167,7 @@ export function CustomPlayer({
       : undefined;
     const next = bestMatch ?? group.qualities[0];
     if (!next) return;
+    attemptedRef.current.clear();
     setCurrentIdx(next.index);
     setHlsLevels([]);
     setHlsLevel(-1);
