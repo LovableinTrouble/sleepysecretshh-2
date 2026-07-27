@@ -105,7 +105,7 @@ function uniqueByQuality(items: StreamQuality[]): StreamQuality[] {
     seen.add(key);
     out.push(item);
   }
-  return out.slice(0, 1);
+  return out;
 }
 
 function proxyUrl(raw: string, referer?: string) {
@@ -115,14 +115,14 @@ function proxyUrl(raw: string, referer?: string) {
   return `/api/public/iptv-proxy?${p.toString()}`;
 }
 
-async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i: ResolveInput): Promise<StreamQuality[]> {
+async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i: ResolveInput, fast = false): Promise<StreamQuality[]> {
   const path =
     i.type === "movie"
       ? `movie/${i.tmdbId}`
       : `tv/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}`;
   const results: { name: string; url: string }[] = [];
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 4500);
+  const timer = setTimeout(() => controller.abort(), fast ? 1200 : 3200);
   try {
     const res = await fetch(`https://vidphantom.com/api/hls/${path}`, {
       headers: { "User-Agent": UA, Accept: "text/event-stream" },
@@ -132,7 +132,7 @@ async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i:
     const reader = res.body.getReader();
     const dec = new TextDecoder();
     let buf = "";
-    while (results.length < 1) {
+    while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       buf += dec.decode(value, { stream: true });
@@ -146,10 +146,12 @@ async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i:
         try {
           const j = JSON.parse(line.slice(5).trim());
           if (j.done) return uniqueByQuality(toQualities(results, providerId, providerName, true));
-          if (j.proxiedUrl) results.push({ name: String(j.name || "Auto"), url: String(j.proxiedUrl) });
+          if (j.proxiedUrl) {
+            results.push({ name: String(j.name || "Auto"), url: String(j.proxiedUrl) });
+            if (fast) return uniqueByQuality(toQualities(results, providerId, providerName, true));
+          }
         } catch { /* ignore */ }
       }
-      if (results.length >= 1) break;
     }
   } catch { /* timeout still returns whatever arrived */ }
   finally { clearTimeout(timer); controller.abort(); }
@@ -169,7 +171,7 @@ function toQualities(results: { name: string; url: string; quality?: string; typ
       const q = detectQuality(s.url, `${s.quality ?? ""} ${s.name}`);
       const quality = q.quality === "Auto" && idx > 0 ? `Auto ${idx + 1}` : q.quality;
       return {
-        url: alreadyProxied ? proxyUrl(s.url) : proxyUrl(s.url),
+        url: alreadyProxied ? s.url : proxyUrl(s.url),
         label: providerName,
         quality,
         format,
@@ -180,7 +182,7 @@ function toQualities(results: { name: string; url: string; quality?: string; typ
     });
 }
 
-async function scrapeStreamVault(host: string, providerId: ProviderId, providerName: string, i: ResolveInput): Promise<StreamQuality[]> {
+async function scrapeStreamVault(host: string, providerId: ProviderId, providerName: string, i: ResolveInput, fast = false): Promise<StreamQuality[]> {
   const path =
     i.type === "movie"
       ? `movie/${i.tmdbId}`
@@ -188,17 +190,18 @@ async function scrapeStreamVault(host: string, providerId: ProviderId, providerN
   try {
     const res = await fetch(`https://${host}/api/embed-streams/${path}`, {
       headers: { "User-Agent": UA, Accept: "application/json" },
-      signal: AbortSignal.timeout(6500),
+      signal: AbortSignal.timeout(fast ? 2400 : 5200),
     });
     if (!res.ok) return [];
     const json: any = await res.json();
     const streams: any[] = Array.isArray(json?.streams) ? json.streams : [];
-    return uniqueByQuality(toQualities(streams.map((s) => ({
+    const parsed = uniqueByQuality(toQualities(streams.map((s) => ({
       url: String(s?.url || ""),
       name: String(s?.provider || s?.quality || "Auto"),
       quality: String(s?.quality || ""),
       type: String(s?.type || ""),
     })), providerId, providerName));
+    return fast ? parsed.slice(0, 1) : parsed;
   } catch { return []; }
 }
 
@@ -209,10 +212,11 @@ const PROVIDER_HOSTS: Record<Exclude<ProviderId, "nimbus">, string> = {
   atlas:  "storage4.streamvaultsrc.click",
 };
 
-export async function resolveProviderById(id: ProviderId, input: ResolveInput): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
-  const meta = PROVIDERS.find((p) => p.id === id)!;
+export async function resolveProviderById(id: ProviderId, input: ResolveInput, options: { fast?: boolean } = {}): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
+  const meta = PROVIDERS.find((p) => p.id === id);
+  if (!meta) return { qualities: [], subtitles: [] };
   const [qualities, subs] = await Promise.all([
-    id === "nimbus" ? scrapeVidPhantom(id, meta.name, input) : scrapeStreamVault(PROVIDER_HOSTS[id], id, meta.name, input),
+    id === "nimbus" ? scrapeVidPhantom(id, meta.name, input, options.fast) : scrapeStreamVault(PROVIDER_HOSTS[id], id, meta.name, input, options.fast),
     // Only Nimbus fetches subtitles from 1x2 to keep things fast; other providers reuse via merge on the client.
     id === "nimbus" ? fetchSubs(input) : Promise.resolve<StreamSubtitle[]>([]),
   ]);
