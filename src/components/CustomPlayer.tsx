@@ -285,7 +285,7 @@ export function CustomPlayer({
       if (autoplay) video.play().catch(() => {});
     }
     return () => { cancelled = true; clearLoadGuard(); hlsRef.current?.destroy(); hlsRef.current = null; };
-  }, [currentIdx, currentQuality, autoplay, startAt, failoverToNext]);
+  }, [currentIdx, currentQuality?.url, currentQuality?.format, autoplay, startAt, failoverToNext]);
 
   useEffect(() => { if (hlsRef.current) hlsRef.current.currentLevel = hlsLevel; }, [hlsLevel]);
 
