@@ -50,6 +50,7 @@ function fmt(t: number): string {
 
 function pickStartupQualityIndex(qualities: StreamQuality[]): number {
   if (!qualities.length) return 0;
+  if (getSettings().player.autoQuality !== false) return 0;
   const pref = getSettings().player.quality;
   const target = pref === "4k" ? 2160 : pref === "1080p" ? 1080 : pref === "720p" ? 720 : 720;
   const ranked = qualities

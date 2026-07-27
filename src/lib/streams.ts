@@ -28,10 +28,11 @@ export const resolveProvider = createServerFn({ method: "POST" })
       type: z.enum(["movie", "show"]),
       season: z.number().optional(),
       episode: z.number().optional(),
+      fast: z.boolean().optional(),
     }).parse(d),
   )
   .handler(async ({ data }): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> => {
     const { resolveProviderById } = await import("./streams.server");
-    const { provider, ...rest } = data;
-    return resolveProviderById(provider, rest);
+    const { provider, fast, ...rest } = data;
+    return resolveProviderById(provider, rest, { fast });
   });

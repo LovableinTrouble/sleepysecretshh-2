@@ -61,6 +61,7 @@ export function ContinueWatchingRow() {
                   t: it.mediaType as any,
                   s: it.season ?? undefined,
                   e: it.episode ?? undefined,
+                  party: undefined,
                 }}
                 className="block overflow-hidden rounded-2xl ring-1 ring-white/10 transition-[transform,box-shadow,border-color] duration-300 ease-out hover:ring-white/20 hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)]"
               >

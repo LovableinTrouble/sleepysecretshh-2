@@ -77,7 +77,7 @@ function Home() {
   };
   const play = (m: any) => {
     stashWatchMedia(m);
-    navigate({ to: "/watch/$id", params: { id: String(m.id) }, search: { t: m.type } });
+    navigate({ to: "/watch/$id", params: { id: String(m.id) }, search: { t: m.type, s: undefined, e: undefined, party: undefined } });
   };
 
   return (
