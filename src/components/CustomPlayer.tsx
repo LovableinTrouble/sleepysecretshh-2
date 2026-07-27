@@ -268,14 +268,29 @@ export function CustomPlayer({
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
 
-  // Subtitle track management
+  // Subtitle track management — match by label so we don't pick up an HLS-in-
+  // manifest subtitle track that shifts indices.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     const tracks = v.textTracks;
     for (let i = 0; i < tracks.length; i++) tracks[i].mode = "hidden";
-    if (subIdx >= 0 && subIdx < tracks.length) tracks[subIdx].mode = "showing";
-  }, [subIdx, loading]);
+    if (subIdx < 0) return;
+    const wanted = source.subtitles[subIdx];
+    if (!wanted) return;
+    // Try label match first, then language, then positional fallback.
+    let match = -1;
+    for (let i = 0; i < tracks.length; i++) {
+      if (tracks[i].label === wanted.label) { match = i; break; }
+    }
+    if (match < 0) {
+      for (let i = 0; i < tracks.length; i++) {
+        if (tracks[i].language === wanted.language) { match = i; break; }
+      }
+    }
+    if (match < 0 && subIdx < tracks.length) match = subIdx;
+    if (match >= 0) tracks[match].mode = "showing";
+  }, [subIdx, loading, source.subtitles]);
 
   // Keyboard
   useEffect(() => {
