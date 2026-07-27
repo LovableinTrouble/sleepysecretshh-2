@@ -7,6 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import type { Media } from "@/lib/catalog";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
 import { resolveStreams, type ResolvedSource } from "@/lib/streams";
+import { useSettings } from "@/lib/store";
 import { CustomPlayer } from "./CustomPlayer";
 import { DownloadsDialog } from "./DownloadsDialog";
 
@@ -19,6 +20,7 @@ interface Props {
 
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const navigate = useNavigate();
+  const [settings] = useSettings();
   const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   useEffect(() => {
@@ -108,9 +110,8 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             startAt={startAt} onProgress={onProgress} onClose={onClose}
             onSelectSource={() => {}}
             onDownload={() => setDownloadsOpen(true)}
-            onNextEpisode={hasNext ? handleNextEpisode : undefined} hasNext={hasNext} autoplay autoNext />
+            onNextEpisode={hasNext ? handleNextEpisode : undefined} hasNext={hasNext} autoplay={settings.player.autoplay} autoNext={settings.player.autoNext} />
         )}
-        {active?.kind === "embed" && <EmbedFrame source={active} media={media} onProgress={onProgress} onClose={onClose} />}
       </div>
       <DownloadsDialog open={downloadsOpen} media={media} season={season} episode={episode} onClose={() => setDownloadsOpen(false)} />
     </div>
