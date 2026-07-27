@@ -100,7 +100,7 @@ function uniqueByQuality(items: StreamQuality[]): StreamQuality[] {
   const seen = new Set<string>();
   const out: StreamQuality[] = [];
   for (const item of items.sort((a, b) => qualityRank(b) - qualityRank(a))) {
-    const key = item.resolution ? String(item.resolution) : `${item.quality.toLowerCase()}:${item.url}`;
+    const key = item.resolution ? String(item.resolution) : item.quality.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(item);
