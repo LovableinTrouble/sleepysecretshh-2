@@ -192,7 +192,7 @@ function MediaPage() {
       : [isSeries ? "Network details unavailable" : "Studio details unavailable"];
 
   return (
-    <main className="min-h-screen pb-16">
+    <main className="pb-8">
       <BackButton onClick={goBack} />
 
       {shareToast && (
@@ -357,20 +357,6 @@ function MediaPage() {
                   </svg>
                 </IconBtn>
               )}
-              <IconBtn onClick={handleWatchParty} label="Watch Party">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-[18px] w-[18px]"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <circle cx="9" cy="8" r="3" />
-                  <circle cx="17" cy="9" r="2.5" />
-                  <path d="M3 19c0-3 3-5 6-5s6 2 6 5" />
-                  <path d="M14 19c0-2 2-4 4-4s4 2 4 4" />
-                </svg>
-              </IconBtn>
               <IconBtn onClick={handleShare} label="Share">
                 <svg
                   viewBox="0 0 24 24"
