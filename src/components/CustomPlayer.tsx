@@ -256,7 +256,8 @@ export function CustomPlayer({
         }
         const prefs = getSettings().player;
         const userBuf = Math.max(0, prefs.bufferTarget ?? 0);
-        const targetBuffer = userBuf > 0 ? Math.max(6, userBuf) : 8;
+        // Bigger default forward buffer -> less rebuffering on average connections.
+        const targetBuffer = userBuf > 0 ? Math.max(12, userBuf) : 30;
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
@@ -264,22 +265,24 @@ export function CustomPlayer({
           startLevel: 0,
           testBandwidth: true,
           capLevelToPlayerSize: true,
-          backBufferLength: 10,
+          backBufferLength: 30,
           maxBufferLength: targetBuffer,
-          maxMaxBufferLength: Math.max(20, targetBuffer * 2),
-          maxBufferSize: 28 * 1000 * 1000,
+          maxMaxBufferLength: Math.max(60, targetBuffer * 3),
+          maxBufferSize: 90 * 1000 * 1000,
           maxBufferHole: 0.5,
           highBufferWatchdogPeriod: 1,
           nudgeOffset: 0.1,
           nudgeMaxRetry: 6,
-          manifestLoadingTimeOut: 5500,
-          levelLoadingTimeOut: 5500,
-          fragLoadingTimeOut: 8500,
-          manifestLoadingMaxRetry: 2,
-          levelLoadingMaxRetry: 2,
-          fragLoadingMaxRetry: 4,
-          fragLoadingRetryDelay: 350,
-          abrEwmaDefaultEstimate: 1_400_000,
+          manifestLoadingTimeOut: 8000,
+          levelLoadingTimeOut: 8000,
+          fragLoadingTimeOut: 15000,
+          manifestLoadingMaxRetry: 3,
+          levelLoadingMaxRetry: 3,
+          fragLoadingMaxRetry: 6,
+          fragLoadingRetryDelay: 300,
+          abrEwmaDefaultEstimate: 2_500_000,
+          abrBandWidthFactor: 0.9,
+          abrBandWidthUpFactor: 0.75,
         });
         hlsRef.current = hls;
         hls.loadSource(url);
