@@ -767,7 +767,7 @@ export function CustomPlayer({
 
           {/* Subtitles */}
           <button
-            onClick={() => setOpenPanel(openPanel === "subs" ? null : "subs")}
+            onClick={() => { setSettingsTab("subs"); setOpenPanel(openPanel === "settings" ? null : "settings"); }}
             className={`grid h-9 w-9 place-items-center rounded-lg transition ${subIdx >= 0 ? "text-white bg-white/10" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
             aria-label="Subtitles"
           >
@@ -781,16 +781,6 @@ export function CustomPlayer({
             aria-label="Settings"
           >
             <SettingsIcon className="h-4 w-4" />
-          </button>
-
-          {/* Source cloud */}
-          <button
-            onClick={() => setOpenPanel(openPanel === "source" ? null : "source")}
-            className={`grid h-9 w-9 place-items-center rounded-lg transition ${openPanel === "source" ? "text-white bg-white/10" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
-            aria-label="Sources"
-            title="Sources"
-          >
-            <Cloud className="h-4 w-4" />
           </button>
 
           {/* Download */}
