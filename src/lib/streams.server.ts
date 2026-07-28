@@ -210,7 +210,7 @@ async function scrapeStreamVault(host: string, providerId: ProviderId, providerN
   } catch { return []; }
 }
 
-const PROVIDER_HOSTS: Record<Exclude<ProviderId, "nimbus" | "vaplayer">, string> = {
+const PROVIDER_HOSTS: Record<Exclude<ProviderId, "nimbus" | "vaplayer" | "febbox">, string> = {
   aurora: "storage1.streamvaultsrc.click",
   orion:  "storage2.streamvaultsrc.click",
   vega:   "storage3.streamvaultsrc.click",
