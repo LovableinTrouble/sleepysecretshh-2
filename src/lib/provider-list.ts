@@ -6,4 +6,5 @@ export const PROVIDER_LIST: { id: ProviderId; name: string }[] = [
   { id: "vega",   name: "Vega"   },
   { id: "atlas",  name: "Atlas"  },
   { id: "nimbus", name: "Nimbus" },
+  { id: "vaplayer", name: "Pulsar" },
 ];

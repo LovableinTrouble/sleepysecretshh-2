@@ -59,7 +59,7 @@ export function buildEmbedsOnly(input: ResolveInput): ResolveResult {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
 
-export type ProviderId = "nimbus" | "aurora" | "orion" | "vega" | "atlas";
+export type ProviderId = "nimbus" | "aurora" | "orion" | "vega" | "atlas" | "vaplayer";
 export interface ProviderMeta { id: ProviderId; name: string; }
 export const PROVIDERS: ProviderMeta[] = [
   { id: "orion",  name: "Orion"  },
@@ -67,6 +67,7 @@ export const PROVIDERS: ProviderMeta[] = [
   { id: "vega",   name: "Vega"   },
   { id: "atlas",  name: "Atlas"  },
   { id: "nimbus", name: "Nimbus" },
+  { id: "vaplayer", name: "Pulsar" },
 ];
 
 const LANGUAGE_CODES: Record<string, string> = {
@@ -205,7 +206,7 @@ async function scrapeStreamVault(host: string, providerId: ProviderId, providerN
   } catch { return []; }
 }
 
-const PROVIDER_HOSTS: Record<Exclude<ProviderId, "nimbus">, string> = {
+const PROVIDER_HOSTS: Record<Exclude<ProviderId, "nimbus" | "vaplayer">, string> = {
   aurora: "storage1.streamvaultsrc.click",
   orion:  "storage2.streamvaultsrc.click",
   vega:   "storage3.streamvaultsrc.click",
@@ -216,11 +217,42 @@ export async function resolveProviderById(id: ProviderId, input: ResolveInput, o
   const meta = PROVIDERS.find((p) => p.id === id);
   if (!meta) return { qualities: [], subtitles: [] };
   const [qualities, subs] = await Promise.all([
-    id === "nimbus" ? scrapeVidPhantom(id, meta.name, input, options.fast) : scrapeStreamVault(PROVIDER_HOSTS[id], id, meta.name, input, options.fast),
+    id === "nimbus"
+      ? scrapeVidPhantom(id, meta.name, input, options.fast)
+      : id === "vaplayer"
+        ? scrapeVaplayer(id, meta.name, input, options.fast)
+        : scrapeStreamVault(PROVIDER_HOSTS[id as Exclude<ProviderId, "nimbus" | "vaplayer">], id, meta.name, input, options.fast),
     // Only Nimbus fetches subtitles from 1x2 to keep things fast; other providers reuse via merge on the client.
     id === "nimbus" ? fetchSubs(input) : Promise.resolve<StreamSubtitle[]>([]),
   ]);
   return { qualities, subtitles: subs };
+}
+
+async function scrapeVaplayer(providerId: ProviderId, providerName: string, i: ResolveInput, fast = false): Promise<StreamQuality[]> {
+  const params = new URLSearchParams({ tmdb: i.tmdbId });
+  if (i.type === "movie") params.set("type", "movie");
+  else {
+    params.set("type", "tv");
+    params.set("season", String(i.season ?? 1));
+    params.set("episode", String(i.episode ?? 1));
+  }
+  try {
+    const res = await fetch(`https://streamdata.vaplayer.ru/api.php?${params.toString()}`, {
+      headers: { "User-Agent": UA, Accept: "application/json", Referer: "https://nextgencloudfabric.com/" },
+      signal: AbortSignal.timeout(fast ? 2400 : 5200),
+    });
+    if (!res.ok) return [];
+    const json: any = await res.json();
+    const urls: any[] = Array.isArray(json?.stream_urls) ? json.stream_urls : [];
+    const items = urls.map((u) => {
+      const url = typeof u === "string" ? u : String(u?.url || u?.stream || "");
+      const quality = typeof u === "string" ? "" : String(u?.quality || u?.label || "");
+      return { url, name: quality || "Auto", quality, type: "hls" };
+    }).filter((s) => s.url);
+    const qualities = toQualities(items, providerId, providerName, false);
+    const unique = uniqueByQuality(qualities);
+    return fast ? unique.slice(0, 1) : unique;
+  } catch { return []; }
 }
 
 async function fetchSubs(i: ResolveInput): Promise<StreamSubtitle[]> {
