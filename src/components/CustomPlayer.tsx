@@ -103,6 +103,7 @@ export function CustomPlayer({
   source, title, season, episode, startAt = 0,
   onProgress, onClose, onSelectSource, onNextEpisode, hasNext,
   autoplay = true, autoNext = true, onDownload,
+  servers, activeServer, onSwitchServer,
 }: Props) {
   const [settings, setSettings] = useSettings();
   const playerPrefs = settings.player;
@@ -153,8 +154,8 @@ export function CustomPlayer({
   const [showControls, setShowControls] = useState(true);
   const [rate, setRate] = useState(() => getSettings().player.defaultSpeed || 1);
   const [aspect, setAspect] = useState<AspectMode>(() => getSettings().player.fillMode || "contain");
-  const [openPanel, setOpenPanel] = useState<null | "settings" | "subs" | "source">(null);
-  const [settingsTab, setSettingsTab] = useState<"quality" | "playback" | "display" | "captions">("quality");
+  const [openPanel, setOpenPanel] = useState<null | "settings">(null);
+  const [settingsTab, setSettingsTab] = useState<"quality" | "subs" | "servers" | "speed">("quality");
   const [subIdx, setSubIdx] = useState<number>(-1);
   const [subStyle, setSubStyle] = useState<SubStyle>(DEFAULT_SUB);
   const [hlsLevels, setHlsLevels] = useState<{ height: number; index: number }[]>([]);
