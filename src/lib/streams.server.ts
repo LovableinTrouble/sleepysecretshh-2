@@ -150,10 +150,10 @@ async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i:
         if (!line) continue;
         try {
           const j = JSON.parse(line.slice(5).trim());
-          if (j.done) return uniqueByQuality(toQualities(results, providerId, providerName, false));
+          if (j.done) return uniqueByQuality(toQualities(results, providerId, providerName, true));
           if (j.proxiedUrl) {
             results.push({ name: String(j.name || "Auto"), url: String(j.proxiedUrl) });
-            if (fast) return uniqueByQuality(toQualities(results, providerId, providerName, false));
+            if (fast) return uniqueByQuality(toQualities(results, providerId, providerName, true));
           }
         } catch { /* ignore */ }
       }
@@ -272,7 +272,7 @@ async function scrapeVaplayer(providerId: ProviderId, providerName: string, i: R
   try {
     const res = await fetch(`https://streamdata.vaplayer.ru/api.php?${params.toString()}`, {
       headers: { "User-Agent": UA, Accept: "application/json", Referer: "https://nextgencloudfabric.com/" },
-      signal: AbortSignal.timeout(fast ? 2400 : 5200),
+      signal: AbortSignal.timeout(fast ? 6000 : 12000),
     });
     if (!res.ok) return [];
     const json: any = await res.json();
