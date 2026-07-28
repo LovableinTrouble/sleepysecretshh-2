@@ -59,14 +59,15 @@ export function buildEmbedsOnly(input: ResolveInput): ResolveResult {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
 
-export type ProviderId = "nimbus" | "aurora" | "orion" | "vega" | "atlas";
+export type ProviderId = "nimbus" | "aurora" | "orion" | "vega" | "atlas" | "comet";
 export interface ProviderMeta { id: ProviderId; name: string; }
 export const PROVIDERS: ProviderMeta[] = [
-  { id: "nimbus", name: "Nimbus" },
   { id: "aurora", name: "Aurora" },
   { id: "orion",  name: "Orion"  },
   { id: "vega",   name: "Vega"   },
   { id: "atlas",  name: "Atlas"  },
+  { id: "comet",  name: "Comet"  },
+  { id: "nimbus", name: "Nimbus" },
 ];
 
 const LANGUAGE_CODES: Record<string, string> = {
@@ -210,6 +211,7 @@ const PROVIDER_HOSTS: Record<Exclude<ProviderId, "nimbus">, string> = {
   orion:  "storage2.streamvaultsrc.click",
   vega:   "storage3.streamvaultsrc.click",
   atlas:  "storage4.streamvaultsrc.click",
+  comet:  "storage5.streamvaultsrc.click",
 };
 
 export async function resolveProviderById(id: ProviderId, input: ResolveInput, options: { fast?: boolean } = {}): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
