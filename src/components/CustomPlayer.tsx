@@ -262,7 +262,7 @@ export function CustomPlayer({
           enableWorker: true,
           lowLatencyMode: false,
           startFragPrefetch: true,
-          startLevel: 0,
+          startLevel: -1,
           testBandwidth: true,
           capLevelToPlayerSize: true,
           backBufferLength: 30,

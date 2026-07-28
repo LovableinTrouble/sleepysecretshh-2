@@ -124,7 +124,9 @@ async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i:
       : `tv/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}`;
   const results: { name: string; url: string }[] = [];
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), fast ? 1200 : 3200);
+  // TV endpoints often stream slower; give the fast pass more headroom so shows aren't cut off mid-response.
+  const isShow = i.type !== "movie";
+  const timer = setTimeout(() => controller.abort(), fast ? (isShow ? 3500 : 1600) : (isShow ? 6500 : 3600));
   try {
     const res = await fetch(`https://vidphantom.com/api/hls/${path}`, {
       headers: { "User-Agent": UA, Accept: "text/event-stream" },
@@ -191,7 +193,8 @@ async function scrapeStreamVault(host: string, providerId: ProviderId, providerN
   try {
     const res = await fetch(`https://${host}/api/embed-streams/${path}`, {
       headers: { "User-Agent": UA, Accept: "application/json" },
-      signal: AbortSignal.timeout(fast ? 2400 : 5200),
+      // Shows respond ~2-3s on cold path; bump fast timeout so we don't return empty on TV.
+      signal: AbortSignal.timeout(fast ? (i.type === "movie" ? 3200 : 4500) : 7000),
     });
     if (!res.ok) return [];
     const json: any = await res.json();
