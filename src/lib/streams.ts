@@ -22,17 +22,18 @@ export const resolveStreams = createServerFn({ method: "POST" })
 export const resolveProvider = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z.object({
-      provider: z.enum(["nimbus", "aurora", "orion", "vega", "atlas", "vaplayer"]),
+      provider: z.enum(["febbox", "nimbus", "aurora", "orion", "vega", "atlas", "vaplayer"]),
       tmdbId: z.union([z.string(), z.number()]).transform(String),
       title: z.string().min(1),
       type: z.enum(["movie", "show"]),
       season: z.number().optional(),
       episode: z.number().optional(),
       fast: z.boolean().optional(),
+      febboxCookie: z.string().optional(),
     }).parse(d),
   )
   .handler(async ({ data }): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> => {
     const { resolveProviderById } = await import("./streams.server");
-    const { provider, fast, ...rest } = data;
-    return resolveProviderById(provider, rest, { fast });
+    const { provider, fast, febboxCookie, ...rest } = data;
+    return resolveProviderById(provider, rest, { fast, febboxCookie });
   });

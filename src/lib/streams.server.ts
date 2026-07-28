@@ -59,9 +59,10 @@ export function buildEmbedsOnly(input: ResolveInput): ResolveResult {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
 
-export type ProviderId = "nimbus" | "aurora" | "orion" | "vega" | "atlas" | "vaplayer";
+export type ProviderId = "febbox" | "nimbus" | "aurora" | "orion" | "vega" | "atlas" | "vaplayer";
 export interface ProviderMeta { id: ProviderId; name: string; }
 export const PROVIDERS: ProviderMeta[] = [
+  { id: "febbox", name: "Febbox" },
   { id: "orion",  name: "Orion"  },
   { id: "aurora", name: "Aurora" },
   { id: "vega",   name: "Vega"   },
@@ -126,7 +127,7 @@ async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i:
   const controller = new AbortController();
   // TV endpoints often stream slower; give the fast pass more headroom so shows aren't cut off mid-response.
   const isShow = i.type !== "movie";
-  const timer = setTimeout(() => controller.abort(), fast ? (isShow ? 3500 : 1600) : (isShow ? 6500 : 3600));
+  const timer = setTimeout(() => controller.abort(), fast ? (isShow ? 4500 : 3000) : (isShow ? 9000 : 6000));
   try {
     const res = await fetch(`https://vidphantom.com/api/hls/${path}`, {
       headers: { "User-Agent": UA, Accept: "text/event-stream" },
@@ -149,17 +150,17 @@ async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i:
         if (!line) continue;
         try {
           const j = JSON.parse(line.slice(5).trim());
-          if (j.done) return uniqueByQuality(toQualities(results, providerId, providerName, true));
+          if (j.done) return uniqueByQuality(toQualities(results, providerId, providerName, false));
           if (j.proxiedUrl) {
             results.push({ name: String(j.name || "Auto"), url: String(j.proxiedUrl) });
-            if (fast) return uniqueByQuality(toQualities(results, providerId, providerName, true));
+            if (fast) return uniqueByQuality(toQualities(results, providerId, providerName, false));
           }
         } catch { /* ignore */ }
       }
     }
   } catch { /* timeout still returns whatever arrived */ }
   finally { clearTimeout(timer); controller.abort(); }
-  return uniqueByQuality(toQualities(results, providerId, providerName, true));
+  return uniqueByQuality(toQualities(results, providerId, providerName, false));
 }
 
 function toQualities(results: { name: string; url: string; quality?: string; type?: string }[], providerId: ProviderId, providerName: string, alreadyProxied = false): StreamQuality[] {
@@ -209,14 +210,14 @@ async function scrapeStreamVault(host: string, providerId: ProviderId, providerN
   } catch { return []; }
 }
 
-const PROVIDER_HOSTS: Record<Exclude<ProviderId, "nimbus" | "vaplayer">, string> = {
+const PROVIDER_HOSTS: Record<Exclude<ProviderId, "nimbus" | "vaplayer" | "febbox">, string> = {
   aurora: "storage1.streamvaultsrc.click",
   orion:  "storage2.streamvaultsrc.click",
   vega:   "storage3.streamvaultsrc.click",
   atlas:  "storage4.streamvaultsrc.click",
 };
 
-export async function resolveProviderById(id: ProviderId, input: ResolveInput, options: { fast?: boolean } = {}): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
+export async function resolveProviderById(id: ProviderId, input: ResolveInput, options: { fast?: boolean; febboxCookie?: string } = {}): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
   const meta = PROVIDERS.find((p) => p.id === id);
   if (!meta) return { qualities: [], subtitles: [] };
   const [qualities, subs] = await Promise.all([
@@ -224,11 +225,40 @@ export async function resolveProviderById(id: ProviderId, input: ResolveInput, o
       ? scrapeVidPhantom(id, meta.name, input, options.fast)
       : id === "vaplayer"
         ? scrapeVaplayer(id, meta.name, input, options.fast)
-        : scrapeStreamVault(PROVIDER_HOSTS[id as Exclude<ProviderId, "nimbus" | "vaplayer">], id, meta.name, input, options.fast),
+        : id === "febbox"
+          ? scrapeFebbox(id, meta.name, input, options.febboxCookie)
+          : scrapeStreamVault(PROVIDER_HOSTS[id as Exclude<ProviderId, "nimbus" | "vaplayer" | "febbox">], id, meta.name, input, options.fast),
     // Only Nimbus fetches subtitles from 1x2 to keep things fast; other providers reuse via merge on the client.
-    id === "nimbus" ? fetchSubs(input) : Promise.resolve<StreamSubtitle[]>([]),
+    id === "nimbus" || id === "febbox" ? fetchSubs(input) : Promise.resolve<StreamSubtitle[]>([]),
   ]);
   return { qualities, subtitles: subs };
+}
+
+async function scrapeFebbox(providerId: ProviderId, providerName: string, i: ResolveInput, cookie?: string): Promise<StreamQuality[]> {
+  const trimmed = String(cookie || "").trim();
+  if (!trimmed) return [];
+  try {
+    const { resolveStream } = await import("./febbox.server");
+    const out = await resolveStream({
+      title: i.title,
+      tmdbId: i.tmdbId,
+      type: i.type === "movie" ? "movie" : "show",
+      season: i.season,
+      episode: i.episode,
+      uiCookie: trimmed,
+    });
+    const stream = out.stream;
+    if (!stream || !stream.qualities.length) return [];
+    const items = stream.qualities.map((q) => ({
+      url: q.url,
+      name: q.label || q.quality || "Auto",
+      quality: q.quality,
+      type: q.url.toLowerCase().includes(".m3u8") ? "hls" : q.url.toLowerCase().includes(".mkv") ? "mkv" : q.url.toLowerCase().includes(".mp4") ? "mp4" : "",
+    }));
+    return uniqueByQuality(toQualities(items, providerId, providerName));
+  } catch {
+    return [];
+  }
 }
 
 async function scrapeVaplayer(providerId: ProviderId, providerName: string, i: ResolveInput, fast = false): Promise<StreamQuality[]> {

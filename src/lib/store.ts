@@ -66,6 +66,8 @@ export interface Settings {
       | "sydney"
       | "singapore"
       | "mumbai";
+    /** FebBox `ui` cookie value (or full Cookie header). Enables Febbox source in player. */
+    febboxCookie: string;
   };
   tmdbApiKey: string;
   preferredSource: string;
@@ -125,6 +127,7 @@ export const DEFAULT_SETTINGS: Settings = {
     plexSync: false,
     enable4k: false,
     pstreamRegion: "auto",
+    febboxCookie: "",
   },
   tmdbApiKey: "",
   preferredSource: "prionix",
