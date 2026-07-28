@@ -231,7 +231,7 @@ export interface FebBoxQuality {
   format?: string;
   mime?: string;
   type?: string;
-  label?: string;
+  label: string;
 }
 
 export interface FebBoxSubtitle {
