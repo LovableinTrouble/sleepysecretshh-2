@@ -5,7 +5,7 @@ import {
   Play, Pause, Volume2, VolumeX, Volume1,
   Maximize, Minimize, PictureInPicture, Download as DownloadIcon,
   Settings as SettingsIcon, Subtitles, ChevronLeft,
-  SkipForward, Cast, RotateCcw, Monitor, Palette,
+  SkipForward, Cast, RotateCcw, Monitor, Palette, Cloud,
   SlidersHorizontal, Server as ServerIcon, Gauge, Check as CheckIcon, X as XIcon,
 } from "lucide-react";
 import type { DirectSource, StreamQuality, StreamSubtitle, ProviderId } from "@/lib/streams";
@@ -777,6 +777,16 @@ export function CustomPlayer({
             <Subtitles className="h-4 w-4" />
           </button>
 
+          {/* Sources cloud */}
+          <button
+            onClick={() => { setSettingsTab("servers"); setOpenPanel(openPanel === "settings" && settingsTab === "servers" ? null : "settings"); }}
+            className={`hidden sm:grid h-9 w-9 place-items-center rounded-lg transition ${openPanel === "settings" && settingsTab === "servers" ? "text-white bg-white/10" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
+            aria-label="Sources"
+            title="Sources"
+          >
+            <Cloud className="h-4 w-4" />
+          </button>
+
           {/* Settings cog */}
           <button
             onClick={() => setOpenPanel(openPanel === "settings" ? null : "settings")}
@@ -800,13 +810,21 @@ export function CustomPlayer({
 
       {/* ── Settings panel ───────────────────────────── */}
       {openPanel === "settings" && (
-        <div className="absolute right-4 bottom-16 z-30 w-[min(30rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-white/10 bg-black/95 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <div className="border-b border-white/8 px-5 py-4">
-            <div className="text-sm font-bold text-white">Player Settings</div>
-            <div className="text-[11px] text-white/45">Customize your viewing experience</div>
+        <div
+          className="absolute right-2 left-2 sm:left-auto sm:right-4 bottom-16 z-30 sm:w-[min(34rem,calc(100vw-2rem))] max-h-[calc(100dvh-6rem)] overflow-hidden rounded-3xl border border-white/15 bg-black/40 shadow-[0_25px_80px_-15px_rgba(0,0,0,0.9)] backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+          style={{ background: "linear-gradient(180deg, rgba(20,20,25,0.85) 0%, rgba(8,8,12,0.92) 100%)" }}
+        >
+          <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+            <div>
+              <div className="text-base font-bold tracking-tight text-white">Player Settings</div>
+              <div className="mt-0.5 text-[11px] text-white/50">Customize your viewing experience</div>
+            </div>
+            <button onClick={() => setOpenPanel(null)} className="grid h-8 w-8 place-items-center rounded-full bg-white/5 text-white/60 transition hover:bg-white/15 hover:text-white" aria-label="Close">
+              <XIcon className="h-4 w-4" />
+            </button>
           </div>
-          <div className="px-4 pt-3">
-            <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white/5 p-1">
+          <div className="px-4 pt-4">
+            <div className="grid grid-cols-4 gap-1 rounded-2xl border border-white/5 bg-white/[0.04] p-1">
               {([
                 ["quality", "Quality", SlidersHorizontal],
                 ["subs", "Subs", Subtitles],
@@ -816,7 +834,7 @@ export function CustomPlayer({
                 <button
                   key={tab}
                   onClick={() => setSettingsTab(tab)}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-semibold transition ${settingsTab === tab ? "bg-white/15 text-white shadow-inner" : "text-white/45 hover:text-white/80"}`}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all duration-200 ${settingsTab === tab ? "bg-white text-black shadow-lg" : "text-white/50 hover:text-white hover:bg-white/5"}`}
                 >
                   <Icon className="h-3.5 w-3.5" />
                   {label}
@@ -825,7 +843,7 @@ export function CustomPlayer({
             </div>
           </div>
 
-          <div className="max-h-[60vh] overflow-y-auto p-4">
+          <div className="max-h-[min(28rem,calc(100dvh-14rem))] overflow-y-auto p-4">
             {/* QUALITY */}
             {settingsTab === "quality" && (
               <div className="space-y-1.5 animate-in fade-in duration-150">
