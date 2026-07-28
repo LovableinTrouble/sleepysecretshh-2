@@ -234,6 +234,16 @@ export interface FebBoxQuality {
   label: string;
 }
 
+// Internal type used during parsing (all fields required for narrowing).
+interface FebBoxQualityStrict {
+  url: string;
+  quality: string;
+  name: string;
+  label: string;
+  size: string;
+  format: string;
+}
+
 export interface FebBoxSubtitle {
   url: string;
   language: string;
