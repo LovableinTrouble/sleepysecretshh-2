@@ -160,7 +160,7 @@ async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i:
     }
   } catch { /* timeout still returns whatever arrived */ }
   finally { clearTimeout(timer); controller.abort(); }
-  return uniqueByQuality(toQualities(results, providerId, providerName, false));
+  return uniqueByQuality(toQualities(results, providerId, providerName, true));
 }
 
 function toQualities(results: { name: string; url: string; quality?: string; type?: string }[], providerId: ProviderId, providerName: string, alreadyProxied = false): StreamQuality[] {
