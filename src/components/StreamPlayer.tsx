@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { RefreshCw, Check, X, Loader2 } from "lucide-react";
+import { RefreshCw, Check, X, Loader2, Radar } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 import type { Media } from "@/lib/catalog";
@@ -209,46 +209,66 @@ function ScanOverlay({
   readyCount: number; settledCount: number; total: number; onClose: () => void;
 }) {
   const pct = Math.round((settledCount / total) * 100);
+  const active = PROVIDER_LIST.find((p) => statuses[p.id]?.state === "checking")?.name;
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-6 bg-black px-6">
-      {/* Pulse mark */}
-      <div className="relative h-16 w-16">
-        <div className="absolute inset-0 animate-ping rounded-full bg-white/10" style={{ animationDuration: "1.8s" }} />
-        <div className="absolute inset-2 rounded-full bg-white/5 ring-1 ring-white/15" />
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-8 bg-black px-6 overflow-hidden">
+      {/* Ambient gradient wash */}
+      <div className="pointer-events-none absolute inset-0 opacity-70" style={{ background: "radial-gradient(circle at 50% 40%, rgba(99,102,241,0.15) 0%, rgba(0,0,0,0) 55%)" }} />
+
+      {/* Radar */}
+      <div className="relative h-28 w-28">
+        <div className="absolute inset-0 rounded-full border border-white/10" />
+        <div className="absolute inset-3 rounded-full border border-white/8" />
+        <div className="absolute inset-6 rounded-full border border-white/6" />
+        <div className="absolute inset-0 animate-ping rounded-full border border-white/20" style={{ animationDuration: "2.4s" }} />
+        {/* Sweeping conic gradient */}
+        <div
+          className="absolute inset-0 rounded-full animate-spin"
+          style={{
+            animationDuration: "2.2s",
+            background: "conic-gradient(from 0deg, rgba(255,255,255,0) 0deg, rgba(255,255,255,0.35) 90deg, rgba(255,255,255,0) 180deg)",
+            mask: "radial-gradient(circle, transparent 22%, black 23%, black 100%)",
+            WebkitMask: "radial-gradient(circle, transparent 22%, black 23%, black 100%)",
+          }}
+        />
         <div className="absolute inset-0 grid place-items-center">
-          <div className="h-2.5 w-2.5 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.7)]" />
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-white/10 ring-1 ring-white/20 backdrop-blur-md">
+            <Radar className="h-4 w-4 text-white" />
+          </div>
         </div>
       </div>
 
-      <div className="text-center">
-        <p className="text-sm font-semibold text-white">{title}</p>
-        <p className="mt-1 text-[10px] uppercase tracking-[0.35em] text-white/40">
-          Fast source scan · {readyCount}/{total}
+      <div className="relative text-center">
+        <p className="text-base font-bold tracking-tight text-white">{title}</p>
+        <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.4em] text-white/40">
+          {active ? `Scanning · ${active}` : `${settledCount}/${total} Servers`}
         </p>
       </div>
 
       {/* Provider list */}
-      <div className="w-full max-w-xs space-y-1">
-        {PROVIDER_LIST.map((p) => {
+      <div className="relative w-full max-w-sm space-y-1.5">
+        {PROVIDER_LIST.map((p, i) => {
           const s = statuses[p.id];
+          const isChecking = s.state === "checking";
           return (
             <div
               key={p.id}
-              className={`flex items-center justify-between rounded-xl px-3 py-2 transition-all duration-500 ease-out ${
-                s.state === "ready" ? "bg-white/10 text-white"
-                : s.state === "failed" ? "bg-white/[0.02] opacity-40"
-                : s.state === "checking" ? "bg-white/[0.06]"
-                : "bg-white/[0.02]"
+              className={`flex items-center justify-between rounded-2xl border px-4 py-2.5 transition-all duration-500 ease-out ${
+                s.state === "ready" ? "border-emerald-400/25 bg-emerald-400/[0.06] text-white"
+                : s.state === "failed" ? "border-white/5 bg-white/[0.02] opacity-40"
+                : isChecking ? "border-white/15 bg-white/[0.06]"
+                : "border-white/5 bg-white/[0.02]"
               }`}
+              style={{ animationDelay: `${i * 60}ms` }}
             >
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-3">
                 <StatusDot state={s.state} />
-                <span className="text-[12px] font-medium text-white/85">{p.name}</span>
+                <span className="text-[13px] font-semibold tracking-tight text-white/90">{p.name}</span>
               </div>
-              <div className="text-[10px] uppercase tracking-widest text-white/35">
-                {s.state === "ready" && `${s.count} q`}
-                {s.state === "checking" && "Scan"}
-                {s.state === "pending" && ""}
+              <div className="text-[9px] font-bold uppercase tracking-[0.25em] text-white/40">
+                {s.state === "ready" && "Ready"}
+                {isChecking && "Scanning"}
+                {s.state === "pending" && "Queued"}
                 {s.state === "failed" && "Miss"}
               </div>
             </div>
@@ -257,11 +277,11 @@ function ScanOverlay({
       </div>
 
       {/* Progress bar */}
-      <div className="h-[2px] w-full max-w-xs overflow-hidden rounded-full bg-white/8">
-        <div className="h-full bg-white transition-all duration-500 ease-out" style={{ width: `${pct}%` }} />
+      <div className="relative h-1 w-full max-w-sm overflow-hidden rounded-full bg-white/8">
+        <div className="h-full rounded-full bg-gradient-to-r from-white/60 via-white to-white/60 transition-all duration-500 ease-out" style={{ width: `${pct}%` }} />
       </div>
 
-      <button onClick={onClose} className="text-[11px] uppercase tracking-[0.3em] text-white/40 transition hover:text-white/70">Cancel</button>
+      <button onClick={onClose} className="relative text-[10px] font-semibold uppercase tracking-[0.4em] text-white/40 transition hover:text-white/80">Cancel</button>
     </div>
   );
 }
