@@ -1040,3 +1040,34 @@ function PanelSlider({
     </div>
   );
 }
+
+function qualityBadge(resolution?: number): string | undefined {
+  if (!resolution) return undefined;
+  if (resolution >= 2160) return "4K";
+  if (resolution >= 1440) return "QHD";
+  if (resolution >= 1080) return "FULL HD";
+  if (resolution >= 720) return "HD";
+  return undefined;
+}
+
+function QualityRow({
+  label, hint, badge, active, onClick,
+}: {
+  label: string; hint?: string; badge?: string; active: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition ${active ? "bg-white/15 text-white ring-1 ring-white/20" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"}`}
+    >
+      <span className="flex items-center gap-2 min-w-0">
+        <span className="text-sm font-semibold">{label}</span>
+        {badge && (
+          <span className="rounded-md bg-white/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white/80">{badge}</span>
+        )}
+        {hint && <span className="text-[10px] text-white/40">{hint}</span>}
+      </span>
+      {active && <span className="h-2 w-2 shrink-0 rounded-full bg-white" />}
+    </button>
+  );
+}
