@@ -56,83 +56,83 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const [scanning, setScanning] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scanKey, setScanKey] = useState(0);
+  const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null);
 
-  const mergeQualities = useCallback((incoming: StreamQuality[]) => {
-    setQualities((current) => {
-      const next = [...current];
-      const seen = new Set(next.map((item) => `${item.sourceId ?? item.label}:${item.quality.toLowerCase()}:${item.url}`));
-      for (const item of incoming) {
-        const key = `${item.sourceId ?? item.label}:${item.quality.toLowerCase()}:${item.url}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        next.push(item);
-      }
-      return next;
-    });
-  }, []);
+  const input = useMemo(() => ({
+    tmdbId: String(media.id), title: media.title,
+    type: (media.type === "movie" ? "movie" : "show") as "movie" | "show",
+    season, episode,
+  }), [media.id, media.title, media.type, season, episode]);
 
   useEffect(() => {
     let dead = false;
-    let backgroundTimer: number | undefined;
     setStatuses(Object.fromEntries(PROVIDER_LIST.map((p) => [p.id, { state: "pending", count: 0 }])) as any);
-    setQualities([]); setSubtitles([]); setScanning(true); setError(null);
+    setQualities([]); setSubtitles([]); setScanning(true); setError(null); setActiveProvider(null);
 
-    const input = { tmdbId: String(media.id), title: media.title, type: media.type === "movie" ? "movie" as const : "show" as const, season, episode };
-    let gotFastStream = false;
-
-    const updateFromResult = (provider: ProviderId, res: { qualities: StreamQuality[]; subtitles: StreamSubtitle[] }) => {
-      if (dead) return Promise.resolve();
-      const count = res.qualities.length;
-      if (count > 0) {
-        gotFastStream = true;
-        setStatuses((s) => ({ ...s, [provider]: { state: "ready", count: Math.max(s[provider]?.count ?? 0, count) } }));
-        mergeQualities(res.qualities);
-        if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
+    (async () => {
+      for (const p of PROVIDER_LIST) {
+        if (dead) return;
+        setStatuses((s) => ({ ...s, [p.id]: { ...s[p.id], state: "checking" } }));
+        try {
+          const res = await resolveProvider({ data: { provider: p.id, ...input, fast: true } });
+          if (dead) return;
+          if (res.qualities.length > 0) {
+            setStatuses((s) => ({ ...s, [p.id]: { state: "ready", count: res.qualities.length } }));
+            setActiveProvider(p.id);
+            setQualities(res.qualities);
+            if (res.subtitles.length) setSubtitles(res.subtitles);
+            setScanning(false);
+            // Background: fetch full qualities for the winning provider only.
+            resolveProvider({ data: { provider: p.id, ...input } }).then((full) => {
+              if (dead || !full.qualities.length) return;
+              setQualities(full.qualities);
+              if (full.subtitles.length) setSubtitles((prev) => (prev.length ? prev : full.subtitles));
+              setStatuses((s) => ({ ...s, [p.id]: { state: "ready", count: full.qualities.length } }));
+            }).catch(() => {});
+            return;
+          }
+          setStatuses((s) => ({ ...s, [p.id]: { state: "failed", count: 0 } }));
+        } catch {
+          if (!dead) setStatuses((s) => ({ ...s, [p.id]: { state: "failed", count: 0 } }));
+        }
       }
-    };
+      if (!dead) { setScanning(false); setError("No working streams found across providers. Try again in a moment."); }
+    })();
 
-    const fastPasses = PROVIDER_LIST.map((p) => {
-      if (dead) return Promise.resolve();
-      setStatuses((s) => ({ ...s, [p.id]: { ...s[p.id], state: "checking" } }));
-      return resolveProvider({ data: { provider: p.id, ...input, fast: true } })
-        .then((res) => updateFromResult(p.id, res))
-        .catch(() => undefined);
-    });
+    return () => { dead = true; };
+  }, [input, scanKey]);
 
-    Promise.all(fastPasses).then(() => {
-      if (dead) return;
-      backgroundTimer = window.setTimeout(() => {
-        const fullPasses = PROVIDER_LIST.map((p) => resolveProvider({ data: { provider: p.id, ...input } })
-        .then((res) => {
-          if (dead) return;
-          const count = res.qualities.length;
-          setStatuses((s) => {
-            const previous = s[p.id];
-            if (count === 0 && previous?.state === "ready") return s;
-            return { ...s, [p.id]: { state: count > 0 ? "ready" : "failed", count: count || previous?.count || 0 } };
-          });
-          updateFromResult(p.id, res);
-        })
-        .catch(() => { if (!dead) setStatuses((s) => ({ ...s, [p.id]: { state: "failed", count: 0 } })); }));
-
-        Promise.all(fullPasses).then(() => {
-          if (dead) return;
-          setScanning(false);
-          setQualities((q) => {
-            if (q.length === 0) setError("No working streams found across providers. Try again in a moment.");
-            return q;
-          });
-        });
-      }, gotFastStream ? 2800 : 0);
-    });
-
-    return () => { dead = true; if (backgroundTimer) window.clearTimeout(backgroundTimer); };
-  }, [media.id, media.title, media.type, season, episode, scanKey, mergeQualities]);
+  const switchProvider = useCallback(async (id: ProviderId) => {
+    if (id === activeProvider) return;
+    setActiveProvider(id);
+    setQualities([]);
+    setStatuses((s) => ({ ...s, [id]: { ...s[id], state: "checking" } }));
+    try {
+      const res = await resolveProvider({ data: { provider: id, ...input, fast: true } });
+      setQualities(res.qualities);
+      if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
+      setStatuses((s) => ({ ...s, [id]: { state: res.qualities.length > 0 ? "ready" : "failed", count: res.qualities.length } }));
+      resolveProvider({ data: { provider: id, ...input } }).then((full) => {
+        if (!full.qualities.length) return;
+        setQualities(full.qualities);
+        if (full.subtitles.length) setSubtitles((prev) => (prev.length ? prev : full.subtitles));
+        setStatuses((s) => ({ ...s, [id]: { state: "ready", count: full.qualities.length } }));
+      }).catch(() => {});
+    } catch {
+      setStatuses((s) => ({ ...s, [id]: { state: "failed", count: 0 } }));
+    }
+  }, [activeProvider, input]);
 
   const active: DirectSource | null = useMemo(() => {
     if (qualities.length === 0) return null;
     return { kind: "direct", id: "merged", name: "Sleepy", badge: "HLS", qualities, subtitles };
   }, [qualities, subtitles]);
+
+  const servers = useMemo(() => PROVIDER_LIST.map((p) => ({
+    id: p.id, name: p.name,
+    status: statuses[p.id]?.state ?? "pending",
+    count: statuses[p.id]?.count ?? 0,
+  })), [statuses]);
 
   const readyCount = Object.values(statuses).filter((s) => s.state === "ready").length;
   const settledCount = Object.values(statuses).filter((s) => s.state === "ready" || s.state === "failed").length;
@@ -172,6 +172,9 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             startAt={startAt} onProgress={onProgress} onClose={onClose}
             onSelectSource={() => {}}
             onDownload={() => setDownloadsOpen(true)}
+            servers={servers}
+            activeServer={activeProvider ?? undefined}
+            onSwitchServer={switchProvider}
             onNextEpisode={hasNext ? handleNextEpisode : undefined} hasNext={hasNext} autoplay={settings.player.autoplay} autoNext={settings.player.autoNext} />
         )}
       </div>
