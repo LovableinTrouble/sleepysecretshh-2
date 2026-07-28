@@ -797,258 +797,164 @@ export function CustomPlayer({
 
       {/* ── Settings panel ───────────────────────────── */}
       {openPanel === "settings" && (
-        <div className="absolute right-4 bottom-16 z-30 w-[min(26rem,calc(100vw-2rem))] rounded-3xl border border-white/10 bg-black/92 p-4 shadow-2xl backdrop-blur-2xl">
-          {/* Tabs */}
-          <div className="mb-4 grid grid-cols-4 gap-1 rounded-2xl bg-white/5 p-1">
-            {([
-              ["quality", "Quality"],
-              ["playback", "Play"],
-              ["display", "Display"],
-              ["captions", "Captions"],
-            ] as const).map(([tab, label]) => (
-              <button
-                key={tab}
-                onClick={() => setSettingsTab(tab)}
-                className={`flex-1 rounded-lg py-1.5 text-[11px] font-semibold transition ${settingsTab === tab ? "bg-white/15 text-white" : "text-white/40 hover:text-white/70"}`}
-              >
-                {label}
-              </button>
-            ))}
+        <div className="absolute right-4 bottom-16 z-30 w-[min(30rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-white/10 bg-black/95 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="border-b border-white/8 px-5 py-4">
+            <div className="text-sm font-bold text-white">Player Settings</div>
+            <div className="text-[11px] text-white/45">Customize your viewing experience</div>
           </div>
-
-          {/* Quality tab */}
-          {settingsTab === "quality" && (
-            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-              {currentSourceGroup && (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-2">
-                  <div className="mb-2 flex items-center justify-between px-1 text-[10px] uppercase tracking-widest text-white/35">
-                    <span>{currentSourceGroup.name}</span>
-                    <span>{Math.max(1, sourceQualityOptions.length + hlsQualityOptions.length)} qualities</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      onClick={() => {
-                        if (autoSourceQuality) setCurrentIdx(autoSourceQuality.index);
-                        setHlsLevel(-1);
-                        savePlayerPref({ autoQuality: true });
-                      }}
-                      className={`rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${hlsLevel === -1 && selectedSourceQualityKey === "auto" ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
-                    >
-                      Auto
-                    </button>
-                    {sourceQualityOptions.map(({ quality, index }) => (
-                      <button
-                        key={`${quality.url}-${index}`}
-                        onClick={() => { setCurrentIdx(index); setHlsLevels([]); setHlsLevel(-1); savePlayerPref({ autoQuality: false }); }}
-                        className={`rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${currentIdx === index ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
-                      >
-                        {displayQualityLabel(quality)}
-                      </button>
-                    ))}
-                    {hlsQualityOptions.map((lvl) => (
-                      <button
-                        key={lvl.index}
-                        onClick={() => { setHlsLevel(lvl.index); savePlayerPref({ autoQuality: false }); }}
-                        className={`rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${hlsLevel === lvl.index ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
-                      >
-                        {lvl.height}p
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs font-semibold text-white">Auto failover</div>
-                    <div className="mt-0.5 text-[10px] text-white/45">Switch streams automatically when one fails.</div>
-                  </div>
-                  <TogglePill value={playerPrefs.autoFailover !== false} onChange={(v: boolean) => savePlayerPref({ autoFailover: v })} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Playback tab */}
-          {settingsTab === "playback" && (
-            <div className="space-y-4">
-              <div>
-                <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-widest text-white/35">
-                  <span>Speed</span><span>{rate}x</span>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5">
-              {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((r) => (
+          <div className="px-4 pt-3">
+            <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white/5 p-1">
+              {([
+                ["quality", "Quality", SlidersHorizontal],
+                ["subs", "Subs", Subtitles],
+                ["servers", "Servers", ServerIcon],
+                ["speed", "Speed", Gauge],
+              ] as const).map(([tab, label, Icon]) => (
                 <button
-                  key={r}
-                  onClick={() => { setRate(r); savePlayerPref({ defaultSpeed: r }); const v = videoRef.current; if (v) v.playbackRate = r; }}
-                  className={`rounded-lg py-2 text-xs font-semibold transition ${rate === r ? "bg-white/15 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+                  key={tab}
+                  onClick={() => setSettingsTab(tab)}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-semibold transition ${settingsTab === tab ? "bg-white/15 text-white shadow-inner" : "text-white/45 hover:text-white/80"}`}
                 >
-                  {r === 1 ? "1x" : `${r}x`}
-                </button>
-              ))}
-                </div>
-              </div>
-              <PanelSwitch label="Autoplay" hint="Start as soon as the stream connects." value={playerPrefs.autoplay} onChange={(v: boolean) => savePlayerPref({ autoplay: v })} />
-              <PanelSwitch label="Auto-next" hint="Continue to the next episode." value={playerPrefs.autoNext} onChange={(v: boolean) => savePlayerPref({ autoNext: v })} />
-              <PanelSlider label="Hide controls" value={playerPrefs.controlsTimeout ?? 3} min={1} max={8} suffix="s" onChange={(v: number) => savePlayerPref({ controlsTimeout: v })} />
-              <PanelSlider label="Buffer target" value={playerPrefs.bufferTarget ?? 0} min={0} max={30} suffix="s" onChange={(v: number) => savePlayerPref({ bufferTarget: v })} />
-            </div>
-          )}
-
-          {/* Display tab */}
-          {settingsTab === "display" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-1.5">
-              {([["contain", "Fit"], ["cover", "Fill"], ["stretch", "Stretch"]] as const).map(([val, label]) => (
-                <button
-                  key={val}
-                  onClick={() => { setAspect(val); savePlayerPref({ fillMode: val }); }}
-                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${aspect === val ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
-                >
-                  <Monitor className="h-3.5 w-3.5" />
+                  <Icon className="h-3.5 w-3.5" />
                   {label}
                 </button>
               ))}
-              </div>
-              <PanelSlider label="Brightness" value={playerPrefs.brightness ?? 100} min={50} max={150} suffix="%" onChange={(v: number) => savePlayerPref({ brightness: v })} />
-              <PanelSlider label="Contrast" value={playerPrefs.contrast ?? 100} min={50} max={150} suffix="%" onChange={(v: number) => savePlayerPref({ contrast: v })} />
-              <PanelSlider label="Saturation" value={playerPrefs.saturation ?? 100} min={0} max={180} suffix="%" onChange={(v: number) => savePlayerPref({ saturation: v })} />
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3">
-                <div className="flex items-center gap-2 text-xs font-semibold text-white"><Palette className="h-3.5 w-3.5" /> Accent</div>
-                <input type="color" value={playerPrefs.playerAccent ?? "#ffffff"} onChange={(e) => savePlayerPref({ playerAccent: e.target.value })} className="h-8 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
-              </div>
             </div>
-          )}
-
-          {/* Captions tab */}
-          {settingsTab === "captions" && (
-            <div className="space-y-4">
-              <PanelSwitch label="Prefer English" hint="Enable the English 1x2.Space track when available." value={playerPrefs.preferEnglishSubs !== false} onChange={(v: boolean) => savePlayerPref({ preferEnglishSubs: v })} />
-              <PanelSlider label="Subtitle size" value={subStyle.fontSize} min={12} max={48} suffix="px" onChange={(v: number) => setSubStyle({ ...subStyle, fontSize: v })} />
-              <PanelSlider label="Subtitle background" value={subStyle.bg} min={0} max={100} suffix="%" onChange={(v: number) => setSubStyle({ ...subStyle, bg: v })} />
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3">
-                <div className="text-xs font-semibold text-white">Subtitle color</div>
-                <input type="color" value={subStyle.color} onChange={(e) => setSubStyle({ ...subStyle, color: e.target.value })} className="h-8 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Source cloud panel ───────────────────────── */}
-      {openPanel === "source" && (
-        <div className="absolute right-4 bottom-16 z-30 w-[min(22rem,calc(100vw-2rem))] rounded-3xl border border-white/10 bg-black/92 p-4 shadow-2xl backdrop-blur-2xl">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-bold text-white"><Cloud className="h-4 w-4" /> Sources</div>
-            <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/45">{sourceGroups.length}</span>
-          </div>
-          <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
-            {sourceGroups.map((group) => {
-              const selected = group.id === currentSourceGroup?.id;
-              const qualityLabels = group.qualities.map(({ quality }) => quality.quality || quality.format).join(" · ");
-              return (
-              <button
-                key={group.id}
-                onClick={() => selectSourceGroup(group)}
-                className={`flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition ${selected ? "bg-white/15 text-white ring-1 ring-white/15" : "bg-white/5 text-white/65 hover:bg-white/10 hover:text-white"}`}
-              >
-                <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold">{group.name}</span>
-                  <span className="mt-0.5 block truncate text-[10px] text-white/35">{qualityLabels}</span>
-                </span>
-                <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-[9px] uppercase text-white/40">{group.qualities.length}</span>
-              </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Subtitle panel ───────────────────────────── */}
-      {openPanel === "subs" && (
-        <div className="absolute right-4 bottom-16 z-30 w-64 rounded-2xl border border-white/10 bg-black/90 p-3 shadow-2xl backdrop-blur-2xl">
-          <p className="mb-2 text-[10px] uppercase tracking-widest text-white/30">Subtitles</p>
-          <div className="max-h-40 space-y-0.5 overflow-y-auto">
-            <button
-              onClick={() => setSubIdx(-1)}
-              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${subIdx === -1 ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
-            >
-              <span>Off</span>
-              {subIdx === -1 && <span className="text-[10px]">●</span>}
-            </button>
-            {source.subtitles.map((sub, i) => (
-              <button
-                key={i}
-                onClick={() => setSubIdx(i)}
-                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition ${subIdx === i ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}
-              >
-                <span>{sub.label}</span>
-                {subIdx === i && <span className="text-[10px]">●</span>}
-              </button>
-            ))}
           </div>
 
-          {/* Subtitle styling */}
-          {subIdx >= 0 && (
-            <div className="mt-3 border-t border-white/8 pt-3">
-              <p className="mb-2 text-[10px] uppercase tracking-widest text-white/30">Style</p>
-              {/* Size */}
-              <div className="mb-2">
-                <div className="mb-1 flex items-center justify-between text-[10px] text-white/50">
-                  <span>Size</span><span>{subStyle.fontSize}px</span>
-                </div>
-                <input
-                  type="range" min={12} max={48} value={subStyle.fontSize}
-                  onChange={(e) => setSubStyle({ ...subStyle, fontSize: +e.target.value })}
-                  className="w-full accent-white"
+          <div className="max-h-[60vh] overflow-y-auto p-4">
+            {/* QUALITY */}
+            {settingsTab === "quality" && (
+              <div className="space-y-1.5 animate-in fade-in duration-150">
+                <QualityRow
+                  label="Auto"
+                  hint="Match to network"
+                  active={hlsLevel === -1 && selectedSourceQualityKey === "auto"}
+                  onClick={() => { if (autoSourceQuality) setCurrentIdx(autoSourceQuality.index); setHlsLevel(-1); savePlayerPref({ autoQuality: true }); }}
                 />
-              </div>
-              {/* Color */}
-              <div className="mb-2 flex items-center gap-2">
-                <span className="text-[10px] text-white/50">Color</span>
-                <input
-                  type="color" value={subStyle.color}
-                  onChange={(e) => setSubStyle({ ...subStyle, color: e.target.value })}
-                  className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent"
-                />
-              </div>
-              {/* Background */}
-              <div className="mb-2">
-                <div className="mb-1 flex items-center justify-between text-[10px] text-white/50">
-                  <span>Background</span><span>{subStyle.bg}%</span>
-                </div>
-                <input
-                  type="range" min={0} max={100} value={subStyle.bg}
-                  onChange={(e) => setSubStyle({ ...subStyle, bg: +e.target.value })}
-                  className="w-full accent-white"
-                />
-              </div>
-              {/* Position */}
-              <div className="mb-2 flex gap-1">
-                {(["bottom", "middle", "top"] as const).map((pos) => (
-                  <button
-                    key={pos}
-                    onClick={() => setSubStyle({ ...subStyle, position: pos })}
-                    className={`flex-1 rounded-lg py-1.5 text-[10px] font-semibold capitalize transition ${subStyle.position === pos ? "bg-white/15 text-white" : "bg-white/5 text-white/50"}`}
-                  >
-                    {pos}
-                  </button>
+                {sourceQualityOptions.map(({ quality, index }) => (
+                  <QualityRow
+                    key={`${quality.url}-${index}`}
+                    label={displayQualityLabel(quality)}
+                    badge={qualityBadge(quality.resolution)}
+                    active={currentIdx === index && hlsLevel === -1}
+                    onClick={() => { setCurrentIdx(index); setHlsLevels([]); setHlsLevel(-1); savePlayerPref({ autoQuality: false }); }}
+                  />
                 ))}
-              </div>
-              {/* Edge */}
-              <div className="flex gap-1">
-                {(["none", "shadow", "outline"] as const).map((edge) => (
-                  <button
-                    key={edge}
-                    onClick={() => setSubStyle({ ...subStyle, edge })}
-                    className={`flex-1 rounded-lg py-1.5 text-[10px] font-semibold capitalize transition ${subStyle.edge === edge ? "bg-white/15 text-white" : "bg-white/5 text-white/50"}`}
-                  >
-                    {edge}
-                  </button>
+                {hlsQualityOptions.map((lvl) => (
+                  <QualityRow
+                    key={lvl.index}
+                    label={`${lvl.height}p`}
+                    badge={qualityBadge(lvl.height)}
+                    active={hlsLevel === lvl.index}
+                    onClick={() => { setHlsLevel(lvl.index); savePlayerPref({ autoQuality: false }); }}
+                  />
                 ))}
+                <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-semibold text-white">Auto failover</div>
+                      <div className="mt-0.5 text-[10px] text-white/45">Switch streams automatically when one fails.</div>
+                    </div>
+                    <TogglePill value={playerPrefs.autoFailover !== false} onChange={(v: boolean) => savePlayerPref({ autoFailover: v })} />
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* SUBS */}
+            {settingsTab === "subs" && (
+              <div className="space-y-1.5 animate-in fade-in duration-150">
+                <QualityRow label="Off" active={subIdx === -1} onClick={() => setSubIdx(-1)} />
+                {source.subtitles.map((sub, i) => (
+                  <QualityRow key={i} label={sub.label} hint={sub.language?.toUpperCase()} active={subIdx === i} onClick={() => setSubIdx(i)} />
+                ))}
+                {subIdx >= 0 && (
+                  <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <PanelSlider label="Size" value={subStyle.fontSize} min={12} max={48} suffix="px" onChange={(v: number) => setSubStyle({ ...subStyle, fontSize: v })} />
+                    <PanelSlider label="Background" value={subStyle.bg} min={0} max={100} suffix="%" onChange={(v: number) => setSubStyle({ ...subStyle, bg: v })} />
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold text-white">Color</div>
+                      <input type="color" value={subStyle.color} onChange={(e) => setSubStyle({ ...subStyle, color: e.target.value })} className="h-8 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(["bottom", "middle", "top"] as const).map((pos) => (
+                        <button key={pos} onClick={() => setSubStyle({ ...subStyle, position: pos })}
+                          className={`rounded-lg py-1.5 text-[10px] font-semibold capitalize transition ${subStyle.position === pos ? "bg-white/15 text-white" : "bg-white/5 text-white/50"}`}>{pos}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SERVERS */}
+            {settingsTab === "servers" && (
+              <div className="space-y-1.5 animate-in fade-in duration-150">
+                {(servers ?? []).map((sv) => {
+                  const isActive = sv.id === activeServer;
+                  const dot = sv.status === "ready" ? "bg-emerald-400" : sv.status === "checking" ? "bg-amber-400 animate-pulse" : sv.status === "failed" ? "bg-rose-400" : "bg-white/25";
+                  return (
+                    <button
+                      key={sv.id}
+                      onClick={() => onSwitchServer?.(sv.id)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition ${isActive ? "bg-white/15 text-white ring-1 ring-white/20" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"}`}
+                    >
+                      <span className="flex items-center gap-3 min-w-0">
+                        <span className={`h-2 w-2 rounded-full ${dot}`} />
+                        <span className="text-xs font-semibold">{sv.name}</span>
+                      </span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        {sv.status === "checking" && <span className="text-[10px] uppercase tracking-wider text-amber-300/80">Checking…</span>}
+                        {sv.status === "failed" && <XIcon className="h-3.5 w-3.5 text-rose-400/80" />}
+                        {isActive && <CheckIcon className="h-3.5 w-3.5 text-white" />}
+                      </span>
+                    </button>
+                  );
+                })}
+                {(!servers || servers.length === 0) && (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-center text-[11px] text-white/45">No servers available.</div>
+                )}
+              </div>
+            )}
+
+            {/* SPEED & Playback prefs */}
+            {settingsTab === "speed" && (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-widest text-white/35">
+                    <span>Speed</span><span>{rate}x</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => { setRate(r); savePlayerPref({ defaultSpeed: r }); const v = videoRef.current; if (v) v.playbackRate = r; }}
+                        className={`rounded-lg py-2 text-xs font-semibold transition ${rate === r ? "bg-white/15 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+                      >
+                        {r === 1 ? "1x" : `${r}x`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <PanelSwitch label="Autoplay" hint="Start as soon as the stream connects." value={playerPrefs.autoplay} onChange={(v: boolean) => savePlayerPref({ autoplay: v })} />
+                <PanelSwitch label="Auto-next" hint="Continue to the next episode." value={playerPrefs.autoNext} onChange={(v: boolean) => savePlayerPref({ autoNext: v })} />
+                <PanelSlider label="Hide controls" value={playerPrefs.controlsTimeout ?? 3} min={1} max={8} suffix="s" onChange={(v: number) => savePlayerPref({ controlsTimeout: v })} />
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([["contain", "Fit"], ["cover", "Fill"], ["stretch", "Stretch"]] as const).map(([val, label]) => (
+                    <button key={val} onClick={() => { setAspect(val); savePlayerPref({ fillMode: val }); }}
+                      className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs transition ${aspect === val ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/8"}`}>
+                      <Monitor className="h-3.5 w-3.5" />{label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-white"><Palette className="h-3.5 w-3.5" /> Accent</div>
+                  <input type="color" value={playerPrefs.playerAccent ?? "#ffffff"} onChange={(e) => savePlayerPref({ playerAccent: e.target.value })} className="h-8 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
