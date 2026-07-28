@@ -417,6 +417,20 @@ function SettingsPage() {
           </span>
         </a>
 
+        {/* Febbox — top-of-settings integration so the player picks it up as an extra source. */}
+        <Section
+          title="Febbox"
+          desc="Paste your Febbox `ui` cookie (or full Cookie header) to unlock the Febbox source in the player. Leave empty to disable."
+        >
+          <IntegrationCard
+            name="Febbox cookie"
+            desc="Enables the high-quality Febbox provider (via Showbox share links). Stored locally only."
+            placeholder="ui=... or full Cookie value"
+            value={ints.febboxCookie}
+            onChange={(v) => setInt({ febboxCookie: v })}
+          />
+        </Section>
+
         {/* p-stream region — picks the closest CDN/proxy edge for subtitles. */}
         <Section
           title="Streaming region"
