@@ -104,14 +104,20 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   const switchProvider = useCallback(async (id: ProviderId) => {
     if (id === activeProvider) return;
+    const prevQualities = qualities;
+    const prevActive = activeProvider;
     setActiveProvider(id);
-    setQualities([]);
     setStatuses((s) => ({ ...s, [id]: { ...s[id], state: "checking" } }));
     try {
       const res = await resolveProvider({ data: { provider: id, ...input, fast: true } });
+      if (res.qualities.length === 0) {
+        setStatuses((s) => ({ ...s, [id]: { state: "failed", count: 0 } }));
+        setActiveProvider(prevActive);
+        return;
+      }
       setQualities(res.qualities);
       if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
-      setStatuses((s) => ({ ...s, [id]: { state: res.qualities.length > 0 ? "ready" : "failed", count: res.qualities.length } }));
+      setStatuses((s) => ({ ...s, [id]: { state: "ready", count: res.qualities.length } }));
       resolveProvider({ data: { provider: id, ...input } }).then((full) => {
         if (!full.qualities.length) return;
         setQualities(full.qualities);
@@ -120,8 +126,10 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       }).catch(() => {});
     } catch {
       setStatuses((s) => ({ ...s, [id]: { state: "failed", count: 0 } }));
+      setActiveProvider(prevActive);
+      setQualities(prevQualities);
     }
-  }, [activeProvider, input]);
+  }, [activeProvider, input, qualities]);
 
   const active: DirectSource | null = useMemo(() => {
     if (qualities.length === 0) return null;
