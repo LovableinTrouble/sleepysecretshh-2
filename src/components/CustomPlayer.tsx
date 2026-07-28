@@ -5,9 +5,10 @@ import {
   Play, Pause, Volume2, VolumeX, Volume1,
   Maximize, Minimize, PictureInPicture, Download as DownloadIcon,
   Settings as SettingsIcon, Subtitles, ChevronLeft,
-  SkipForward, Cast, RotateCcw, Monitor, Cloud, Palette,
+  SkipForward, Cast, RotateCcw, Monitor, Palette,
+  SlidersHorizontal, Server as ServerIcon, Gauge, Check as CheckIcon, X as XIcon,
 } from "lucide-react";
-import type { DirectSource, StreamQuality, StreamSubtitle } from "@/lib/streams";
+import type { DirectSource, StreamQuality, StreamSubtitle, ProviderId } from "@/lib/streams";
 import { getSettings, useSettings, type Settings } from "@/lib/store";
 
 interface Props {
@@ -24,6 +25,9 @@ interface Props {
   autoplay?: boolean;
   autoNext?: boolean;
   onDownload?: () => void;
+  servers?: Array<{ id: ProviderId; name: string; status: "pending" | "checking" | "ready" | "failed"; count: number }>;
+  activeServer?: ProviderId;
+  onSwitchServer?: (id: ProviderId) => void;
 }
 
 type SubStyle = {
