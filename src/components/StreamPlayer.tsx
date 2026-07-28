@@ -23,6 +23,11 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const navigate = useNavigate();
   const [settings] = useSettings();
   const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const febboxCookie = settings.integrations.febboxCookie?.trim() || "";
+  const providers = useMemo(
+    () => PROVIDER_LIST.filter((p) => p.id !== "febbox" || febboxCookie.length > 0),
+    [febboxCookie],
+  );
 
   useEffect(() => {
     const html = document.documentElement;
@@ -49,7 +54,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   type ProviderStatus = "pending" | "checking" | "ready" | "failed";
   const [statuses, setStatuses] = useState<Record<ProviderId, { state: ProviderStatus; count: number }>>(
-    () => Object.fromEntries(PROVIDER_LIST.map((p) => [p.id, { state: "pending", count: 0 }])) as any
+    () => Object.fromEntries(providers.map((p) => [p.id, { state: "pending", count: 0 }])) as any
   );
   const [qualities, setQualities] = useState<StreamQuality[]>([]);
   const [subtitles, setSubtitles] = useState<StreamSubtitle[]>([]);
@@ -66,15 +71,15 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   useEffect(() => {
     let dead = false;
-    setStatuses(Object.fromEntries(PROVIDER_LIST.map((p) => [p.id, { state: "pending", count: 0 }])) as any);
+    setStatuses(Object.fromEntries(providers.map((p) => [p.id, { state: "pending", count: 0 }])) as any);
     setQualities([]); setSubtitles([]); setScanning(true); setError(null); setActiveProvider(null);
 
     (async () => {
-      for (const p of PROVIDER_LIST) {
+      for (const p of providers) {
         if (dead) return;
         setStatuses((s) => ({ ...s, [p.id]: { ...s[p.id], state: "checking" } }));
         try {
-          const res = await resolveProvider({ data: { provider: p.id, ...input, fast: true } });
+          const res = await resolveProvider({ data: { provider: p.id, ...input, fast: true, febboxCookie } });
           if (dead) return;
           if (res.qualities.length > 0) {
             setStatuses((s) => ({ ...s, [p.id]: { state: "ready", count: res.qualities.length } }));
@@ -83,7 +88,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
             if (res.subtitles.length) setSubtitles(res.subtitles);
             setScanning(false);
             // Background: fetch full qualities for the winning provider only.
-            resolveProvider({ data: { provider: p.id, ...input } }).then((full) => {
+            resolveProvider({ data: { provider: p.id, ...input, febboxCookie } }).then((full) => {
               if (dead || !full.qualities.length) return;
               setQualities(full.qualities);
               if (full.subtitles.length) setSubtitles((prev) => (prev.length ? prev : full.subtitles));
@@ -100,7 +105,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     })();
 
     return () => { dead = true; };
-  }, [input, scanKey]);
+  }, [input, scanKey, providers, febboxCookie]);
 
   const switchProvider = useCallback(async (id: ProviderId) => {
     if (id === activeProvider) return;
@@ -109,7 +114,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     setActiveProvider(id);
     setStatuses((s) => ({ ...s, [id]: { ...s[id], state: "checking" } }));
     try {
-      const res = await resolveProvider({ data: { provider: id, ...input, fast: true } });
+      const res = await resolveProvider({ data: { provider: id, ...input, fast: true, febboxCookie } });
       if (res.qualities.length === 0) {
         setStatuses((s) => ({ ...s, [id]: { state: "failed", count: 0 } }));
         setActiveProvider(prevActive);
@@ -118,7 +123,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       setQualities(res.qualities);
       if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
       setStatuses((s) => ({ ...s, [id]: { state: "ready", count: res.qualities.length } }));
-      resolveProvider({ data: { provider: id, ...input } }).then((full) => {
+      resolveProvider({ data: { provider: id, ...input, febboxCookie } }).then((full) => {
         if (!full.qualities.length) return;
         setQualities(full.qualities);
         if (full.subtitles.length) setSubtitles((prev) => (prev.length ? prev : full.subtitles));
@@ -129,18 +134,18 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
       setActiveProvider(prevActive);
       setQualities(prevQualities);
     }
-  }, [activeProvider, input, qualities]);
+  }, [activeProvider, input, qualities, febboxCookie]);
 
   const active: DirectSource | null = useMemo(() => {
     if (qualities.length === 0) return null;
     return { kind: "direct", id: "merged", name: "Sleepy", badge: "HLS", qualities, subtitles };
   }, [qualities, subtitles]);
 
-  const servers = useMemo(() => PROVIDER_LIST.map((p) => ({
+  const servers = useMemo(() => providers.map((p) => ({
     id: p.id, name: p.name,
     status: statuses[p.id]?.state ?? "pending",
     count: statuses[p.id]?.count ?? 0,
-  })), [statuses]);
+  })), [statuses, providers]);
 
   const readyCount = Object.values(statuses).filter((s) => s.state === "ready").length;
   const settledCount = Object.values(statuses).filter((s) => s.state === "ready" || s.state === "failed").length;
@@ -172,7 +177,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     <div className="fixed inset-0 z-[2147483000] flex flex-col bg-black" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, height: "100dvh", width: "100vw" }}>
       <div className="relative flex-1 bg-black overflow-hidden">
         {scanning && !active && !error && (
-          <ScanOverlay title={media.title} statuses={statuses} readyCount={readyCount} settledCount={settledCount} total={PROVIDER_LIST.length} onClose={onClose} />
+          <ScanOverlay title={media.title} statuses={statuses} readyCount={readyCount} settledCount={settledCount} total={providers.length} providers={providers} onClose={onClose} />
         )}
         {error && !active && <ErrorOverlay error={error} onClose={onClose} onRetry={() => { setError(null); setQualities([]); setScanKey((key) => key + 1); }} />}
         {active && (
@@ -210,14 +215,16 @@ function recordProgress(media: Media, season: number | undefined, episode: numbe
 }
 
 function ScanOverlay({
-  title, statuses, readyCount, settledCount, total, onClose,
+  title, statuses, readyCount, settledCount, total, providers, onClose,
 }: {
   title: string;
   statuses: Record<ProviderId, { state: "pending" | "checking" | "ready" | "failed"; count: number }>;
-  readyCount: number; settledCount: number; total: number; onClose: () => void;
+  readyCount: number; settledCount: number; total: number;
+  providers: { id: ProviderId; name: string }[];
+  onClose: () => void;
 }) {
   const pct = Math.round((settledCount / total) * 100);
-  const active = PROVIDER_LIST.find((p) => statuses[p.id]?.state === "checking")?.name;
+  const active = providers.find((p) => statuses[p.id]?.state === "checking")?.name;
   return (
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-8 bg-black px-6 overflow-hidden">
       {/* Ambient gradient wash */}
@@ -255,7 +262,7 @@ function ScanOverlay({
 
       {/* Provider list */}
       <div className="relative w-full max-w-sm space-y-1.5">
-        {PROVIDER_LIST.map((p, i) => {
+        {providers.map((p, i) => {
           const s = statuses[p.id];
           const isChecking = s.state === "checking";
           return (
