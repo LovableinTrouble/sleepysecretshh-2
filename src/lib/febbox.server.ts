@@ -496,7 +496,7 @@ export async function febboxGetLinks(
           format: inferFormatFromUrl(u),
         };
       })
-      .filter((q): q is FebBoxQuality => !!q);
+      .filter((q): q is FebBoxQualityStrict => !!q) as FebBoxQuality[];
 
     return {
       qualities,
