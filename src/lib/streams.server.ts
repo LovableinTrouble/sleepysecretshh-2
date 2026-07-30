@@ -195,36 +195,93 @@ function toQualities(results: { name: string; url: string; quality?: string; typ
     });
 }
 
-async function scrapeStreamVault(host: string, providerId: ProviderId, providerName: string, i: ResolveInput, fast = false): Promise<StreamQuality[]> {
-  const path =
-    i.type === "movie"
-      ? `movie/${i.tmdbId}`
-      : `tv/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}`;
+// Sleepy Sources worker — one shape-tolerant parser for every upstream provider.
+// Handles: sources[] (hls/m3u8), source.qualities{} (mp4/dash), single url, mpd/dash.
+function collectSleepyItems(json: any): { url: string; name: string; quality?: string; type?: string }[] {
+  const out: { url: string; name: string; quality?: string; type?: string }[] = [];
+  const push = (url: any, quality?: any, type?: any, name?: any) => {
+    const u = String(url || "");
+    if (!u.startsWith("http")) return;
+    out.push({ url: u, quality: quality != null ? String(quality) : "", type: String(type || ""), name: String(name || quality || "Auto") });
+  };
+
+  if (Array.isArray(json?.sources)) {
+    for (const s of json.sources) push(s?.url ?? s?.file ?? s, s?.quality ?? s?.label, s?.type, s?.server);
+  }
+  const src = json?.source;
+  if (src) {
+    if (src.qualities && typeof src.qualities === "object") {
+      for (const [key, val] of Object.entries<any>(src.qualities)) {
+        push(val?.url ?? val, key, val?.type ?? src.type, src.server);
+      }
+    }
+    if (src.url) push(src.url, src.quality ?? json?.quality, src.type, src.server);
+  }
+  if (json?.url) push(json.url, json?.quality, json?.type, json?.provider);
+
+  const seen = new Set<string>();
+  return out.filter((s) => (seen.has(s.url) ? false : (seen.add(s.url), true)));
+}
+
+async function scrapeSleepySource(providerId: ProviderId, providerName: string, i: ResolveInput, fast = false): Promise<StreamQuality[]> {
+  const slug = SLEEPY_SLUGS[providerId];
+  if (!slug) return [];
+  const params = new URLSearchParams({ type: i.type === "movie" ? "movie" : "tv", tmdb: i.tmdbId });
+  if (i.type !== "movie") {
+    params.set("season", String(i.season ?? 1));
+    params.set("episode", String(i.episode ?? 1));
+  }
   try {
-    const res = await fetch(`https://${host}/api/embed-streams/${path}`, {
+    const res = await fetch(`${SLEEPY_SOURCES}/${slug}?${params.toString()}`, {
       headers: { "User-Agent": UA, Accept: "application/json" },
-      // Shows respond ~2-3s on cold path; bump fast timeout so we don't return empty on TV.
-      signal: AbortSignal.timeout(fast ? (i.type === "movie" ? 3200 : 4500) : 7000),
+      signal: AbortSignal.timeout(fast ? (i.type === "movie" ? 6000 : 8000) : 14000),
     });
     if (!res.ok) return [];
     const json: any = await res.json();
-    const streams: any[] = Array.isArray(json?.streams) ? json.streams : [];
-    const parsed = uniqueByQuality(toQualities(streams.map((s) => ({
-      url: String(s?.url || ""),
-      name: String(s?.provider || s?.quality || "Auto"),
-      quality: String(s?.quality || ""),
-      type: String(s?.type || ""),
-    })), providerId, providerName));
+    if (json?.error) return [];
+    const items = collectSleepyItems(json);
+    if (!items.length) return [];
+    const parsed = uniqueByQuality(toQualities(items, providerId, providerName, true));
+    // Fast pass: return the single best stream so playback starts immediately.
     return fast ? parsed.slice(0, 1) : parsed;
   } catch { return []; }
 }
 
-const PROVIDER_HOSTS: Record<Exclude<ProviderId, "nimbus" | "vaplayer" | "febbox">, string> = {
-  aurora: "storage1.streamvaultsrc.click",
-  orion:  "storage2.streamvaultsrc.click",
-  vega:   "storage3.streamvaultsrc.click",
-  atlas:  "storage4.streamvaultsrc.click",
-};
+async function fetchWorkerSubs(i: ResolveInput): Promise<StreamSubtitle[]> {
+  const params = new URLSearchParams({ type: i.type === "movie" ? "movie" : "tv", tmdb: i.tmdbId });
+  if (i.type !== "movie") {
+    params.set("season", String(i.season ?? 1));
+    params.set("episode", String(i.episode ?? 1));
+  }
+  try {
+    const res = await fetch(`${SLEEPY_SOURCES}/vidfast-subtitles?${params.toString()}`, {
+      headers: { "User-Agent": UA, Accept: "application/json" },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!res.ok) return [];
+    const json: any = await res.json();
+    const arr: any[] = Array.isArray(json?.subtitles) ? json.subtitles : [];
+    return arr
+      .filter((s) => s?.url)
+      .slice(0, 40)
+      .map((s) => {
+        const raw = String(s.url);
+        const lang = String(s.language || s.display || "en").toLowerCase();
+        return {
+          url: `/api/public/subtitle?url=${encodeURIComponent(raw)}`,
+          language: (LANGUAGE_CODES[lang] ?? lang.slice(0, 2)) || "en",
+          label: String(s.display || s.language || "Subtitle"),
+          type: (/\.srt/i.test(raw) ? "srt" : "vtt") as "srt" | "vtt",
+        };
+      });
+  } catch { return []; }
+}
+
+async function resolveSubtitles(i: ResolveInput): Promise<StreamSubtitle[]> {
+  const [worker, legacy] = await Promise.all([fetchWorkerSubs(i), fetchSubs(i)]);
+  const seen = new Set<string>();
+  return [...worker, ...legacy].filter((s) => (seen.has(s.url) ? false : (seen.add(s.url), true)));
+}
 
 export async function resolveProviderById(id: ProviderId, input: ResolveInput, options: { fast?: boolean; febboxCookie?: string } = {}): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
   const meta = PROVIDERS.find((p) => p.id === id);
@@ -232,13 +289,10 @@ export async function resolveProviderById(id: ProviderId, input: ResolveInput, o
   const [qualities, subs] = await Promise.all([
     id === "nimbus"
       ? scrapeVidPhantom(id, meta.name, input, options.fast)
-      : id === "vaplayer"
-        ? scrapeVaplayer(id, meta.name, input, options.fast)
-        : id === "febbox"
-          ? scrapeFebbox(id, meta.name, input, options.febboxCookie)
-          : scrapeStreamVault(PROVIDER_HOSTS[id as Exclude<ProviderId, "nimbus" | "vaplayer" | "febbox">], id, meta.name, input, options.fast),
-    // Only Nimbus fetches subtitles from 1x2 to keep things fast; other providers reuse via merge on the client.
-    id === "nimbus" || id === "febbox" ? fetchSubs(input) : Promise.resolve<StreamSubtitle[]>([]),
+      : id === "febbox"
+        ? scrapeFebbox(id, meta.name, input, options.febboxCookie)
+        : scrapeSleepySource(id, meta.name, input, options.fast),
+    resolveSubtitles(input),
   ]);
   return { qualities, subtitles: subs };
 }
