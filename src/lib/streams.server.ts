@@ -59,25 +59,21 @@ export function buildEmbedsOnly(input: ResolveInput): ResolveResult {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
 
-export type ProviderId = "febbox" | "nimbus" | "aurora" | "orion" | "vega" | "atlas" | "comet";
+export type ProviderId = "febbox" | "nimbus" | "orion" | "vega" | "atlas";
 export interface ProviderMeta { id: ProviderId; name: string; }
 export const PROVIDERS: ProviderMeta[] = [
   { id: "febbox", name: "Febbox" },
-  { id: "aurora", name: "Aurora" },  // videasy (yoru)
   { id: "orion",  name: "Orion"  },  // peachify
   { id: "vega",   name: "Vega"   },  // moviebox
   { id: "atlas",  name: "Atlas"  },  // vidrock
-  { id: "comet",  name: "Comet"  },  // vidfast
   { id: "nimbus", name: "Nimbus" },  // vidphantom (last)
 ];
 
 const SLEEPY_SOURCES = "https://sleepy-sources.pxifusionxx.workers.dev";
 const SLEEPY_SLUGS: Partial<Record<ProviderId, string>> = {
-  aurora: "videasy",
   orion: "peachify",
   vega: "moviebox",
   atlas: "vidrock",
-  comet: "vidfast",
 };
 
 const LANGUAGE_CODES: Record<string, string> = {
