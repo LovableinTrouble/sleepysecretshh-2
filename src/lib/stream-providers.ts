@@ -8,7 +8,7 @@ export interface ScrapedStream {
   url: string;
   quality: string;
   provider: string;
-  type: "hls" | "mp4" | "mkv" | "unknown";
+  type: "hls" | "mp4" | "mkv" | "dash" | "unknown";
 }
 
 export function listProviders() {

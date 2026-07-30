@@ -231,7 +231,9 @@ export function CustomPlayer({
     hlsRef.current = null;
 
     const url = currentQuality.url;
-    const isHls = currentQuality.format === "hls" || url.toLowerCase().includes(".m3u8");
+    const lowerUrl = url.toLowerCase();
+    const isDash = currentQuality.format === "dash" || lowerUrl.includes(".mpd");
+    const isHls = !isDash && (currentQuality.format === "hls" || lowerUrl.includes(".m3u8"));
 
     let cancelled = false;
     const clearLoadGuard = () => {
@@ -248,7 +250,40 @@ export function CustomPlayer({
     };
     armLoadGuard();
 
-    if (isHls) {
+    if (isDash) {
+      import("dashjs").then((mod) => {
+        const MediaPlayer = (mod as any).MediaPlayer ?? (mod as any).default?.MediaPlayer;
+        if (cancelled || !MediaPlayer) {
+          if (!cancelled) { video.preload = "auto"; video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
+          return;
+        }
+        const prefs = getSettings().player;
+        const userBuf = Math.max(0, prefs.bufferTarget ?? 0);
+        const targetBuffer = userBuf > 0 ? Math.max(12, userBuf) : 24;
+        const player = MediaPlayer().create();
+        player.updateSettings({
+          streaming: {
+            buffer: {
+              fastSwitchEnabled: true,
+              bufferTimeAtTopQuality: targetBuffer,
+              bufferTimeAtTopQualityLongForm: targetBuffer,
+              bufferToKeep: 12,
+              stableBufferTime: targetBuffer,
+            },
+            abr: { autoSwitchBitrate: { video: true, audio: true } },
+          },
+        });
+        player.initialize(video, url, autoplay, startAt > 0 ? startAt : 0);
+        hlsRef.current = { destroy: () => { try { player.destroy(); } catch { /* noop */ } } };
+        player.on("playbackPlaying", () => { clearLoadGuard(); setLoading(false); });
+        player.on("canPlay", () => { clearLoadGuard(); setLoading(false); video.playbackRate = rate; });
+        player.on("error", () => {
+          if (getSettings().player.autoFailover !== false) failoverToNext("This stream failed. Trying another source…");
+        });
+      }).catch(() => {
+        if (!cancelled) { video.preload = "auto"; video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
+      });
+    } else if (isHls) {
       import("hls.js").then(({ default: Hls }) => {
         if (cancelled || !Hls.isSupported()) {
           if (!cancelled) { video.preload = "auto"; video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
@@ -263,6 +298,8 @@ export function CustomPlayer({
           lowLatencyMode: false,
           startFragPrefetch: true,
           startLevel: -1,
+          maxFragLookUpTolerance: 0.2,
+          progressive: true,
           testBandwidth: true,
           capLevelToPlayerSize: true,
           backBufferLength: 30,
