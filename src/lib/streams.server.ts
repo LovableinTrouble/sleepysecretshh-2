@@ -177,10 +177,13 @@ function toQualities(results: { name: string; url: string; quality?: string; typ
     .filter((s) => s.url)
     .map((s, idx) => {
       const kind = String(s.type || "").toLowerCase();
+      const lower = s.url.toLowerCase();
       const format: StreamQuality["format"] =
-        kind === "hls" || s.url.toLowerCase().includes(".m3u8") || s.url.includes("/hls") ? "hls"
+        kind === "dash" || kind === "mpd" || lower.includes(".mpd") ? "dash"
+        : kind === "hls" || kind === "m3u8" || lower.includes(".m3u8") || s.url.includes("/hls") ? "hls"
         : kind === "mp4" ? "mp4"
-        : kind === "mkv" ? "mkv"
+        : kind === "mkv" || lower.includes(".mkv") ? "mkv"
+        : lower.includes(".mp4") || lower.includes("mp4-proxy") ? "mp4"
         : "unknown";
       const q = detectQuality(s.url, `${s.quality ?? ""} ${s.name}`);
       return {
