@@ -123,6 +123,43 @@ function proxyUrl(raw: string, referer?: string) {
   return `/api/public/iptv-proxy?${p.toString()}`;
 }
 
+// Some upstreams 403 direct browser requests (hotlink protection) which makes
+// playback hang forever on a dead manifest. Probe each candidate server-side:
+// playable as-is -> keep direct; playable with headers -> route via our proxy;
+// dead either way -> drop it so the player moves to the next provider.
+async function probeStream(rawUrl: string): Promise<string | null> {
+  const attempt = async (headers: Record<string, string>) => {
+    try {
+      const res = await fetch(rawUrl, {
+        headers: { ...headers, Range: "bytes=0-1" },
+        signal: AbortSignal.timeout(7000),
+        redirect: "follow",
+      });
+      // consume/cancel so the socket is released
+      try { await res.body?.cancel(); } catch { /* noop */ }
+      return res.ok || res.status === 206;
+    } catch { return false; }
+  };
+
+  if (await attempt({})) return rawUrl;
+  let origin = "";
+  try { origin = new URL(rawUrl).origin; } catch { /* noop */ }
+  if (await attempt({ "User-Agent": UA, Referer: origin ? `${origin}/` : "", Origin: origin })) {
+    return proxyUrl(rawUrl, origin ? `${origin}/` : undefined);
+  }
+  return null;
+}
+
+async function keepPlayable(items: StreamQuality[]): Promise<StreamQuality[]> {
+  const checked = await Promise.all(
+    items.slice(0, 6).map(async (q) => {
+      const url = await probeStream(q.url);
+      return url ? { ...q, url } : null;
+    }),
+  );
+  return checked.filter((q): q is StreamQuality => q !== null);
+}
+
 async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i: ResolveInput, fast = false): Promise<StreamQuality[]> {
   const path =
     i.type === "movie"
@@ -132,7 +169,7 @@ async function scrapeVidPhantom(providerId: ProviderId, providerName: string, i:
   const controller = new AbortController();
   // TV endpoints often stream slower; give the fast pass more headroom so shows aren't cut off mid-response.
   const isShow = i.type !== "movie";
-  const timer = setTimeout(() => controller.abort(), fast ? (isShow ? 4500 : 3000) : (isShow ? 9000 : 6000));
+  const timer = setTimeout(() => controller.abort(), fast ? (isShow ? 12000 : 9000) : (isShow ? 22000 : 18000));
   try {
     const res = await fetch(`https://vidphantom.com/api/hls/${path}`, {
       headers: { "User-Agent": UA, Accept: "text/event-stream" },
@@ -233,7 +270,7 @@ async function scrapeSleepySource(providerId: ProviderId, providerName: string, 
   try {
     const res = await fetch(`${SLEEPY_SOURCES}/${slug}?${params.toString()}`, {
       headers: { "User-Agent": UA, Accept: "application/json" },
-      signal: AbortSignal.timeout(fast ? (i.type === "movie" ? 6000 : 8000) : 14000),
+      signal: AbortSignal.timeout(fast ? (i.type === "movie" ? 12000 : 15000) : 25000),
     });
     if (!res.ok) return [];
     const json: any = await res.json();
@@ -241,8 +278,10 @@ async function scrapeSleepySource(providerId: ProviderId, providerName: string, 
     const items = collectSleepyItems(json);
     if (!items.length) return [];
     const parsed = uniqueByQuality(toQualities(items, providerId, providerName, true));
+    // Verify the manifests actually serve before we hand them to the player.
+    const playable = await keepPlayable(parsed);
     // Fast pass: return the single best stream so playback starts immediately.
-    return fast ? parsed.slice(0, 1) : parsed;
+    return fast ? playable.slice(0, 1) : playable;
   } catch { return []; }
 }
 
@@ -255,7 +294,7 @@ async function fetchWorkerSubs(i: ResolveInput): Promise<StreamSubtitle[]> {
   try {
     const res = await fetch(`${SLEEPY_SOURCES}/vidfast-subtitles?${params.toString()}`, {
       headers: { "User-Agent": UA, Accept: "application/json" },
-      signal: AbortSignal.timeout(7000),
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return [];
     const json: any = await res.json();
