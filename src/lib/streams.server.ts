@@ -4,7 +4,7 @@ export interface StreamQuality {
   url: string;
   label: string;
   quality: string;
-  format: "hls" | "mp4" | "mkv" | "unknown";
+  format: "hls" | "mp4" | "mkv" | "dash" | "unknown";
   headers?: Record<string, string>;
   size?: string;
   resolution?: number;
@@ -59,17 +59,26 @@ export function buildEmbedsOnly(input: ResolveInput): ResolveResult {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
 
-export type ProviderId = "febbox" | "nimbus" | "aurora" | "orion" | "vega" | "atlas" | "vaplayer";
+export type ProviderId = "febbox" | "nimbus" | "aurora" | "orion" | "vega" | "atlas" | "comet";
 export interface ProviderMeta { id: ProviderId; name: string; }
 export const PROVIDERS: ProviderMeta[] = [
   { id: "febbox", name: "Febbox" },
-  { id: "orion",  name: "Orion"  },
-  { id: "aurora", name: "Aurora" },
-  { id: "vega",   name: "Vega"   },
-  { id: "atlas",  name: "Atlas"  },
-  { id: "nimbus", name: "Nimbus" },
-  { id: "vaplayer", name: "Pulsar" },
+  { id: "aurora", name: "Aurora" },  // videasy (yoru)
+  { id: "orion",  name: "Orion"  },  // peachify
+  { id: "vega",   name: "Vega"   },  // moviebox
+  { id: "atlas",  name: "Atlas"  },  // vidrock
+  { id: "comet",  name: "Comet"  },  // vidfast
+  { id: "nimbus", name: "Nimbus" },  // vidphantom (last)
 ];
+
+const SLEEPY_SOURCES = "https://sleepy-sources.pxifusionxx.workers.dev";
+const SLEEPY_SLUGS: Partial<Record<ProviderId, string>> = {
+  aurora: "videasy",
+  orion: "peachify",
+  vega: "moviebox",
+  atlas: "vidrock",
+  comet: "vidfast",
+};
 
 const LANGUAGE_CODES: Record<string, string> = {
   english: "en", spanish: "es", french: "fr", german: "de", italian: "it", portuguese: "pt",
