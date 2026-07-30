@@ -165,7 +165,6 @@ export function CustomPlayer({
   const [scrubbing, setScrubbing] = useState(false);
 
   const hideTimer = useRef<number | null>(null);
-  const loadGuardRef = useRef<number | null>(null);
   const attemptedRef = useRef<Set<number>>(new Set());
   const seekAmountRef = useRef(0);
   const errorHitsRef = useRef(0);
@@ -219,7 +218,6 @@ export function CustomPlayer({
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !currentQuality) return;
-    if (loadGuardRef.current) window.clearTimeout(loadGuardRef.current);
     setLoading(true);
     setError(null);
     setBuffered(0);
@@ -236,19 +234,6 @@ export function CustomPlayer({
     const isHls = !isDash && (currentQuality.format === "hls" || lowerUrl.includes(".m3u8"));
 
     let cancelled = false;
-    const clearLoadGuard = () => {
-      if (loadGuardRef.current) window.clearTimeout(loadGuardRef.current);
-      loadGuardRef.current = null;
-    };
-    const armLoadGuard = (delay = 4200) => {
-      clearLoadGuard();
-      loadGuardRef.current = window.setTimeout(() => {
-        if (cancelled) return;
-        const hasData = video.readyState >= 2 || video.buffered.length > 0 || video.currentTime > 0.25;
-        if (!hasData) failoverToNext("This stream did not start. Trying another source…");
-      }, delay);
-    };
-    armLoadGuard();
 
     if (isDash) {
       import("dashjs").then((mod) => {
@@ -275,8 +260,8 @@ export function CustomPlayer({
         });
         player.initialize(video, url, autoplay, startAt > 0 ? startAt : 0);
         hlsRef.current = { destroy: () => { try { player.destroy(); } catch { /* noop */ } } };
-        player.on("playbackPlaying", () => { clearLoadGuard(); setLoading(false); });
-        player.on("canPlay", () => { clearLoadGuard(); setLoading(false); video.playbackRate = rate; });
+        player.on("playbackPlaying", () => { setLoading(false); });
+        player.on("canPlay", () => { setLoading(false); video.playbackRate = rate; });
         player.on("error", () => {
           if (getSettings().player.autoFailover !== false) failoverToNext("This stream failed. Trying another source…");
         });
@@ -296,6 +281,11 @@ export function CustomPlayer({
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
+          // We render subtitles ourselves via <track> elements fetched from our
+          // own subtitle APIs — letting hls.js also manage native text tracks
+          // for in-manifest subtitles causes duplicate cues and an "OFF" toggle
+          // that doesn't stick (hls.js keeps re-enabling its own track).
+          renderTextTracksNatively: false,
           startFragPrefetch: true,
           startLevel: -1,
           maxFragLookUpTolerance: 0.2,
@@ -341,9 +331,9 @@ export function CustomPlayer({
           if (startAt > 0) video.currentTime = startAt;
           if (autoplay) video.play().catch(() => {});
         });
-        hls.on(Hls.Events.FRAG_BUFFERED, () => { clearLoadGuard(); setLoading(false); });
+        hls.on(Hls.Events.FRAG_BUFFERED, () => { setLoading(false); });
         hls.on(Hls.Events.BUFFER_APPENDED, () => {
-          if (video.readyState >= 2 || video.buffered.length) { clearLoadGuard(); setLoading(false); }
+          if (video.readyState >= 2 || video.buffered.length) setLoading(false);
         });
         hls.on(Hls.Events.LEVEL_SWITCHED, (_e: any, d: any) => setHlsLevel(d.level));
         hls.on(Hls.Events.ERROR, (_e: any, data: any) => {
@@ -370,7 +360,7 @@ export function CustomPlayer({
       if (startAt > 0) video.currentTime = startAt;
       if (autoplay) video.play().catch(() => {});
     }
-    return () => { cancelled = true; clearLoadGuard(); hlsRef.current?.destroy(); hlsRef.current = null; };
+    return () => { cancelled = true; hlsRef.current?.destroy(); hlsRef.current = null; };
   }, [currentIdx, currentQuality?.url, currentQuality?.format, autoplay, startAt, failoverToNext]);
 
   useEffect(() => { if (hlsRef.current) hlsRef.current.currentLevel = hlsLevel; }, [hlsLevel]);
@@ -388,12 +378,8 @@ export function CustomPlayer({
     };
     const onDur = () => setDuration(v.duration);
     const onWaiting = () => setLoading(true);
-    const clearLoadGuard = () => {
-      if (loadGuardRef.current) window.clearTimeout(loadGuardRef.current);
-      loadGuardRef.current = null;
-    };
-    const onCanPlay = () => { clearLoadGuard(); setLoading(false); };
-    const onLoaded = () => { if (v.readyState >= 2 || v.buffered.length) { clearLoadGuard(); setLoading(false); } };
+    const onCanPlay = () => setLoading(false);
+    const onLoaded = () => { if (v.readyState >= 2 || v.buffered.length) setLoading(false); };
     const onEnded = () => {
       onProgress?.(v.duration, v.duration, true);
       if (autoNext && hasNext && onNextEpisode) {
@@ -461,28 +447,40 @@ export function CustomPlayer({
   }, []);
 
   // Subtitle track management — match by label so we don't pick up an HLS-in-
-  // manifest subtitle track that shifts indices.
+  // manifest subtitle track that shifts indices. Re-applied whenever the
+  // browser adds/removes text tracks (not just on subIdx change), so a track
+  // that HLS or the browser adds after mount can't linger on "showing".
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    const tracks = v.textTracks;
-    for (let i = 0; i < tracks.length; i++) tracks[i].mode = "hidden";
-    if (subIdx < 0) return;
-    const wanted = source.subtitles[subIdx];
-    if (!wanted) return;
-    // Try label match first, then language, then positional fallback.
-    let match = -1;
-    for (let i = 0; i < tracks.length; i++) {
-      if (tracks[i].label === wanted.label) { match = i; break; }
-    }
-    if (match < 0) {
+    const applySelection = () => {
+      const tracks = v.textTracks;
+      for (let i = 0; i < tracks.length; i++) tracks[i].mode = "hidden";
+      if (subIdx < 0) return;
+      const wanted = source.subtitles[subIdx];
+      if (!wanted) return;
+      // Try label match first, then language, then positional fallback.
+      let match = -1;
       for (let i = 0; i < tracks.length; i++) {
-        if (tracks[i].language === wanted.language) { match = i; break; }
+        if (tracks[i].label === wanted.label) { match = i; break; }
       }
-    }
-    if (match < 0 && subIdx < tracks.length) match = subIdx;
-    if (match >= 0) tracks[match].mode = "showing";
-  }, [subIdx, loading, source.subtitles]);
+      if (match < 0) {
+        for (let i = 0; i < tracks.length; i++) {
+          if (tracks[i].language === wanted.language) { match = i; break; }
+        }
+      }
+      if (match < 0 && subIdx < tracks.length) match = subIdx;
+      if (match >= 0) tracks[match].mode = "showing";
+    };
+    applySelection();
+    const tracks = v.textTracks;
+    tracks.addEventListener("addtrack", applySelection);
+    tracks.addEventListener("removetrack", applySelection);
+    return () => {
+      tracks.removeEventListener("addtrack", applySelection);
+      tracks.removeEventListener("removetrack", applySelection);
+    };
+  }, [subIdx, source.subtitles]);
 
   // Keyboard
   useEffect(() => {
@@ -575,7 +573,6 @@ export function CustomPlayer({
     v.volume = pct; setVolume(pct); setMuted(pct === 0);
   };
 
-  const subPosBottom = subStyle.position === "bottom" ? "8%" : subStyle.position === "middle" ? "45%" : "82%";
   const objectFit = aspect === "cover" ? "cover" : aspect === "stretch" ? "fill" : "contain";
 
   const progressPct = duration ? (time / duration) * 100 : 0;
@@ -617,34 +614,15 @@ export function CustomPlayer({
         ))}
       </video>
 
-      {/* Subtitle overlay */}
-      <div
-        className="pointer-events-none absolute inset-x-0 z-10 flex justify-center transition-all"
-        style={{ bottom: subPosBottom }}
-      >
-        <style>{`
-          video::cue {
-            font-size: ${subStyle.fontSize}px;
-            color: ${subStyle.color};
-            background-color: ${subStyle.bg > 0 ? `rgba(0,0,0,${subStyle.bg / 100})` : "transparent"};
-            text-shadow: ${subStyle.edge === "shadow" ? "0 2px 4px rgba(0,0,0,0.8)" : subStyle.edge === "outline" ? "-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000" : "none"};
-          }
-          .sub-text {
-            font-size: ${subStyle.fontSize}px;
-            color: ${subStyle.color};
-            background: ${subStyle.bg > 0 ? `rgba(0,0,0,${subStyle.bg / 100})` : "transparent"};
-            padding: 2px 8px;
-            border-radius: 4px;
-            text-shadow: ${subStyle.edge === "shadow" ? "0 2px 4px rgba(0,0,0,0.8)" : subStyle.edge === "outline" ? "-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000" : "none"};
-            line-height: 1.4;
-            text-align: center;
-            max-width: 80%;
-          }
-        `}</style>
-        {subIdx >= 0 && (
-          <div className="sub-text" dangerouslySetInnerHTML={{ __html: "" }} id="sub-container" />
-        )}
-      </div>
+      {/* Subtitle cue styling — applied to the browser's native <track> cues. */}
+      <style>{`
+        video::cue {
+          font-size: ${subStyle.fontSize}px;
+          color: ${subStyle.color};
+          background-color: ${subStyle.bg > 0 ? `rgba(0,0,0,${subStyle.bg / 100})` : "transparent"};
+          text-shadow: ${subStyle.edge === "shadow" ? "0 2px 4px rgba(0,0,0,0.8)" : subStyle.edge === "outline" ? "-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000" : "none"};
+        }
+      `}</style>
 
       {/* Loading spinner */}
       {loading && !error && (

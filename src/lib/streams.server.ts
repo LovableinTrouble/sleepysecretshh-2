@@ -150,9 +150,9 @@ async function probeStream(rawUrl: string): Promise<string | null> {
   return null;
 }
 
-async function keepPlayable(items: StreamQuality[]): Promise<StreamQuality[]> {
+async function keepPlayable(items: StreamQuality[], limit = 6): Promise<StreamQuality[]> {
   const checked = await Promise.all(
-    items.slice(0, 6).map(async (q) => {
+    items.slice(0, limit).map(async (q) => {
       const url = await probeStream(q.url);
       return url ? { ...q, url } : null;
     }),
@@ -279,8 +279,9 @@ async function scrapeSleepySource(providerId: ProviderId, providerName: string, 
     if (!items.length) return [];
     const parsed = uniqueByQuality(toQualities(items, providerId, providerName, true));
     // Verify the manifests actually serve before we hand them to the player.
-    const playable = await keepPlayable(parsed);
-    // Fast pass: return the single best stream so playback starts immediately.
+    // Fast pass: only probe the top couple of candidates so the first
+    // working stream comes back as quickly as possible.
+    const playable = await keepPlayable(parsed, fast ? 2 : 6);
     return fast ? playable.slice(0, 1) : playable;
   } catch { return []; }
 }
