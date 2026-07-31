@@ -365,7 +365,7 @@ export function CustomPlayer({
               failoverToNext();
             } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
             else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-            else failoverToNext("Playback error. No more streams are available.");
+            else failoverToNext();
           }
         });
       }).catch(() => {
