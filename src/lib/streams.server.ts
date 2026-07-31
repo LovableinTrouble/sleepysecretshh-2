@@ -63,9 +63,9 @@ export type ProviderId = "febbox" | "nimbus" | "orion" | "vega" | "atlas";
 export interface ProviderMeta { id: ProviderId; name: string; }
 export const PROVIDERS: ProviderMeta[] = [
   { id: "febbox", name: "Febbox" },
-  { id: "orion",  name: "Orion"  },  // peachify
-  { id: "vega",   name: "Vega"   },  // moviebox
-  { id: "atlas",  name: "Atlas"  },  // vidrock
+  { id: "orion", name: "Orion" },
+  { id: "vega", name: "Vega" },
+  { id: "atlas", name: "Atlas" },
   { id: "nimbus", name: "Nimbus" },  // vidphantom (last)
 ];
 
