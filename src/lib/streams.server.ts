@@ -141,12 +141,16 @@ async function probeStream(rawUrl: string): Promise<string | null> {
     } catch { return false; }
   };
 
-  if (await attempt({})) return rawUrl;
   let origin = "";
   try { origin = new URL(rawUrl).origin; } catch { /* noop */ }
-  if (await attempt({ "User-Agent": UA, Referer: origin ? `${origin}/` : "", Origin: origin })) {
-    return proxyUrl(rawUrl, origin ? `${origin}/` : undefined);
-  }
+  // Race both forms instead of waiting up to seven seconds twice. Prefer the
+  // direct URL when it works; otherwise retain the header-capable proxy path.
+  const [direct, withHeaders] = await Promise.all([
+    attempt({}),
+    attempt({ "User-Agent": UA, Referer: origin ? `${origin}/` : "", Origin: origin }),
+  ]);
+  if (direct) return rawUrl;
+  if (withHeaders) return proxyUrl(rawUrl, origin ? `${origin}/` : undefined);
   return null;
 }
 

@@ -493,12 +493,10 @@ export function CustomPlayer({
     const trackElements = Array.from(v.querySelectorAll("track"));
     for (const track of trackElements) track.addEventListener("load", applySelection);
     const tracks = v.textTracks;
-    tracks.addEventListener("change", applySelection);
     tracks.addEventListener("addtrack", applySelection);
     tracks.addEventListener("removetrack", applySelection);
     return () => {
       for (const track of trackElements) track.removeEventListener("load", applySelection);
-      tracks.removeEventListener("change", applySelection);
       tracks.removeEventListener("addtrack", applySelection);
       tracks.removeEventListener("removetrack", applySelection);
     };
