@@ -54,7 +54,17 @@ function fmt(t: number): string {
 
 function pickStartupQualityIndex(qualities: StreamQuality[]): number {
   if (!qualities.length) return 0;
-  return 0;
+  const preferred = getSettings().player.quality;
+  if (preferred === "auto") {
+    const auto = qualities.findIndex((quality) => qualityKey(quality) === "auto");
+    if (auto >= 0) return auto;
+  }
+  const target = preferred === "4k" ? 2160 : preferred === "1080p" ? 1080 : preferred === "720p" ? 720 : 1080;
+  const ranked = qualities
+    .map((quality, index) => ({ index, resolution: quality.resolution ?? Number(quality.quality.match(/(\d{3,4})/)?.[1] ?? 0) }))
+    .filter((item) => item.resolution > 0)
+    .sort((a, b) => Math.abs(a.resolution - target) - Math.abs(b.resolution - target));
+  return ranked[0]?.index ?? 0;
 }
 
 function qualityKey(quality: StreamQuality): string {
@@ -157,6 +167,7 @@ export function CustomPlayer({
   const [openPanel, setOpenPanel] = useState<null | "settings">(null);
   const [settingsTab, setSettingsTab] = useState<"quality" | "subs" | "servers" | "speed">("quality");
   const [subIdx, setSubIdx] = useState<number>(-1);
+  const autoSubtitleSelectedRef = useRef(false);
   const [subStyle, setSubStyle] = useState<SubStyle>(DEFAULT_SUB);
   const [hlsLevels, setHlsLevels] = useState<{ height: number; index: number }[]>([]);
   const [hlsLevel, setHlsLevel] = useState<number>(-1);
@@ -277,7 +288,7 @@ export function CustomPlayer({
         const prefs = getSettings().player;
         const userBuf = Math.max(0, prefs.bufferTarget ?? 0);
         // Bigger default forward buffer -> less rebuffering on average connections.
-        const targetBuffer = userBuf > 0 ? Math.max(12, userBuf) : 30;
+        const targetBuffer = userBuf > 0 ? Math.max(12, userBuf) : 24;
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
@@ -287,29 +298,35 @@ export function CustomPlayer({
           // that doesn't stick (hls.js keeps re-enabling its own track).
           renderTextTracksNatively: false,
           startFragPrefetch: true,
-          startLevel: -1,
-          maxFragLookUpTolerance: 0.2,
+          // Start at a dependable rendition, then let ABR ramp up. Starting at
+          // the highest rendition is the main cause of long first buffers.
+          startLevel: 0,
+          maxFragLookUpTolerance: 0.15,
           progressive: true,
           testBandwidth: true,
           capLevelToPlayerSize: true,
-          backBufferLength: 30,
+          backBufferLength: 20,
           maxBufferLength: targetBuffer,
           maxMaxBufferLength: Math.max(60, targetBuffer * 3),
           maxBufferSize: 90 * 1000 * 1000,
-          maxBufferHole: 0.5,
+          maxBufferHole: 0.8,
           highBufferWatchdogPeriod: 1,
           nudgeOffset: 0.1,
           nudgeMaxRetry: 6,
           manifestLoadingTimeOut: 8000,
           levelLoadingTimeOut: 8000,
-          fragLoadingTimeOut: 15000,
+          fragLoadingTimeOut: 12000,
           manifestLoadingMaxRetry: 3,
           levelLoadingMaxRetry: 3,
           fragLoadingMaxRetry: 6,
-          fragLoadingRetryDelay: 300,
-          abrEwmaDefaultEstimate: 2_500_000,
-          abrBandWidthFactor: 0.9,
-          abrBandWidthUpFactor: 0.75,
+          fragLoadingRetryDelay: 200,
+          abrEwmaFastLive: 2,
+          abrEwmaSlowLive: 5,
+          abrEwmaFastVoD: 2,
+          abrEwmaSlowVoD: 6,
+          abrEwmaDefaultEstimate: 1_800_000,
+          abrBandWidthFactor: 0.82,
+          abrBandWidthUpFactor: 0.68,
         });
         hlsRef.current = hls;
         hls.loadSource(url);
@@ -326,6 +343,7 @@ export function CustomPlayer({
             .sort((a: { height: number }, b: { height: number }) => b.height - a.height);
           setHlsLevels(levels);
           hls.currentLevel = getSettings().player.autoQuality === false ? hlsLevel : -1;
+          hls.nextLoadLevel = -1;
           setHlsLevel(-1);
           video.playbackRate = rate;
           if (startAt > 0) video.currentTime = startAt;
@@ -414,7 +432,8 @@ export function CustomPlayer({
   }, [rate]);
 
   useEffect(() => {
-    if (subIdx !== -1 || !playerPrefs.preferEnglishSubs) return;
+    if (autoSubtitleSelectedRef.current || subIdx !== -1 || !playerPrefs.preferEnglishSubs || !source.subtitles.length) return;
+    autoSubtitleSelectedRef.current = true;
     const idx = source.subtitles.findIndex((s) => /english|\ben\b/i.test(`${s.label} ${s.language}`));
     if (idx >= 0) setSubIdx(idx);
   }, [source.subtitles, subIdx, playerPrefs.preferEnglishSubs]);
@@ -455,7 +474,7 @@ export function CustomPlayer({
     if (!v) return;
     const applySelection = () => {
       const tracks = v.textTracks;
-      for (let i = 0; i < tracks.length; i++) tracks[i].mode = "hidden";
+      for (let i = 0; i < tracks.length; i++) tracks[i].mode = "disabled";
       if (subIdx < 0) return;
       const wanted = source.subtitles[subIdx];
       if (!wanted) return;
@@ -473,10 +492,13 @@ export function CustomPlayer({
       if (match >= 0) tracks[match].mode = "showing";
     };
     applySelection();
+    const trackElements = Array.from(v.querySelectorAll("track"));
+    for (const track of trackElements) track.addEventListener("load", applySelection);
     const tracks = v.textTracks;
     tracks.addEventListener("addtrack", applySelection);
     tracks.addEventListener("removetrack", applySelection);
     return () => {
+      for (const track of trackElements) track.removeEventListener("load", applySelection);
       tracks.removeEventListener("addtrack", applySelection);
       tracks.removeEventListener("removetrack", applySelection);
     };
@@ -554,7 +576,9 @@ export function CustomPlayer({
     const v = videoRef.current; if (!v || !duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = (e.clientX - rect.left) / rect.width;
-    v.currentTime = pct * duration;
+    const target = pct * duration;
+    v.currentTime = target;
+    hlsRef.current?.startLoad?.(target);
   };
 
   const onSeekMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -562,7 +586,11 @@ export function CustomPlayer({
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setSeekPreview({ x: e.clientX - rect.left, t: pct * duration });
-    if (scrubbing) v.currentTime = pct * duration;
+    if (scrubbing) {
+      const target = pct * duration;
+      v.currentTime = target;
+      hlsRef.current?.startLoad?.(target);
+    }
   };
 
   // Volume
@@ -609,8 +637,8 @@ export function CustomPlayer({
         preload="auto"
         crossOrigin="anonymous"
       >
-        {source.subtitles.map((sub, i) => (
-          <track key={i} kind="subtitles" src={sub.url} srcLang={sub.language} label={sub.label} />
+        {source.subtitles.map((sub) => (
+          <track key={`${sub.language}:${sub.label}:${sub.url}`} kind="subtitles" src={sub.url} srcLang={sub.language} label={sub.label} />
         ))}
       </video>
 

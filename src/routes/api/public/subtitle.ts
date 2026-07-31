@@ -37,7 +37,9 @@ export const Route = createFileRoute("/api/public/subtitle")({
               "user-agent":
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Safari/537.36",
               accept: "*/*",
+              referer: `${parsed.origin}/`,
             },
+            signal: AbortSignal.timeout(10000),
           });
           if (!upstream.ok) {
             return new Response(`upstream ${upstream.status}`, { status: 502 });
