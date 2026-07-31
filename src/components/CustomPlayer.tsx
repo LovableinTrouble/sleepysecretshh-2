@@ -167,6 +167,7 @@ export function CustomPlayer({
   const [openPanel, setOpenPanel] = useState<null | "settings">(null);
   const [settingsTab, setSettingsTab] = useState<"quality" | "subs" | "servers" | "speed">("quality");
   const [subIdx, setSubIdx] = useState<number>(-1);
+  const autoSubtitleSelectedRef = useRef(false);
   const [subStyle, setSubStyle] = useState<SubStyle>(DEFAULT_SUB);
   const [hlsLevels, setHlsLevels] = useState<{ height: number; index: number }[]>([]);
   const [hlsLevel, setHlsLevel] = useState<number>(-1);
@@ -431,7 +432,8 @@ export function CustomPlayer({
   }, [rate]);
 
   useEffect(() => {
-    if (subIdx !== -1 || !playerPrefs.preferEnglishSubs) return;
+    if (autoSubtitleSelectedRef.current || subIdx !== -1 || !playerPrefs.preferEnglishSubs || !source.subtitles.length) return;
+    autoSubtitleSelectedRef.current = true;
     const idx = source.subtitles.findIndex((s) => /english|\ben\b/i.test(`${s.label} ${s.language}`));
     if (idx >= 0) setSubIdx(idx);
   }, [source.subtitles, subIdx, playerPrefs.preferEnglishSubs]);
