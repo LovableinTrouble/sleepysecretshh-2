@@ -196,7 +196,7 @@ export function CustomPlayer({
     setSettings({ player: { ...getSettings().player, ...patch } });
   }, [setSettings]);
 
-  const failoverToNext = useCallback((message = "Source stalled. Trying the next source…") => {
+  const failoverToNext = useCallback((message = "No playable stream found.") => {
     setCurrentIdx((idx) => {
       attemptedRef.current.add(idx);
       const groups = sourceGroupsRef.current;
@@ -274,7 +274,7 @@ export function CustomPlayer({
         player.on("playbackPlaying", () => { setLoading(false); });
         player.on("canPlay", () => { setLoading(false); video.playbackRate = rate; });
         player.on("error", () => {
-          if (getSettings().player.autoFailover !== false) failoverToNext("This stream failed. Trying another source…");
+          if (getSettings().player.autoFailover !== false) failoverToNext();
         });
       }).catch(() => {
         if (!cancelled) { video.preload = "auto"; video.src = url; if (startAt > 0) video.currentTime = startAt; if (autoplay) video.play().catch(() => {}); }
