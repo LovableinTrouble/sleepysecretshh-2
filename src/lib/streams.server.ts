@@ -318,22 +318,32 @@ async function fetchWorkerSubs(i: ResolveInput): Promise<StreamSubtitle[]> {
 
 async function resolveSubtitles(i: ResolveInput): Promise<StreamSubtitle[]> {
   const [worker, legacy] = await Promise.all([fetchWorkerSubs(i), fetchSubs(i)]);
-  const seen = new Set<string>();
-  return [...worker, ...legacy].filter((s) => (seen.has(s.url) ? false : (seen.add(s.url), true)));
+  const seenUrls = new Set<string>();
+  const seenTracks = new Set<string>();
+  return [...worker, ...legacy].filter((s) => {
+    const normalizedLabel = s.label.toLowerCase().replace(/\b(cc|sdh|forced|subtitle|subtitles)\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+    const trackKey = `${s.language.toLowerCase()}|${normalizedLabel || s.language.toLowerCase()}`;
+    if (seenUrls.has(s.url) || seenTracks.has(trackKey)) return false;
+    seenUrls.add(s.url);
+    seenTracks.add(trackKey);
+    return true;
+  });
 }
 
 export async function resolveProviderById(id: ProviderId, input: ResolveInput, options: { fast?: boolean; febboxCookie?: string } = {}): Promise<{ qualities: StreamQuality[]; subtitles: StreamSubtitle[] }> {
   const meta = PROVIDERS.find((p) => p.id === id);
   if (!meta) return { qualities: [], subtitles: [] };
-  const [qualities, subs] = await Promise.all([
-    id === "nimbus"
-      ? scrapeVidPhantom(id, meta.name, input, options.fast)
-      : id === "febbox"
-        ? scrapeFebbox(id, meta.name, input, options.febboxCookie)
-        : scrapeSleepySource(id, meta.name, input, options.fast),
-    resolveSubtitles(input),
-  ]);
-  return { qualities, subtitles: subs };
+  const qualitiesPromise = id === "nimbus"
+    ? scrapeVidPhantom(id, meta.name, input, options.fast)
+    : id === "febbox"
+      ? scrapeFebbox(id, meta.name, input, options.febboxCookie)
+      : scrapeSleepySource(id, meta.name, input, options.fast);
+  // The first-pass resolver must not wait up to ten seconds for captions before
+  // handing a playable manifest to the browser. The background full pass adds
+  // captions immediately afterward.
+  if (options.fast) return { qualities: await qualitiesPromise, subtitles: [] };
+  const [qualities, subtitles] = await Promise.all([qualitiesPromise, resolveSubtitles(input)]);
+  return { qualities, subtitles };
 }
 
 async function scrapeFebbox(providerId: ProviderId, providerName: string, i: ResolveInput, cookie?: string): Promise<StreamQuality[]> {
@@ -357,7 +367,9 @@ async function scrapeFebbox(providerId: ProviderId, providerName: string, i: Res
       quality: q.quality,
       type: q.url.toLowerCase().includes(".m3u8") ? "hls" : q.url.toLowerCase().includes(".mkv") ? "mkv" : q.url.toLowerCase().includes(".mp4") ? "mp4" : "",
     }));
-    return uniqueByQuality(toQualities(items, providerId, providerName));
+    // FebBox links are already signed CDN URLs. Proxying every segment through
+    // our server adds a full extra round trip and makes seeking especially slow.
+    return uniqueByQuality(toQualities(items, providerId, providerName, true));
   } catch {
     return [];
   }
