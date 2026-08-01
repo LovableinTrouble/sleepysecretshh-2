@@ -505,7 +505,7 @@ export function CustomPlayer({
     const applySelection = () => {
       const tracks = v.textTracks;
       for (let i = 0; i < tracks.length; i++) tracks[i].mode = "disabled";
-      if (subIdx < 0) return;
+      if (subIdx < 0) { setCueLines([]); return; }
       const wanted = source.subtitles[subIdx];
       if (!wanted) return;
       // Try label match first, then language, then positional fallback.
@@ -519,18 +519,44 @@ export function CustomPlayer({
         }
       }
       if (match < 0 && subIdx < tracks.length) match = subIdx;
-      if (match >= 0) tracks[match].mode = "showing";
+      // "hidden" keeps cues parsed but stops the browser from painting them —
+      // we render them ourselves so every style option actually applies.
+      if (match >= 0) tracks[match].mode = "hidden";
     };
     applySelection();
+    const readCues = () => {
+      const tracks = v.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        const track = tracks[i];
+        if (track.mode !== "hidden") continue;
+        const active = track.activeCues;
+        if (!active || !active.length) continue;
+        const lines: string[] = [];
+        for (let c = 0; c < active.length; c++) {
+          const text = String((active[c] as any).text ?? "")
+            .replace(/<[^>]+>/g, "")
+            .trim();
+          if (text) lines.push(...text.split("\n"));
+        }
+        setCueLines(lines);
+        return;
+      }
+      setCueLines([]);
+    };
     const trackElements = Array.from(v.querySelectorAll("track"));
     for (const track of trackElements) track.addEventListener("load", applySelection);
     const tracks = v.textTracks;
     tracks.addEventListener("addtrack", applySelection);
     tracks.addEventListener("removetrack", applySelection);
+    const cueTargets: TextTrack[] = [];
+    for (let i = 0; i < tracks.length; i++) { tracks[i].addEventListener("cuechange", readCues); cueTargets.push(tracks[i]); }
+    v.addEventListener("timeupdate", readCues);
     return () => {
       for (const track of trackElements) track.removeEventListener("load", applySelection);
       tracks.removeEventListener("addtrack", applySelection);
       tracks.removeEventListener("removetrack", applySelection);
+      for (const track of cueTargets) track.removeEventListener("cuechange", readCues);
+      v.removeEventListener("timeupdate", readCues);
     };
   }, [subIdx, source.subtitles]);
 
