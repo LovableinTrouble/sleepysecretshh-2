@@ -698,15 +698,48 @@ export function CustomPlayer({
         ))}
       </video>
 
-      {/* Subtitle cue styling — applied to the browser's native <track> cues. */}
-      <style>{`
-        video::cue {
-          font-size: ${subStyle.fontSize}px;
-          color: ${subStyle.color};
-          background-color: ${subStyle.bg > 0 ? `rgba(0,0,0,${subStyle.bg / 100})` : "transparent"};
-          text-shadow: ${subStyle.edge === "shadow" ? "0 2px 4px rgba(0,0,0,0.8)" : subStyle.edge === "outline" ? "-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000" : "none"};
-        }
-      `}</style>
+      {/* Subtitles — rendered by us so every style option applies live. */}
+      <style>{`video::cue { opacity: 0; }`}</style>
+      {subIdx >= 0 && cueLines.length > 0 && (
+        <div
+          className="pointer-events-none absolute inset-x-0 z-[16] flex flex-col items-center px-6 text-center"
+          style={{
+            ...(subStyle.position === "top"
+              ? { top: `${subStyle.offset + 6}%`, bottom: "auto" }
+              : subStyle.position === "middle"
+                ? { top: "45%", bottom: "auto" }
+                : { bottom: `${subStyle.offset + (showControls ? 10 : 4)}%`, top: "auto" }),
+            transition: "bottom 0.25s ease",
+          }}
+        >
+          {cueLines.map((line, i) => (
+            <span
+              key={`${i}-${line}`}
+              style={{
+                fontFamily: subStyle.font,
+                fontSize: `${subStyle.fontSize}px`,
+                fontWeight: subStyle.weight,
+                color: subStyle.color,
+                opacity: subStyle.opacity / 100,
+                lineHeight: subStyle.lineHeight,
+                letterSpacing: `${subStyle.letterSpacing}px`,
+                textTransform: subStyle.uppercase ? "uppercase" : "none",
+                backgroundColor: subStyle.bg > 0 ? `rgba(0,0,0,${subStyle.bg / 100})` : "transparent",
+                padding: subStyle.bg > 0 ? "0.1em 0.4em" : 0,
+                borderRadius: 6,
+                textShadow:
+                  subStyle.edge === "shadow"
+                    ? "0 2px 6px rgba(0,0,0,0.9)"
+                    : subStyle.edge === "outline"
+                      ? "-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000"
+                      : "none",
+              }}
+            >
+              {line}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Loading spinner */}
       {loading && !error && (
