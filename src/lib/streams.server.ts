@@ -59,14 +59,15 @@ export function buildEmbedsOnly(input: ResolveInput): ResolveResult {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
 
-export type ProviderId = "febbox" | "nimbus" | "orion" | "vega" | "atlas";
+export type ProviderId = "febbox" | "nimbus" | "orion" | "vega" | "atlas" | "vault";
 export interface ProviderMeta { id: ProviderId; name: string; }
 export const PROVIDERS: ProviderMeta[] = [
   { id: "febbox", name: "Febbox" },
-  { id: "orion", name: "Orion" },
   { id: "vega", name: "Vega" },
   { id: "atlas", name: "Atlas" },
-  { id: "nimbus", name: "Nimbus" },  // vidphantom (last)
+  { id: "nimbus", name: "Nimbus" },
+  { id: "vault", name: "Vault" },   // direct mp4/mkv from the downloads endpoint
+  { id: "orion", name: "Orion" },   // peachify (last)
 ];
 
 const SLEEPY_SOURCES = "https://sleepy-sources.pxifusionxx.workers.dev";
