@@ -186,7 +186,19 @@ export function CustomPlayer({
   const [settingsTab, setSettingsTab] = useState<"quality" | "subs" | "servers" | "speed">("quality");
   const [subIdx, setSubIdx] = useState<number>(-1);
   const autoSubtitleSelectedRef = useRef(false);
-  const [subStyle, setSubStyle] = useState<SubStyle>(DEFAULT_SUB);
+  const [subStyle, setSubStyleState] = useState<SubStyle>(() => {
+    if (typeof window === "undefined") return DEFAULT_SUB;
+    try {
+      const raw = localStorage.getItem(SUB_STYLE_KEY);
+      return raw ? { ...DEFAULT_SUB, ...JSON.parse(raw) } : DEFAULT_SUB;
+    } catch { return DEFAULT_SUB; }
+  });
+  const [subCustomOpen, setSubCustomOpen] = useState(false);
+  const [cueLines, setCueLines] = useState<string[]>([]);
+  const setSubStyle = useCallback((next: SubStyle) => {
+    setSubStyleState(next);
+    try { localStorage.setItem(SUB_STYLE_KEY, JSON.stringify(next)); } catch { /* noop */ }
+  }, []);
   const [hlsLevels, setHlsLevels] = useState<{ height: number; index: number }[]>([]);
   const [hlsLevel, setHlsLevel] = useState<number>(-1);
   const [seekPreview, setSeekPreview] = useState<{ x: number; t: number } | null>(null);
