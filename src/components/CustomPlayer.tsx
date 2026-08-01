@@ -7,6 +7,7 @@ import {
   Settings as SettingsIcon, Subtitles, ChevronLeft,
   SkipForward, Cast, RotateCcw, Monitor, Palette, Cloud,
   SlidersHorizontal, Server as ServerIcon, Gauge, Check as CheckIcon, X as XIcon,
+  CloudOff, ChevronRight, Loader2 as Loader2Icon,
 } from "lucide-react";
 import type { DirectSource, StreamQuality, StreamSubtitle, ProviderId } from "@/lib/streams";
 import { getSettings, useSettings, type Settings } from "@/lib/store";
@@ -36,13 +37,31 @@ type SubStyle = {
   bg: number;
   position: "bottom" | "middle" | "top";
   edge: "none" | "shadow" | "outline";
+  font: string;
+  weight: number;
+  offset: number;
+  letterSpacing: number;
+  lineHeight: number;
+  opacity: number;
+  uppercase: boolean;
 };
 
 type AspectMode = "contain" | "cover" | "stretch";
 
 const DEFAULT_SUB: SubStyle = {
   fontSize: 22, color: "#ffffff", bg: 40, position: "bottom", edge: "shadow",
+  font: "system-ui, sans-serif", weight: 700, offset: 8, letterSpacing: 0,
+  lineHeight: 1.35, opacity: 100, uppercase: false,
 };
+
+const SUB_FONTS: Array<[string, string]> = [
+  ["Sans", "system-ui, sans-serif"],
+  ["Serif", "Georgia, serif"],
+  ["Mono", "ui-monospace, monospace"],
+  ["Rounded", "'Trebuchet MS', system-ui, sans-serif"],
+];
+
+const SUB_STYLE_KEY = "sleepy.substyle.v1";
 
 function fmt(t: number): string {
   if (!Number.isFinite(t) || t < 0) return "0:00";
@@ -168,7 +187,19 @@ export function CustomPlayer({
   const [settingsTab, setSettingsTab] = useState<"quality" | "subs" | "servers" | "speed">("quality");
   const [subIdx, setSubIdx] = useState<number>(-1);
   const autoSubtitleSelectedRef = useRef(false);
-  const [subStyle, setSubStyle] = useState<SubStyle>(DEFAULT_SUB);
+  const [subStyle, setSubStyleState] = useState<SubStyle>(() => {
+    if (typeof window === "undefined") return DEFAULT_SUB;
+    try {
+      const raw = localStorage.getItem(SUB_STYLE_KEY);
+      return raw ? { ...DEFAULT_SUB, ...JSON.parse(raw) } : DEFAULT_SUB;
+    } catch { return DEFAULT_SUB; }
+  });
+  const [subCustomOpen, setSubCustomOpen] = useState(false);
+  const [cueLines, setCueLines] = useState<string[]>([]);
+  const setSubStyle = useCallback((next: SubStyle) => {
+    setSubStyleState(next);
+    try { localStorage.setItem(SUB_STYLE_KEY, JSON.stringify(next)); } catch { /* noop */ }
+  }, []);
   const [hlsLevels, setHlsLevels] = useState<{ height: number; index: number }[]>([]);
   const [hlsLevel, setHlsLevel] = useState<number>(-1);
   const [seekPreview, setSeekPreview] = useState<{ x: number; t: number } | null>(null);
@@ -301,32 +332,32 @@ export function CustomPlayer({
           // Start at a dependable rendition, then let ABR ramp up. Starting at
           // the highest rendition is the main cause of long first buffers.
           startLevel: 0,
-          maxFragLookUpTolerance: 0.15,
+          maxFragLookUpTolerance: 0.1,
           progressive: true,
           testBandwidth: true,
           capLevelToPlayerSize: true,
-          backBufferLength: 20,
-          maxBufferLength: targetBuffer,
-          maxMaxBufferLength: Math.max(60, targetBuffer * 3),
-          maxBufferSize: 90 * 1000 * 1000,
-          maxBufferHole: 0.8,
-          highBufferWatchdogPeriod: 1,
-          nudgeOffset: 0.1,
-          nudgeMaxRetry: 6,
-          manifestLoadingTimeOut: 8000,
-          levelLoadingTimeOut: 8000,
-          fragLoadingTimeOut: 12000,
-          manifestLoadingMaxRetry: 3,
-          levelLoadingMaxRetry: 3,
-          fragLoadingMaxRetry: 6,
-          fragLoadingRetryDelay: 200,
+          backBufferLength: 15,
+          maxBufferLength: Math.max(30, targetBuffer),
+          maxMaxBufferLength: Math.max(120, targetBuffer * 4),
+          maxBufferSize: 120 * 1000 * 1000,
+          maxBufferHole: 1,
+          highBufferWatchdogPeriod: 0.6,
+          nudgeOffset: 0.15,
+          nudgeMaxRetry: 10,
+          manifestLoadingTimeOut: 6000,
+          levelLoadingTimeOut: 6000,
+          fragLoadingTimeOut: 10000,
+          manifestLoadingMaxRetry: 4,
+          levelLoadingMaxRetry: 4,
+          fragLoadingMaxRetry: 8,
+          fragLoadingRetryDelay: 150,
           abrEwmaFastLive: 2,
           abrEwmaSlowLive: 5,
-          abrEwmaFastVoD: 2,
-          abrEwmaSlowVoD: 6,
-          abrEwmaDefaultEstimate: 1_800_000,
-          abrBandWidthFactor: 0.82,
-          abrBandWidthUpFactor: 0.68,
+          abrEwmaFastVoD: 1.5,
+          abrEwmaSlowVoD: 5,
+          abrEwmaDefaultEstimate: 2_600_000,
+          abrBandWidthFactor: 0.9,
+          abrBandWidthUpFactor: 0.75,
         });
         hlsRef.current = hls;
         hls.loadSource(url);
@@ -406,8 +437,10 @@ export function CustomPlayer({
       }
     };
     const onErr = () => {
-      if (playerPrefs.autoFailover !== false && sourceGroups.length > 1) failoverToNext();
-      else setError("Playback failed. No more streams are available.");
+      // Never surface a per-quality failure — just move on quietly. The only
+      // message the viewer ever sees comes from failoverToNext once every
+      // candidate has been tried.
+      failoverToNext();
     };
     v.addEventListener("play", onPlay); v.addEventListener("pause", onPause);
     v.addEventListener("timeupdate", onTime); v.addEventListener("durationchange", onDur);
@@ -475,7 +508,7 @@ export function CustomPlayer({
     const applySelection = () => {
       const tracks = v.textTracks;
       for (let i = 0; i < tracks.length; i++) tracks[i].mode = "disabled";
-      if (subIdx < 0) return;
+      if (subIdx < 0) { setCueLines([]); return; }
       const wanted = source.subtitles[subIdx];
       if (!wanted) return;
       // Try label match first, then language, then positional fallback.
@@ -489,18 +522,44 @@ export function CustomPlayer({
         }
       }
       if (match < 0 && subIdx < tracks.length) match = subIdx;
-      if (match >= 0) tracks[match].mode = "showing";
+      // "hidden" keeps cues parsed but stops the browser from painting them —
+      // we render them ourselves so every style option actually applies.
+      if (match >= 0) tracks[match].mode = "hidden";
     };
     applySelection();
+    const readCues = () => {
+      const tracks = v.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        const track = tracks[i];
+        if (track.mode !== "hidden") continue;
+        const active = track.activeCues;
+        if (!active || !active.length) continue;
+        const lines: string[] = [];
+        for (let c = 0; c < active.length; c++) {
+          const text = String((active[c] as any).text ?? "")
+            .replace(/<[^>]+>/g, "")
+            .trim();
+          if (text) lines.push(...text.split("\n"));
+        }
+        setCueLines(lines);
+        return;
+      }
+      setCueLines([]);
+    };
     const trackElements = Array.from(v.querySelectorAll("track"));
     for (const track of trackElements) track.addEventListener("load", applySelection);
     const tracks = v.textTracks;
     tracks.addEventListener("addtrack", applySelection);
     tracks.addEventListener("removetrack", applySelection);
+    const cueTargets: TextTrack[] = [];
+    for (let i = 0; i < tracks.length; i++) { tracks[i].addEventListener("cuechange", readCues); cueTargets.push(tracks[i]); }
+    v.addEventListener("timeupdate", readCues);
     return () => {
       for (const track of trackElements) track.removeEventListener("load", applySelection);
       tracks.removeEventListener("addtrack", applySelection);
       tracks.removeEventListener("removetrack", applySelection);
+      for (const track of cueTargets) track.removeEventListener("cuechange", readCues);
+      v.removeEventListener("timeupdate", readCues);
     };
   }, [subIdx, source.subtitles]);
 
@@ -642,15 +701,48 @@ export function CustomPlayer({
         ))}
       </video>
 
-      {/* Subtitle cue styling — applied to the browser's native <track> cues. */}
-      <style>{`
-        video::cue {
-          font-size: ${subStyle.fontSize}px;
-          color: ${subStyle.color};
-          background-color: ${subStyle.bg > 0 ? `rgba(0,0,0,${subStyle.bg / 100})` : "transparent"};
-          text-shadow: ${subStyle.edge === "shadow" ? "0 2px 4px rgba(0,0,0,0.8)" : subStyle.edge === "outline" ? "-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000" : "none"};
-        }
-      `}</style>
+      {/* Subtitles — rendered by us so every style option applies live. */}
+      <style>{`video::cue { opacity: 0; }`}</style>
+      {subIdx >= 0 && cueLines.length > 0 && (
+        <div
+          className="pointer-events-none absolute inset-x-0 z-[16] flex flex-col items-center px-6 text-center"
+          style={{
+            ...(subStyle.position === "top"
+              ? { top: `${subStyle.offset + 6}%`, bottom: "auto" }
+              : subStyle.position === "middle"
+                ? { top: "45%", bottom: "auto" }
+                : { bottom: `${subStyle.offset + (showControls ? 10 : 4)}%`, top: "auto" }),
+            transition: "bottom 0.25s ease",
+          }}
+        >
+          {cueLines.map((line, i) => (
+            <span
+              key={`${i}-${line}`}
+              style={{
+                fontFamily: subStyle.font,
+                fontSize: `${subStyle.fontSize}px`,
+                fontWeight: subStyle.weight,
+                color: subStyle.color,
+                opacity: subStyle.opacity / 100,
+                lineHeight: subStyle.lineHeight,
+                letterSpacing: `${subStyle.letterSpacing}px`,
+                textTransform: subStyle.uppercase ? "uppercase" : "none",
+                backgroundColor: subStyle.bg > 0 ? `rgba(0,0,0,${subStyle.bg / 100})` : "transparent",
+                padding: subStyle.bg > 0 ? "0.1em 0.4em" : 0,
+                borderRadius: 6,
+                textShadow:
+                  subStyle.edge === "shadow"
+                    ? "0 2px 6px rgba(0,0,0,0.9)"
+                    : subStyle.edge === "outline"
+                      ? "-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000"
+                      : "none",
+              }}
+            >
+              {line}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Loading spinner */}
       {loading && !error && (
@@ -662,14 +754,16 @@ export function CustomPlayer({
         </div>
       )}
 
-      {/* Error */}
+      {/* Error — only shown once every stream for this server is exhausted. */}
       {error && (
         <div className="absolute inset-0 z-30 grid place-items-center bg-black/80">
           <div className="text-center">
             <p className="mb-3 text-sm text-white/70">{error}</p>
-            <button onClick={() => { setError(null); setCurrentIdx((i) => Math.min(i + 1, source.qualities.length - 1)); }}
-              className="rounded-lg bg-white/10 px-4 py-2 text-xs text-white hover:bg-white/20 transition">
-              Try next quality
+            <button
+              onClick={() => { attemptedRef.current.clear(); setError(null); setLoading(true); setCurrentIdx(pickStartupQualityIndex(source.qualities)); }}
+              className="rounded-lg bg-white/10 px-4 py-2 text-xs text-white transition hover:bg-white/20"
+            >
+              Retry
             </button>
           </div>
         </div>
@@ -929,24 +1023,73 @@ export function CustomPlayer({
             {/* SUBS */}
             {settingsTab === "subs" && (
               <div className="space-y-1.5 animate-in fade-in duration-150">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">Tracks</div>
+                  <button
+                    onClick={() => setSubCustomOpen((v) => !v)}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition ${subCustomOpen ? "bg-white text-black" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
+                    aria-label="Customize subtitles"
+                  >
+                    <SettingsIcon className={`h-3.5 w-3.5 transition-transform duration-300 ${subCustomOpen ? "rotate-90" : ""}`} />
+                    Customize
+                  </button>
+                </div>
                 <QualityRow label="Off" active={subIdx === -1} onClick={() => setSubIdx(-1)} />
                 {source.subtitles.map((sub, i) => (
                   <QualityRow key={i} label={sub.label} hint={sub.language?.toUpperCase()} active={subIdx === i} onClick={() => setSubIdx(i)} />
                 ))}
-                {subIdx >= 0 && (
-                  <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-                    <PanelSlider label="Size" value={subStyle.fontSize} min={12} max={48} suffix="px" onChange={(v: number) => setSubStyle({ ...subStyle, fontSize: v })} />
+                {subCustomOpen && (
+                  <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="rounded-xl border border-white/10 bg-black/50 p-3 text-center">
+                      <span style={{
+                        fontFamily: subStyle.font, fontSize: `${subStyle.fontSize}px`, fontWeight: subStyle.weight,
+                        color: subStyle.color, opacity: subStyle.opacity / 100, letterSpacing: `${subStyle.letterSpacing}px`,
+                        textTransform: subStyle.uppercase ? "uppercase" : "none",
+                        backgroundColor: subStyle.bg > 0 ? `rgba(0,0,0,${subStyle.bg / 100})` : "transparent",
+                        padding: subStyle.bg > 0 ? "0.1em 0.4em" : 0, borderRadius: 6,
+                        textShadow: subStyle.edge === "shadow" ? "0 2px 6px rgba(0,0,0,0.9)"
+                          : subStyle.edge === "outline" ? "-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000" : "none",
+                      }}>Preview caption</span>
+                    </div>
+                    <PanelSlider label="Size" value={subStyle.fontSize} min={12} max={56} suffix="px" onChange={(v: number) => setSubStyle({ ...subStyle, fontSize: v })} />
+                    <PanelSlider label="Weight" value={subStyle.weight} min={300} max={900} suffix="" onChange={(v: number) => setSubStyle({ ...subStyle, weight: Math.round(v / 100) * 100 })} />
                     <PanelSlider label="Background" value={subStyle.bg} min={0} max={100} suffix="%" onChange={(v: number) => setSubStyle({ ...subStyle, bg: v })} />
+                    <PanelSlider label="Text opacity" value={subStyle.opacity} min={20} max={100} suffix="%" onChange={(v: number) => setSubStyle({ ...subStyle, opacity: v })} />
+                    <PanelSlider label="Vertical offset" value={subStyle.offset} min={0} max={40} suffix="%" onChange={(v: number) => setSubStyle({ ...subStyle, offset: v })} />
+                    <PanelSlider label="Letter spacing" value={subStyle.letterSpacing} min={0} max={6} suffix="px" onChange={(v: number) => setSubStyle({ ...subStyle, letterSpacing: v })} />
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-semibold text-white">Color</div>
                       <input type="color" value={subStyle.color} onChange={(e) => setSubStyle({ ...subStyle, color: e.target.value })} className="h-8 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
                     </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {(["bottom", "middle", "top"] as const).map((pos) => (
-                        <button key={pos} onClick={() => setSubStyle({ ...subStyle, position: pos })}
-                          className={`rounded-lg py-1.5 text-[10px] font-semibold capitalize transition ${subStyle.position === pos ? "bg-white/15 text-white" : "bg-white/5 text-white/50"}`}>{pos}</button>
-                      ))}
+                    <div>
+                      <div className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-white/35">Font</div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {SUB_FONTS.map(([label, value]) => (
+                          <button key={label} onClick={() => setSubStyle({ ...subStyle, font: value })} style={{ fontFamily: value }}
+                            className={`rounded-lg py-1.5 text-[10px] font-semibold transition ${subStyle.font === value ? "bg-white text-black" : "bg-white/5 text-white/55 hover:bg-white/10"}`}>{label}</button>
+                        ))}
+                      </div>
                     </div>
+                    <div>
+                      <div className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-white/35">Edge</div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {(["none", "shadow", "outline"] as const).map((edge) => (
+                          <button key={edge} onClick={() => setSubStyle({ ...subStyle, edge })}
+                            className={`rounded-lg py-1.5 text-[10px] font-semibold capitalize transition ${subStyle.edge === edge ? "bg-white text-black" : "bg-white/5 text-white/55 hover:bg-white/10"}`}>{edge}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-white/35">Position</div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {(["bottom", "middle", "top"] as const).map((pos) => (
+                          <button key={pos} onClick={() => setSubStyle({ ...subStyle, position: pos })}
+                            className={`rounded-lg py-1.5 text-[10px] font-semibold capitalize transition ${subStyle.position === pos ? "bg-white text-black" : "bg-white/5 text-white/55 hover:bg-white/10"}`}>{pos}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <PanelSwitch label="Uppercase" hint="Render captions in all caps." value={subStyle.uppercase} onChange={(v: boolean) => setSubStyle({ ...subStyle, uppercase: v })} />
+                    <button onClick={() => setSubStyle(DEFAULT_SUB)} className="w-full rounded-xl bg-white/5 py-2 text-[10px] font-bold uppercase tracking-widest text-white/50 transition hover:bg-white/10 hover:text-white">Reset to default</button>
                   </div>
                 )}
               </div>
@@ -954,24 +1097,37 @@ export function CustomPlayer({
 
             {/* SERVERS */}
             {settingsTab === "servers" && (
-              <div className="space-y-1.5 animate-in fade-in duration-150">
+              <div className="space-y-2 animate-in fade-in duration-150">
                 {(servers ?? []).map((sv) => {
                   const isActive = sv.id === activeServer;
-                  const dot = sv.status === "ready" ? "bg-emerald-400" : sv.status === "checking" ? "bg-amber-400 animate-pulse" : sv.status === "failed" ? "bg-rose-400" : "bg-white/25";
                   return (
                     <button
                       key={sv.id}
                       onClick={() => onSwitchServer?.(sv.id)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition ${isActive ? "bg-white/15 text-white ring-1 ring-white/20" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"}`}
+                      className={`group flex w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left transition-all duration-200 ${isActive ? "border-white/25 bg-white/[0.14] text-white" : "border-white/5 bg-white/[0.04] text-white/70 hover:border-white/15 hover:bg-white/[0.08] hover:text-white"}`}
                     >
-                      <span className="flex items-center gap-3 min-w-0">
-                        <span className={`h-2 w-2 rounded-full ${dot}`} />
-                        <span className="text-xs font-semibold">{sv.name}</span>
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition ${isActive ? "bg-white text-black" : "bg-white/[0.07] text-white/60 group-hover:text-white"}`}>
+                          {sv.status === "checking"
+                            ? <Loader2Icon className="h-4 w-4 animate-spin" />
+                            : sv.status === "failed"
+                              ? <CloudOff className="h-4 w-4" />
+                              : <Cloud className="h-4 w-4" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[13px] font-bold tracking-tight">{sv.name}</span>
+                          <span className="mt-0.5 block text-[10px] font-medium tracking-wide text-white/35">
+                            {sv.status === "checking" ? "Connecting…"
+                              : sv.status === "failed" ? "Unavailable"
+                              : sv.status === "ready" ? `${sv.count} stream${sv.count === 1 ? "" : "s"}`
+                              : "Tap to connect"}
+                          </span>
+                        </span>
                       </span>
-                      <span className="flex items-center gap-2 shrink-0">
-                        {sv.status === "checking" && <span className="text-[10px] uppercase tracking-wider text-amber-300/80">Checking…</span>}
-                        {sv.status === "failed" && <XIcon className="h-3.5 w-3.5 text-rose-400/80" />}
-                        {isActive && <CheckIcon className="h-3.5 w-3.5 text-white" />}
+                      <span className="flex shrink-0 items-center gap-2">
+                        {isActive
+                          ? <span className="grid h-6 w-6 place-items-center rounded-full bg-white text-black"><CheckIcon className="h-3.5 w-3.5" /></span>
+                          : <ChevronRight className="h-4 w-4 text-white/25 transition group-hover:translate-x-0.5 group-hover:text-white/60" />}
                       </span>
                     </button>
                   );
