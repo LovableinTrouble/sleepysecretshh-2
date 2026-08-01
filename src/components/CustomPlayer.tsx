@@ -1018,24 +1018,73 @@ export function CustomPlayer({
             {/* SUBS */}
             {settingsTab === "subs" && (
               <div className="space-y-1.5 animate-in fade-in duration-150">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">Tracks</div>
+                  <button
+                    onClick={() => setSubCustomOpen((v) => !v)}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition ${subCustomOpen ? "bg-white text-black" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"}`}
+                    aria-label="Customize subtitles"
+                  >
+                    <SettingsIcon className={`h-3.5 w-3.5 transition-transform duration-300 ${subCustomOpen ? "rotate-90" : ""}`} />
+                    Customize
+                  </button>
+                </div>
                 <QualityRow label="Off" active={subIdx === -1} onClick={() => setSubIdx(-1)} />
                 {source.subtitles.map((sub, i) => (
                   <QualityRow key={i} label={sub.label} hint={sub.language?.toUpperCase()} active={subIdx === i} onClick={() => setSubIdx(i)} />
                 ))}
-                {subIdx >= 0 && (
-                  <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-                    <PanelSlider label="Size" value={subStyle.fontSize} min={12} max={48} suffix="px" onChange={(v: number) => setSubStyle({ ...subStyle, fontSize: v })} />
+                {subCustomOpen && (
+                  <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="rounded-xl border border-white/10 bg-black/50 p-3 text-center">
+                      <span style={{
+                        fontFamily: subStyle.font, fontSize: `${subStyle.fontSize}px`, fontWeight: subStyle.weight,
+                        color: subStyle.color, opacity: subStyle.opacity / 100, letterSpacing: `${subStyle.letterSpacing}px`,
+                        textTransform: subStyle.uppercase ? "uppercase" : "none",
+                        backgroundColor: subStyle.bg > 0 ? `rgba(0,0,0,${subStyle.bg / 100})` : "transparent",
+                        padding: subStyle.bg > 0 ? "0.1em 0.4em" : 0, borderRadius: 6,
+                        textShadow: subStyle.edge === "shadow" ? "0 2px 6px rgba(0,0,0,0.9)"
+                          : subStyle.edge === "outline" ? "-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000" : "none",
+                      }}>Preview caption</span>
+                    </div>
+                    <PanelSlider label="Size" value={subStyle.fontSize} min={12} max={56} suffix="px" onChange={(v: number) => setSubStyle({ ...subStyle, fontSize: v })} />
+                    <PanelSlider label="Weight" value={subStyle.weight} min={300} max={900} suffix="" onChange={(v: number) => setSubStyle({ ...subStyle, weight: Math.round(v / 100) * 100 })} />
                     <PanelSlider label="Background" value={subStyle.bg} min={0} max={100} suffix="%" onChange={(v: number) => setSubStyle({ ...subStyle, bg: v })} />
+                    <PanelSlider label="Text opacity" value={subStyle.opacity} min={20} max={100} suffix="%" onChange={(v: number) => setSubStyle({ ...subStyle, opacity: v })} />
+                    <PanelSlider label="Vertical offset" value={subStyle.offset} min={0} max={40} suffix="%" onChange={(v: number) => setSubStyle({ ...subStyle, offset: v })} />
+                    <PanelSlider label="Letter spacing" value={subStyle.letterSpacing} min={0} max={6} suffix="px" onChange={(v: number) => setSubStyle({ ...subStyle, letterSpacing: v })} />
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-semibold text-white">Color</div>
                       <input type="color" value={subStyle.color} onChange={(e) => setSubStyle({ ...subStyle, color: e.target.value })} className="h-8 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
                     </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {(["bottom", "middle", "top"] as const).map((pos) => (
-                        <button key={pos} onClick={() => setSubStyle({ ...subStyle, position: pos })}
-                          className={`rounded-lg py-1.5 text-[10px] font-semibold capitalize transition ${subStyle.position === pos ? "bg-white/15 text-white" : "bg-white/5 text-white/50"}`}>{pos}</button>
-                      ))}
+                    <div>
+                      <div className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-white/35">Font</div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {SUB_FONTS.map(([label, value]) => (
+                          <button key={label} onClick={() => setSubStyle({ ...subStyle, font: value })} style={{ fontFamily: value }}
+                            className={`rounded-lg py-1.5 text-[10px] font-semibold transition ${subStyle.font === value ? "bg-white text-black" : "bg-white/5 text-white/55 hover:bg-white/10"}`}>{label}</button>
+                        ))}
+                      </div>
                     </div>
+                    <div>
+                      <div className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-white/35">Edge</div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {(["none", "shadow", "outline"] as const).map((edge) => (
+                          <button key={edge} onClick={() => setSubStyle({ ...subStyle, edge })}
+                            className={`rounded-lg py-1.5 text-[10px] font-semibold capitalize transition ${subStyle.edge === edge ? "bg-white text-black" : "bg-white/5 text-white/55 hover:bg-white/10"}`}>{edge}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-white/35">Position</div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {(["bottom", "middle", "top"] as const).map((pos) => (
+                          <button key={pos} onClick={() => setSubStyle({ ...subStyle, position: pos })}
+                            className={`rounded-lg py-1.5 text-[10px] font-semibold capitalize transition ${subStyle.position === pos ? "bg-white text-black" : "bg-white/5 text-white/55 hover:bg-white/10"}`}>{pos}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <PanelSwitch label="Uppercase" hint="Render captions in all caps." value={subStyle.uppercase} onChange={(v: boolean) => setSubStyle({ ...subStyle, uppercase: v })} />
+                    <button onClick={() => setSubStyle(DEFAULT_SUB)} className="w-full rounded-xl bg-white/5 py-2 text-[10px] font-bold uppercase tracking-widest text-white/50 transition hover:bg-white/10 hover:text-white">Reset to default</button>
                   </div>
                 )}
               </div>
@@ -1043,24 +1092,37 @@ export function CustomPlayer({
 
             {/* SERVERS */}
             {settingsTab === "servers" && (
-              <div className="space-y-1.5 animate-in fade-in duration-150">
+              <div className="space-y-2 animate-in fade-in duration-150">
                 {(servers ?? []).map((sv) => {
                   const isActive = sv.id === activeServer;
-                  const dot = sv.status === "ready" ? "bg-emerald-400" : sv.status === "checking" ? "bg-amber-400 animate-pulse" : sv.status === "failed" ? "bg-rose-400" : "bg-white/25";
                   return (
                     <button
                       key={sv.id}
                       onClick={() => onSwitchServer?.(sv.id)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition ${isActive ? "bg-white/15 text-white ring-1 ring-white/20" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"}`}
+                      className={`group flex w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left transition-all duration-200 ${isActive ? "border-white/25 bg-white/[0.14] text-white" : "border-white/5 bg-white/[0.04] text-white/70 hover:border-white/15 hover:bg-white/[0.08] hover:text-white"}`}
                     >
-                      <span className="flex items-center gap-3 min-w-0">
-                        <span className={`h-2 w-2 rounded-full ${dot}`} />
-                        <span className="text-xs font-semibold">{sv.name}</span>
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition ${isActive ? "bg-white text-black" : "bg-white/[0.07] text-white/60 group-hover:text-white"}`}>
+                          {sv.status === "checking"
+                            ? <Loader2Icon className="h-4 w-4 animate-spin" />
+                            : sv.status === "failed"
+                              ? <CloudOff className="h-4 w-4" />
+                              : <Cloud className="h-4 w-4" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[13px] font-bold tracking-tight">{sv.name}</span>
+                          <span className="mt-0.5 block text-[10px] font-medium tracking-wide text-white/35">
+                            {sv.status === "checking" ? "Connecting…"
+                              : sv.status === "failed" ? "Unavailable"
+                              : sv.status === "ready" ? `${sv.count} stream${sv.count === 1 ? "" : "s"}`
+                              : "Tap to connect"}
+                          </span>
+                        </span>
                       </span>
-                      <span className="flex items-center gap-2 shrink-0">
-                        {sv.status === "checking" && <span className="text-[10px] uppercase tracking-wider text-amber-300/80">Checking…</span>}
-                        {sv.status === "failed" && <XIcon className="h-3.5 w-3.5 text-rose-400/80" />}
-                        {isActive && <CheckIcon className="h-3.5 w-3.5 text-white" />}
+                      <span className="flex shrink-0 items-center gap-2">
+                        {isActive
+                          ? <span className="grid h-6 w-6 place-items-center rounded-full bg-white text-black"><CheckIcon className="h-3.5 w-3.5" /></span>
+                          : <ChevronRight className="h-4 w-4 text-white/25 transition group-hover:translate-x-0.5 group-hover:text-white/60" />}
                       </span>
                     </button>
                   );
