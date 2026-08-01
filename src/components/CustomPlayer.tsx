@@ -7,6 +7,7 @@ import {
   Settings as SettingsIcon, Subtitles, ChevronLeft,
   SkipForward, Cast, RotateCcw, Monitor, Palette, Cloud,
   SlidersHorizontal, Server as ServerIcon, Gauge, Check as CheckIcon, X as XIcon,
+  CloudOff, ChevronRight, Loader2 as Loader2Icon,
 } from "lucide-react";
 import type { DirectSource, StreamQuality, StreamSubtitle, ProviderId } from "@/lib/streams";
 import { getSettings, useSettings, type Settings } from "@/lib/store";
