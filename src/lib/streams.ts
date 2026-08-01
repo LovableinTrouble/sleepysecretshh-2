@@ -22,7 +22,7 @@ export const resolveStreams = createServerFn({ method: "POST" })
 export const resolveProvider = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z.object({
-      provider: z.enum(["febbox", "nimbus", "orion", "vega", "atlas", "vault"]),
+      provider: z.enum(["febbox", "nimbus", "orion", "vega", "atlas"]),
       tmdbId: z.union([z.string(), z.number()]).transform(String),
       title: z.string().min(1),
       type: z.enum(["movie", "show"]),

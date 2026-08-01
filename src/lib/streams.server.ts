@@ -59,15 +59,14 @@ export function buildEmbedsOnly(input: ResolveInput): ResolveResult {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
 
-export type ProviderId = "febbox" | "nimbus" | "orion" | "vega" | "atlas" | "vault";
+export type ProviderId = "febbox" | "nimbus" | "orion" | "vega" | "atlas";
 export interface ProviderMeta { id: ProviderId; name: string; }
 export const PROVIDERS: ProviderMeta[] = [
   { id: "febbox", name: "Febbox" },
+  { id: "orion", name: "Orion" },
   { id: "vega", name: "Vega" },
   { id: "atlas", name: "Atlas" },
-  { id: "nimbus", name: "Nimbus" },
-  { id: "vault", name: "Vault" },   // direct mp4/mkv from the downloads endpoint
-  { id: "orion", name: "Orion" },   // peachify (last)
+  { id: "nimbus", name: "Nimbus" },  // vidphantom (last)
 ];
 
 const SLEEPY_SOURCES = "https://sleepy-sources.pxifusionxx.workers.dev";
@@ -342,52 +341,13 @@ export async function resolveProviderById(id: ProviderId, input: ResolveInput, o
     ? scrapeVidPhantom(id, meta.name, input, options.fast)
     : id === "febbox"
       ? scrapeFebbox(id, meta.name, input, options.febboxCookie)
-      : id === "vault"
-        ? scrapeVault(id, meta.name, input, options.fast)
-        : scrapeSleepySource(id, meta.name, input, options.fast);
+      : scrapeSleepySource(id, meta.name, input, options.fast);
   // The first-pass resolver must not wait up to ten seconds for captions before
   // handing a playable manifest to the browser. The background full pass adds
   // captions immediately afterward.
   if (options.fast) return { qualities: await qualitiesPromise, subtitles: [] };
   const [qualities, subtitles] = await Promise.all([qualitiesPromise, resolveSubtitles(input)]);
   return { qualities, subtitles };
-}
-
-// Vault — reuses the downloads endpoint, which returns direct mp4/mkv files.
-// Direct progressive files start instantly and seek natively, so they make a
-// dependable fallback right before the last scraper.
-async function scrapeVault(providerId: ProviderId, providerName: string, i: ResolveInput, fast = false): Promise<StreamQuality[]> {
-  try {
-    const path = i.type === "show"
-      ? `/tv/${i.tmdbId}/${i.season ?? 1}/${i.episode ?? 1}`
-      : `/movie/${i.tmdbId}`;
-    const res = await fetch(`https://downloads.shegu.xyz${path}`, {
-      headers: { "User-Agent": UA, Accept: "application/json" },
-      signal: AbortSignal.timeout(fast ? 10000 : 18000),
-    });
-    if (!res.ok) return [];
-    const json: any = await res.json();
-    const links: any[] = Array.isArray(json?.links) ? json.links : [];
-    const items = links
-      .map((l: any) => {
-        const url = String(l?.url || "");
-        const lower = url.toLowerCase();
-        if (!url.startsWith("http")) return null;
-        if (!/\.(mp4|mkv|mov|m4v)(\?|$)/.test(lower) && !lower.includes(".m3u8")) return null;
-        const quality = String(l?.quality ?? "");
-        return {
-          url,
-          name: quality || "Auto",
-          quality: /^\d+$/.test(quality) ? (Number(quality) >= 2160 ? "4K" : `${quality}p`) : quality,
-          type: lower.includes(".m3u8") ? "hls" : lower.includes(".mkv") ? "mkv" : "mp4",
-        };
-      })
-      .filter((s): s is { url: string; name: string; quality: string; type: string } => s !== null);
-    if (!items.length) return [];
-    const parsed = uniqueByQuality(toQualities(items, providerId, providerName, true));
-    const playable = await keepPlayable(parsed, fast ? 2 : 6);
-    return fast ? playable.slice(0, 1) : playable;
-  } catch { return []; }
 }
 
 async function scrapeFebbox(providerId: ProviderId, providerName: string, i: ResolveInput, cookie?: string): Promise<StreamQuality[]> {

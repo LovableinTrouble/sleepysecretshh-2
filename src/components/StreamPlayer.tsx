@@ -63,7 +63,6 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [scanKey, setScanKey] = useState(0);
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null);
-  const [playKey, setPlayKey] = useState(0);
 
   const input = useMemo(() => ({
     tmdbId: String(media.id), title: media.title,
@@ -111,13 +110,9 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
 
   const switchProvider = useCallback(async (id: ProviderId) => {
     if (id === activeProvider) return;
+    const prevQualities = qualities;
     const prevActive = activeProvider;
     setActiveProvider(id);
-    // Restart cleanly on a switch: drop the old manifests so the player
-    // remounts and picks fresh qualities from the new server.
-    setQualities([]);
-    setSubtitles([]);
-    setPlayKey((k) => k + 1);
     setStatuses((s) => ({ ...s, [id]: { ...s[id], state: "checking" } }));
     try {
       const res = await resolveProvider({ data: { provider: id, ...input, fast: true, febboxCookie } });
@@ -127,7 +122,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
         return;
       }
       setQualities(res.qualities);
-      if (res.subtitles.length) setSubtitles(res.subtitles);
+      if (res.subtitles.length) setSubtitles((prev) => (prev.length ? prev : res.subtitles));
       setStatuses((s) => ({ ...s, [id]: { state: "ready", count: res.qualities.length } }));
       resolveProvider({ data: { provider: id, ...input, febboxCookie } }).then((full) => {
         if (!full.qualities.length) return;
@@ -138,8 +133,9 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     } catch {
       setStatuses((s) => ({ ...s, [id]: { state: "failed", count: 0 } }));
       setActiveProvider(prevActive);
+      setQualities(prevQualities);
     }
-  }, [activeProvider, input, febboxCookie]);
+  }, [activeProvider, input, qualities, febboxCookie]);
 
   const active: DirectSource | null = useMemo(() => {
     if (qualities.length === 0) return null;
@@ -185,13 +181,8 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           <ScanOverlay title={media.title} statuses={statuses} readyCount={readyCount} settledCount={settledCount} total={providers.length} providers={providers} onClose={onClose} />
         )}
         {error && !active && <ErrorOverlay error={error} onClose={onClose} onRetry={() => { setError(null); setQualities([]); setScanKey((key) => key + 1); }} />}
-        {!active && !error && !scanning && (
-          <div className="absolute inset-0 z-20 grid place-items-center bg-black">
-            <Loader2 className="h-7 w-7 animate-spin text-white/50" />
-          </div>
-        )}
         {active && (
-          <CustomPlayer key={playKey} source={active} title={media.title} season={season} episode={episode}
+          <CustomPlayer source={active} title={media.title} season={season} episode={episode}
             startAt={startAt} onProgress={onProgress} onClose={onClose}
             onSelectSource={() => {}}
             onDownload={() => setDownloadsOpen(true)}
