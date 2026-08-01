@@ -36,13 +36,31 @@ type SubStyle = {
   bg: number;
   position: "bottom" | "middle" | "top";
   edge: "none" | "shadow" | "outline";
+  font: string;
+  weight: number;
+  offset: number;
+  letterSpacing: number;
+  lineHeight: number;
+  opacity: number;
+  uppercase: boolean;
 };
 
 type AspectMode = "contain" | "cover" | "stretch";
 
 const DEFAULT_SUB: SubStyle = {
   fontSize: 22, color: "#ffffff", bg: 40, position: "bottom", edge: "shadow",
+  font: "system-ui, sans-serif", weight: 700, offset: 8, letterSpacing: 0,
+  lineHeight: 1.35, opacity: 100, uppercase: false,
 };
+
+const SUB_FONTS: Array<[string, string]> = [
+  ["Sans", "system-ui, sans-serif"],
+  ["Serif", "Georgia, serif"],
+  ["Mono", "ui-monospace, monospace"],
+  ["Rounded", "'Trebuchet MS', system-ui, sans-serif"],
+];
+
+const SUB_STYLE_KEY = "sleepy.substyle.v1";
 
 function fmt(t: number): string {
   if (!Number.isFinite(t) || t < 0) return "0:00";
