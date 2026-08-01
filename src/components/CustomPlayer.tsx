@@ -437,8 +437,10 @@ export function CustomPlayer({
       }
     };
     const onErr = () => {
-      if (playerPrefs.autoFailover !== false && sourceGroups.length > 1) failoverToNext();
-      else setError("Playback failed. No more streams are available.");
+      // Never surface a per-quality failure — just move on quietly. The only
+      // message the viewer ever sees comes from failoverToNext once every
+      // candidate has been tried.
+      failoverToNext();
     };
     v.addEventListener("play", onPlay); v.addEventListener("pause", onPause);
     v.addEventListener("timeupdate", onTime); v.addEventListener("durationchange", onDur);
@@ -752,14 +754,16 @@ export function CustomPlayer({
         </div>
       )}
 
-      {/* Error */}
+      {/* Error — only shown once every stream for this server is exhausted. */}
       {error && (
         <div className="absolute inset-0 z-30 grid place-items-center bg-black/80">
           <div className="text-center">
             <p className="mb-3 text-sm text-white/70">{error}</p>
-            <button onClick={() => { setError(null); setCurrentIdx((i) => Math.min(i + 1, source.qualities.length - 1)); }}
-              className="rounded-lg bg-white/10 px-4 py-2 text-xs text-white hover:bg-white/20 transition">
-              Try next quality
+            <button
+              onClick={() => { attemptedRef.current.clear(); setError(null); setLoading(true); setCurrentIdx(pickStartupQualityIndex(source.qualities)); }}
+              className="rounded-lg bg-white/10 px-4 py-2 text-xs text-white transition hover:bg-white/20"
+            >
+              Retry
             </button>
           </div>
         </div>
