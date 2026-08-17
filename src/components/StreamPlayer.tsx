@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, Download } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 
 import type { Media } from "@/lib/catalog";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
-import { DownloadsDialog } from "./DownloadsDialog";
 
 interface Props {
   media: Media;
@@ -16,8 +15,6 @@ interface Props {
 const EMBED_BASE = "https://vidgod.site";
 
 export function StreamPlayer({ media, season, episode, onClose }: Props) {
-  const [downloadsOpen, setDownloadsOpen] = useState(false);
-
   const src = useMemo(() => {
     const isShow = media.type !== "movie";
     return isShow
@@ -69,6 +66,7 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
           allowFullScreen
           referrerPolicy="origin"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
         />
 
         <div className="pointer-events-none absolute left-0 right-0 top-0 flex items-center justify-between gap-3 p-3 sm:p-4">
@@ -78,15 +76,8 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           >
             <ChevronLeft className="h-4 w-4" /> Back
           </button>
-          <button
-            onClick={() => setDownloadsOpen(true)}
-            className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3.5 py-2 text-xs font-semibold text-white backdrop-blur-md transition hover:bg-black/80"
-          >
-            <Download className="h-4 w-4" /> Download
-          </button>
         </div>
       </div>
-      <DownloadsDialog open={downloadsOpen} media={media} season={season} episode={episode} onClose={() => setDownloadsOpen(false)} />
     </div>
   );
 
