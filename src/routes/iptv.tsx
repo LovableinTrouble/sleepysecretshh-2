@@ -72,50 +72,6 @@ function IptvPage() {
     setCustom(loadCustomPlaylists());
   }, []);
 
-  // TouStream channels — fetched live. Slugs become channel ids and the
-  // player URL is https://toustream.xyz/tou/live/{slug}. We render these
-  // via <iframe> in the live route because they're first-party embeds.
-  const {
-    data: touChannels = [],
-    isLoading: touLoading,
-    isError: touError,
-  } = useQuery({
-    queryKey: ["toustream", "channels"],
-    queryFn: async () => {
-      const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 8000);
-      try {
-        const res = await fetch("https://toustream.xyz/tou/api/channels", { signal: ctrl.signal });
-        clearTimeout(timeout);
-        if (!res.ok) throw new Error("Failed to load channels");
-        const raw = (await res.json()) as Array<{
-          slug: string;
-          name?: string;
-          image?: string;
-          category?: string;
-        }>;
-        // Limit channels to prevent UI lag
-        const limited = raw.slice(0, 100);
-        return limited.map((c) => ({
-          id: `tou-${c.slug}`,
-          name: c.name || c.slug,
-          logo: c.image,
-          url: `https://toustream.xyz/tou/live/${c.slug}`,
-          group: (c.category && c.category.trim()) || "Live TV",
-        }));
-      } catch (e) {
-        clearTimeout(timeout);
-        if (e instanceof Error && e.name === "AbortError") {
-          console.warn("TouStream API timeout");
-        }
-        throw e;
-      }
-    },
-    staleTime: 15 * 60_000,
-    retry: 1,
-    retryDelay: 2000,
-  });
-
   const toggleFav = (id: string) => {
     setFavs((prev) => {
       const next = new Set(prev);
@@ -132,11 +88,10 @@ function IptvPage() {
 
   const customChannels = useMemo(() => custom.flatMap((p) => p.channels), [custom]);
 
-  // Combine channels: custom + curated 24/7 (always) + toustream (when loaded).
-  // Dedupe by id — curated ids never collide with `tou-*`.
+  // Combine channels: custom playlists + curated 24/7 broadcaster feeds.
   const channels = useMemo(() => {
-    return [...customChannels, ...CURATED_CHANNELS, ...touChannels];
-  }, [customChannels, touChannels]);
+    return [...customChannels, ...CURATED_CHANNELS];
+  }, [customChannels]);
 
   const groups = useMemo(() => {
     const seen = new Map<string, number>();
@@ -163,8 +118,6 @@ function IptvPage() {
     }
     return list;
   }, [channels, group, query, favs]);
-
-  const isLoading = touLoading && touChannels.length === 0 && !touError;
 
   const handleSavePlaylist = (pl: CustomPlaylist) => {
     const next = [...custom.filter((p) => p.id !== pl.id), pl];
@@ -331,7 +284,7 @@ function IptvPage() {
           })}
           {filtered.length === 0 && (
             <div className="col-span-full py-16 text-center text-sm text-muted-foreground">
-              {isLoading ? "Loading channels…" : "No channels match your filters."}
+              No channels match your filters.
             </div>
           )}
         </div>

@@ -230,7 +230,7 @@ export const CURATED_CHANNELS: CuratedChannel[] = [
     url: "https://dai.google.com/linear/hls/event/Sid4xiTQTkCT1SLu6rjUSQ/master.m3u8",
   },
 
-  // ── Sports · Premium additions ─────────────────────────────────────────
+  // ── Sports · Premium additions ─────────────────────────��───────────────
   {
     id: "fuel-tv",
     name: "Fuel TV",
@@ -470,7 +470,7 @@ export const CURATED_CHANNELS: CuratedChannel[] = [
     url: "https://johnnycarson-samsungus.amagi.tv/playlist.m3u8",
   },
 
-  // ── Music · Extra ──────────────────────────────────────────────────────
+  // ── Music · Extra ─────────────────────────────────────���────────────────
   {
     id: "qello-concerts",
     name: "Qello Concerts",
@@ -540,6 +540,108 @@ export const CURATED_CHANNELS: CuratedChannel[] = [
     country: "US",
     logo: `${LOGO}/united-states/ryan-and-friends-us.png`,
     url: "https://ryanandfriends-samsungus.amagi.tv/playlist.m3u8",
+  },
+
+  // ── News · Well-known broadcasters ─────────────────────────────────────
+  {
+    id: "cgtn-en",
+    name: "CGTN",
+    group: "News",
+    country: "INT",
+    logo: `${LOGO}/china/cgtn-cn.png`,
+    url: "https://live.cgtn.com/1000/prog_index.m3u8",
+  },
+  {
+    id: "cna",
+    name: "Channel NewsAsia",
+    group: "News",
+    country: "INT",
+    logo: `${LOGO}/singapore/channel-newsasia-sg.png`,
+    url: "https://d2e1asnsl7br7b.cloudfront.net/Prod/CNA/CNAi_ABR/index.m3u8",
+  },
+  {
+    id: "abc-news-au",
+    name: "ABC News (Australia)",
+    group: "News",
+    country: "INT",
+    logo: `${LOGO}/australia/abc-news-au.png`,
+    url: "https://abc-iview-mediapackagestreams-2.akamaized.net/out/v1/6e1cc6d25ec0480ea099a5399d73bc4b/index.m3u8",
+  },
+  {
+    id: "bloomberg-originals",
+    name: "Bloomberg Originals",
+    group: "News",
+    country: "US",
+    logo: `${LOGO}/united-states/bloomberg-tv-us.png`,
+    url: "https://bloomberg.com/media-manifest/streams/qt.m3u8",
+  },
+  {
+    id: "gb-news",
+    name: "GB News",
+    group: "News",
+    country: "UK",
+    logo: `${LOGO}/united-kingdom/gb-news-uk.png`,
+    url: "https://simulcast-p.ext.gbnews.uk/live/bpk-tv/GB_HLS_PDT/output/index.m3u8",
+  },
+
+  // ── Documentary / Science ──────────────────────────────────────────────
+  {
+    id: "nasa-tv",
+    name: "NASA TV",
+    group: "History",
+    country: "US",
+    logo: `${LOGO}/united-states/nasa-tv-us.png`,
+    url: "https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8",
+  },
+  {
+    id: "docurama",
+    name: "Docurama",
+    group: "History",
+    country: "US",
+    logo: `${LOGO}/united-states/docurama-us.png`,
+    url: "https://docurama-samsungus.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "journy",
+    name: "Journy",
+    group: "History",
+    country: "US",
+    logo: `${LOGO}/united-states/journy-us.png`,
+    url: "https://journy-samsungus.amagi.tv/playlist.m3u8",
+  },
+
+  // ── Entertainment / Lifestyle · Well-known ─────────────────────────────
+  {
+    id: "fashiontv",
+    name: "Fashion TV",
+    group: "Lifestyle",
+    country: "INT",
+    logo: `${LOGO}/france/fashion-tv-fr.png`,
+    url: "https://fashiontv-fashiontv-1-eu.rakuten.wurl.tv/playlist.m3u8",
+  },
+  {
+    id: "cbc-gem",
+    name: "Baby Shark TV",
+    group: "Kids",
+    country: "US",
+    logo: `${LOGO}/united-states/pinkfong-us.png`,
+    url: "https://pinkfong-babyshark-1-us.samsung.wurl.tv/playlist.m3u8",
+  },
+  {
+    id: "gusto-tv",
+    name: "Gusto TV",
+    group: "Lifestyle",
+    country: "US",
+    logo: `${LOGO}/canada/gusto-tv-ca.png`,
+    url: "https://gusto-amg01180-gusto-gustotv-samsungus-cwuxi.amagi.tv/playlist.m3u8",
+  },
+  {
+    id: "trace-sport",
+    name: "Trace Sport Stars",
+    group: "Sports",
+    country: "INT",
+    logo: `${LOGO}/france/trace-sport-stars-fr.png`,
+    url: "https://lightning-tracesportstars-samsungau.amagi.tv/playlist.m3u8",
   },
 ];
 
