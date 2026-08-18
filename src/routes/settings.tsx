@@ -386,8 +386,6 @@ function SettingsPage() {
   const set = (patch: Partial<Settings>) => setSaved(patch);
   const setInt = (patch: Partial<Settings["integrations"]>) =>
     setSaved({ integrations: { ...s.integrations, ...patch } });
-  const setPlayer = (patch: Partial<Settings["player"]>) =>
-    setSaved({ player: { ...s.player, ...patch } });
   const ints = s.integrations;
 
   return (
@@ -593,69 +591,9 @@ function SettingsPage() {
           </Row>
         </Section>
 
-        <Section
-          title="Player customization"
-          desc="Saved local preferences for the native VidPhantom HLS player."
-        >
-          <Row label="Autoplay" hint="Start playback as soon as a stream connects.">
-            <Toggle value={s.player.autoplay} onChange={(v) => setPlayer({ autoplay: v })} />
-          </Row>
-          <Row label="Episode auto-next" hint="Automatically continue TV shows after an episode ends.">
-            <Toggle value={s.player.autoNext} onChange={(v) => setPlayer({ autoNext: v })} />
-          </Row>
-          <Row label="Auto source failover" hint="If a stream errors or freezes, jump to the next alias source.">
-            <Toggle value={s.player.autoFailover !== false} onChange={(v) => setPlayer({ autoFailover: v })} />
-          </Row>
-          <Row label="Prefer English subtitles" hint="Auto-enable the English 1x2.Space subtitle track when present.">
-            <Toggle value={s.player.preferEnglishSubs !== false} onChange={(v) => setPlayer({ preferEnglishSubs: v })} />
-          </Row>
-          <Row label="Default speed" hint="Initial playback speed for every title.">
-            <Select
-              value={String(s.player.defaultSpeed ?? 1)}
-              onChange={(v) => setPlayer({ defaultSpeed: Number(v) })}
-              options={[
-                { value: "0.5", label: "0.5x" },
-                { value: "0.75", label: "0.75x" },
-                { value: "1", label: "1x" },
-                { value: "1.25", label: "1.25x" },
-                { value: "1.5", label: "1.5x" },
-                { value: "2", label: "2x" },
-              ]}
-            />
-          </Row>
-          <Row label="Player fit" hint="How video fills the screen by default.">
-            <Select
-              value={s.player.fillMode ?? "contain"}
-              onChange={(v) => setPlayer({ fillMode: v as Settings["player"]["fillMode"] })}
-              options={[
-                { value: "contain", label: "Fit" },
-                { value: "cover", label: "Fill" },
-                { value: "stretch", label: "Stretch" },
-              ]}
-            />
-          </Row>
-          <Row label="Controls timeout" hint="Seconds before player chrome disappears.">
-            <Slider value={s.player.controlsTimeout ?? 3} min={1} max={8} suffix="s" onChange={(v) => setPlayer({ controlsTimeout: v })} />
-          </Row>
-          <Row label="Buffer target" hint="0s keeps startup instant; increase only on weak connections.">
-            <Slider value={s.player.bufferTarget ?? 0} min={0} max={30} suffix="s" onChange={(v) => setPlayer({ bufferTarget: v })} />
-          </Row>
-          <Row label="Brightness">
-            <Slider value={s.player.brightness ?? 100} min={50} max={150} suffix="%" onChange={(v) => setPlayer({ brightness: v })} />
-          </Row>
-          <Row label="Contrast">
-            <Slider value={s.player.contrast ?? 100} min={50} max={150} suffix="%" onChange={(v) => setPlayer({ contrast: v })} />
-          </Row>
-          <Row label="Saturation">
-            <Slider value={s.player.saturation ?? 100} min={0} max={180} suffix="%" onChange={(v) => setPlayer({ saturation: v })} />
-          </Row>
-          <Row label="Player accent" hint="Progress bar, loaders and control highlights.">
-            <input
-              type="color"
-              value={s.player.playerAccent ?? "#ffffff"}
-              onChange={(e) => setPlayer({ playerAccent: e.target.value })}
-              className="h-10 w-16 cursor-pointer rounded-lg border border-glass-border bg-transparent color-picker"
-            />
+        <Section title="Playback" desc="How Sleepy picks a streaming server.">
+          <Row label="Remember server choice" hint="Skip the server picker and reuse your last server automatically.">
+            <Toggle value={s.rememberServerChoice} onChange={(v) => set({ rememberServerChoice: v })} />
           </Row>
         </Section>
 

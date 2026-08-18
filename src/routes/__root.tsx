@@ -19,7 +19,6 @@ import { AnimatedBackground } from "../components/AnimatedBackground";
 import { BootLoader } from "../components/BootLoader";
 import { BottomNav } from "../components/BottomNav";
 import { LogoWord } from "../components/Logo";
-import { SharePopup } from "../components/SharePopup";
 import { useSettings } from "../lib/store";
 
 function NotFoundComponent() {
@@ -219,7 +218,6 @@ function AppShell() {
       <Outlet />
       <BottomNav />
       <SiteFooter pathname={pathname} />
-      <SharePopup />
     </div>
   );
 }
