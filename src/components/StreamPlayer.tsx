@@ -52,9 +52,9 @@ export function StreamPlayer({ media, season, episode, server, onClose }: Props)
   useEffect(() => {
     const onMessage = (ev: MessageEvent) => {
       try {
-        const host = new URL(ev.origin).hostname;
-        if (!/(cinesrc\.st|vidup\.to)$/.test(host)) return;
+        if (ev.origin === window.location.origin) return;
         const raw = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
+        if (!raw || typeof raw !== "object") return;
         const d = raw?.data ?? raw;
         const time = Number(d?.currentTime ?? d?.progress ?? d?.timestamp);
         const duration = Number(d?.duration ?? 0);
@@ -93,9 +93,12 @@ export function StreamPlayer({ media, season, episode, server, onClose }: Props)
         <button
           onClick={onClose}
           aria-label="Back"
-          className="absolute left-0 top-1/2 z-10 -translate-y-1/2 rounded-r-xl border border-l-0 border-white/10 bg-black/60 py-4 pl-1 pr-1.5 text-white backdrop-blur-md transition hover:bg-black/85"
+          className="group absolute left-0 top-1/2 z-10 flex -translate-y-1/2 items-center overflow-hidden rounded-r-2xl border border-l-0 border-white/15 bg-black/45 py-5 pl-1 pr-2 text-white/80 shadow-lg backdrop-blur-md transition-all duration-300 hover:border-white/25 hover:bg-black/75 hover:pr-3.5 hover:text-white"
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:-translate-x-0.5" />
+          <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold tracking-wide opacity-0 transition-all duration-300 group-hover:max-w-[64px] group-hover:opacity-100">
+            Back
+          </span>
         </button>
       </div>
     </div>
