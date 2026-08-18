@@ -31,12 +31,12 @@ function buildEdge(m: Media, season?: number, episode?: number, febbox?: string)
   return `${base}?${p.toString()}`;
 }
 
-/** RIZE — vidcore.io embed (best stream quality). */
+/** RIZE — vidup.to embed (best stream quality). */
 function buildRize(m: Media, season?: number, episode?: number): string {
   const isShow = m.type !== "movie";
   const base = isShow
-    ? `https://vidcore.io/embed/tv/${m.id}/${season ?? 1}/${episode ?? 1}`
-    : `https://vidcore.io/embed/movie/${m.id}`;
+    ? `https://vidup.to/embed/tv/${m.id}/${season ?? 1}/${episode ?? 1}`
+    : `https://vidup.to/embed/movie/${m.id}`;
   const p = new URLSearchParams({
     autoPlay: "true",
     nextEpisode: "true",
@@ -59,7 +59,7 @@ export const EMBED_SERVERS: EmbedServer[] = [
   {
     id: "rize",
     name: "Rize",
-    host: "vidcore.io",
+    host: "vidup.to",
     tagline: "Better quality",
     supportsFebbox: false,
     build: buildRize,
