@@ -591,54 +591,35 @@ function SettingsPage() {
           </Row>
         </Section>
 
-        <Section
-          title="Integrations"
-          desc="Paste an API key to connect — a green check confirms it's saved."
-        >
-          <div className="grid gap-3 md:grid-cols-2">
-            <IntegrationCard
-              name="Real-Debrid"
-              desc="Premium high-speed links from hosters."
-              placeholder="Real-Debrid API token"
-              value={ints.realDebrid}
-              onChange={(v) => setInt({ realDebrid: v })}
+        <Section title="Layout & display" desc="Tune how cards and grids look across Sleepy.">
+          <Row label="Poster shape" hint="Corner style used for every poster and card.">
+            <Segmented
+              value={s.posterStyle}
+              onChange={(v) => set({ posterStyle: v as Settings["posterStyle"] })}
+              options={[
+                { value: "rounded", label: "Rounded" },
+                { value: "square", label: "Square" },
+                { value: "circle", label: "Circle" },
+              ]}
             />
-            <IntegrationCard
-              name="AllDebrid"
-              desc="Alternative debrid network."
-              placeholder="AllDebrid API key"
-              value={ints.allDebrid}
-              onChange={(v) => setInt({ allDebrid: v })}
+          </Row>
+          <Row
+            label="Interface density"
+            hint="Compact fits more titles per row; cinematic makes them larger."
+          >
+            <Segmented
+              value={s.homepageDensity}
+              onChange={(v) => set({ homepageDensity: v as Settings["homepageDensity"] })}
+              options={[
+                { value: "compact", label: "Compact" },
+                { value: "comfy", label: "Comfy" },
+                { value: "cinematic", label: "Cinematic" },
+              ]}
             />
-            <IntegrationCard
-              name="Premiumize"
-              desc="Cloud download + streaming."
-              placeholder="Premiumize API key"
-              value={ints.premiumize}
-              onChange={(v) => setInt({ premiumize: v })}
-            />
-            <IntegrationCard
-              name="Trakt.tv"
-              desc="Sync your watch history and lists."
-              placeholder="Trakt OAuth token"
-              value={ints.traktToken}
-              onChange={(v) => setInt({ traktToken: v })}
-            />
-            <IntegrationCard
-              name="Simkl"
-              desc="Track anime, TV and movies."
-              placeholder="Simkl OAuth token"
-              value={ints.simklToken}
-              onChange={(v) => setInt({ simklToken: v })}
-            />
-            <IntegrationCard
-              name="OpenSubtitles"
-              desc="Multi-language subtitles."
-              placeholder="OpenSubtitles API key"
-              value={ints.openSubtitles}
-              onChange={(v) => setInt({ openSubtitles: v })}
-            />
-          </div>
+          </Row>
+          <Row label="Titles under posters" hint="Show the title and year beneath each poster.">
+            <Toggle value={s.showLogo} onChange={(v) => set({ showLogo: v })} />
+          </Row>
         </Section>
 
         <Section title="Catalog">
