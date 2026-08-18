@@ -35,8 +35,8 @@ function buildEdge(m: Media, season?: number, episode?: number, febbox?: string)
 function buildRize(m: Media, season?: number, episode?: number): string {
   const isShow = m.type !== "movie";
   const base = isShow
-    ? `https://vidup.to/embed/tv/${m.id}/${season ?? 1}/${episode ?? 1}`
-    : `https://vidup.to/embed/movie/${m.id}`;
+    ? `https://vidup.to/tv/${m.id}/${season ?? 1}/${episode ?? 1}`
+    : `https://vidup.to/movie/${m.id}`;
   const p = new URLSearchParams({
     autoPlay: "true",
     nextEpisode: "true",
