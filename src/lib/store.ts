@@ -85,8 +85,6 @@ export interface Settings {
   autoDownload: boolean;
   /** Has user dismissed the first-visit uBlock recommendation? */
   ublockNoticeSeen: boolean;
-  /** Remember the last chosen embed server and skip the picker next time. */
-  rememberServerChoice: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -145,7 +143,6 @@ export const DEFAULT_SETTINGS: Settings = {
   showLogo: true,
   autoDownload: false,
   ublockNoticeSeen: false,
-  rememberServerChoice: false,
 };
 
 const KEY = "sleepy.settings.v2";

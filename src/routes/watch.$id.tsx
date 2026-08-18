@@ -5,9 +5,6 @@ import type { Media, MediaKind } from "@/lib/catalog";
 import { StreamPlayer } from "@/components/StreamPlayer";
 import { loadStashedMedia } from "@/lib/watch-stash";
 import { fetchMediaById } from "@/lib/tmdb";
-import { ServerPicker } from "@/components/ServerPicker";
-import { getLastServer, setLastServer, type ServerId } from "@/lib/embed-servers";
-import { getSettings } from "@/lib/store";
 
 export const Route = createFileRoute("/watch/$id")({
   head: () => ({ meta: [{ title: "Now Playing — Sleepy" }] }),
@@ -27,14 +24,9 @@ function WatchPage() {
   const [media, setMedia] = useState<Media | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [server, setServer] = useState<ServerId | null>(null);
-  const [lastServer, setLast] = useState<ServerId | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    const last = getLastServer();
-    setLast(last);
-    if (last && getSettings().rememberServerChoice) setServer(last);
   }, []);
 
   useEffect(() => {
@@ -60,11 +52,6 @@ function WatchPage() {
       return;
     }
     navigate({ to: "/", replace: true });
-  };
-
-  const pick = (id: ServerId) => {
-    setLastServer(id);
-    setServer(id);
   };
 
   if (!media) {
@@ -96,9 +83,5 @@ function WatchPage() {
     );
   }
 
-  if (!server) {
-    return <ServerPicker lastServer={lastServer} onPick={pick} onClose={onClose} />;
-  }
-
-  return <StreamPlayer media={media} season={s} episode={e} server={server} onClose={onClose} />;
+  return <StreamPlayer media={media} season={s} episode={e} server="edge" onClose={onClose} />;
 }
