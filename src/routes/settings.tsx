@@ -591,12 +591,6 @@ function SettingsPage() {
           </Row>
         </Section>
 
-        <Section title="Playback" desc="How Sleepy picks a streaming server.">
-          <Row label="Remember server choice" hint="Skip the server picker and reuse your last server automatically.">
-            <Toggle value={s.rememberServerChoice} onChange={(v) => set({ rememberServerChoice: v })} />
-          </Row>
-        </Section>
-
         <Section
           title="Integrations"
           desc="Paste an API key to connect — a green check confirms it's saved."
