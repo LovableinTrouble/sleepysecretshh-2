@@ -4,23 +4,25 @@ import { ChevronLeft } from "lucide-react";
 
 import type { Media } from "@/lib/catalog";
 import { getLocalProgressFor, saveProgressLocal, syncProgressUp } from "@/lib/progress";
+import { serverById, type ServerId } from "@/lib/embed-servers";
+import { getSettings } from "@/lib/store";
 
 interface Props {
   media: Media;
   season?: number;
   episode?: number;
+  server: ServerId;
   onClose: () => void;
 }
 
-const EMBED_BASE = "https://vidgod.site";
-
-export function StreamPlayer({ media, season, episode, onClose }: Props) {
+export function StreamPlayer({ media, season, episode, server, onClose }: Props) {
   const src = useMemo(() => {
-    const isShow = media.type !== "movie";
-    return isShow
-      ? `${EMBED_BASE}/tv/${media.id}/${season ?? 1}/${episode ?? 1}`
-      : `${EMBED_BASE}/movie/${media.id}`;
-  }, [media.id, media.type, season, episode]);
+    const s = serverById(server);
+    const febbox = s.supportsFebbox
+      ? getSettings().integrations.febboxCookie?.trim() || undefined
+      : undefined;
+    return s.build(media, season, episode, febbox);
+  }, [media, season, episode, server]);
 
   // Lock page scroll while the player is open.
   useEffect(() => {
@@ -46,6 +48,25 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // postMessage progress from either embed.
+  useEffect(() => {
+    const onMessage = (ev: MessageEvent) => {
+      try {
+        const host = new URL(ev.origin).hostname;
+        if (!/(cinesrc\.st|vidup\.to)$/.test(host)) return;
+        const raw = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
+        const d = raw?.data ?? raw;
+        const time = Number(d?.currentTime ?? d?.progress ?? d?.timestamp);
+        const duration = Number(d?.duration ?? 0);
+        if (Number.isFinite(time) && time > 0) {
+          recordProgress(media, season, episode, time, duration, duration > 0 && time / duration > 0.95);
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [media, season, episode]);
+
   // Keep the last known position so Continue Watching still works.
   useEffect(() => {
     const saved = getLocalProgressFor(media.id, season ?? null, episode ?? null);
@@ -69,14 +90,13 @@ export function StreamPlayer({ media, season, episode, onClose }: Props) {
           sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
         />
 
-        <div className="pointer-events-none absolute left-0 right-0 top-0 flex items-center justify-between gap-3 p-3 sm:p-4">
-          <button
-            onClick={onClose}
-            className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3.5 py-2 text-xs font-semibold text-white backdrop-blur-md transition hover:bg-black/80"
-          >
-            <ChevronLeft className="h-4 w-4" /> Back
-          </button>
-        </div>
+        <button
+          onClick={onClose}
+          aria-label="Back"
+          className="absolute left-0 top-1/2 z-10 -translate-y-1/2 rounded-r-xl border border-l-0 border-white/10 bg-black/60 py-4 pl-1 pr-1.5 text-white backdrop-blur-md transition hover:bg-black/85"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
       </div>
     </div>
   );
