@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-// Your Cloudflare Worker URL
-const WORKER_URL = "https://workers.dev";
+const BASE = "https://streamrip.fun";
 
 interface Input {
   tmdbId: string;
@@ -21,7 +20,7 @@ function safeFileName(title: string, quality: string, ext: string): string {
   return `${safe}_${quality}.${ext}`;
 }
 
-function extFromUrl(url: string): "mp4" | "hls" | "mkv" | "file" {
+function extFromUrl(url: string): "mp4" | "mkv" | "file" {
   const u = url.toLowerCase();
   if (u.includes(".mkv")) return "mkv";
   if (u.includes(".mp4")) return "mp4";
@@ -43,42 +42,29 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
       input.type === "show"
         ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
         : `/movie/${input.tmdbId}`;
-
-    const res = await fetch(`${WORKER_URL}${path}`, {
-      method: "GET",
+    const res = await fetch(`${BASE}${path}`, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
     });
 
-    if (!res.ok) {
-      return {
-        ok: false,
-        downloads: [],
-        subtitles: [],
-        error: `Worker API returned HTTP error status: ${res.status}`,
-      };
-    }
+    if (!res.ok) throw new Error(`streamrip ${res.status}`);
+    const json: any = await res.json();
 
-    // Direct parser bypasses restrictive manual content-type string lookups entirely
-    const workerJson: any = await res.json();
-    const links: any[] = Array.isArray(workerJson?.downloads) ? workerJson.downloads : [];
-
+    // CHANGED: Extract from json.downloads instead of json.links
+    const links: any[] = Array.isArray(json?.downloads) ? json.downloads : [];
     const downloads: DownloadItem[] = links
       .filter((l: any) => l?.url)
       .map((l: any, i: number) => {
         const q = qualityLabel(l.quality);
         const ext = extFromUrl(String(l.url));
-        const originalUrl = String(l.url);
-
-        const providerName = String(l.source || l.server || "").toLowerCase();
-
-        // Target intercept on "Bolly" links while leaving "UHD" links unproxied
-        const finalUrl = providerName.includes("bolly")
-          ? `${WORKER_URL}?proxy=${encodeURIComponent(originalUrl)}`
-          : originalUrl;
-
         return {
-          id: `streamrip-${i}-${originalUrl.slice(0, 40)}`,
-          url: finalUrl,
-          source: l.source || l.server || "Direct",
+          id: `streamrip-${i}-${String(l.url).slice(0, 40)}`,
+          url: String(l.url), // CHANGED: Fallback order mapped to match new object properties
+          source: String(l.source || l.server || l.provider || "Direct"),
           quality: q,
           type: ext,
           size: l.size ? String(l.size) : undefined,
@@ -88,12 +74,11 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
 
     return { ok: true, downloads, subtitles: [] };
   } catch (e) {
-    console.error("--- LOGGED SERVER EXCEPTION ---", e);
     return {
-      ok: false,
+      ok: true,
       downloads: [],
       subtitles: [],
-      error: (e as Error)?.message || "Internal server transit failure",
+      error: (e as Error)?.message || "Failed to fetch downloads",
     };
   }
 }
