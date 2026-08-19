@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-// Points to your worker so it handles metadata bypass and targeted routing
-const BASE = "https://round-bread-8638.slinkingalt.workers.dev/";
+const WORKER_URL = "https://workers.dev";
 
 interface Input {
   tmdbId: string;
@@ -39,26 +38,24 @@ function qualityLabel(q: any): string {
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   try {
-    const path =
+    const subPath =
       input.type === "show"
         ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
         : `/movie/${input.tmdbId}`;
 
-    // Fix: Standard timeout implementation robust across Node/Nitro server runtimes
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    // 1. Fetch metadata JSON through the Cloudflare Worker to avoid HTML blocks
-    const res = await fetch(`${BASE}${path}`, {
+    // Call the worker with a verified absolute route
+    const res = await fetch(`${WORKER_URL}${subPath}`, {
       method: "GET",
       signal: controller.signal,
     });
 
-    // Clear timeout loop upon resolution
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      throw new Error(`Worker metadata failure status: ${res.status}`);
+      throw new Error(`Upstream connection dropped with status code: ${res.status}`);
     }
 
     const json: any = await res.json();
@@ -70,13 +67,11 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
         const q = qualityLabel(l.quality);
         const ext = extFromUrl(String(l.url));
         const originalUrl = String(l.url);
-
-        // Identify provider from server or source payload variables
         const providerName = String(l.source || l.server || "").toLowerCase();
 
-        // 2. TARGETED ROUTING: Only append proxy parameter to flagged provider paths
+        // ROUTING CONDITION: Exclusively proxy Bolly, let Google/UHD remain native direct tracks
         const finalUrl = providerName.includes("bolly")
-          ? `${BASE}?proxy=${encodeURIComponent(originalUrl)}`
+          ? `${WORKER_URL}?proxy=${encodeURIComponent(originalUrl)}`
           : originalUrl;
 
         return {
@@ -84,7 +79,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
           url: finalUrl,
           source: String(l.source || l.server || "Direct"),
           quality: q,
-          type: ext, // Matches "mp4" | "hls" | "mkv" | "file" template definitions
+          type: ext,
           size: l.size ? String(l.size) : undefined,
           fileName: safeFileName(input.title, q, ext === "file" ? "mp4" : ext),
         };
@@ -92,11 +87,9 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
 
     return { ok: true, downloads, subtitles: [] };
   } catch (e) {
-    // Crucial: Log error trace inside your local Node/Vite server terminal so you see it
-    console.error("CRITICAL EXCEPTION RUNNING RESOLVE_DOWNLOAD_PROVIDERS:", e);
-
+    console.error("METADATA RESOLUTION EXCEPTION LOGGED INSIDE SERVER:", e);
     return {
-      ok: false, // Changed to false to signify proper failure status
+      ok: false,
       downloads: [],
       subtitles: [],
       error: (e as Error)?.message || "Failed to process downloads",
