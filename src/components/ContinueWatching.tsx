@@ -52,7 +52,7 @@ export function ContinueWatchingRow() {
           return (
             <div
               key={`${it.mediaId}-${it.mediaType}`}
-              className="group relative w-64 shrink-0 md:w-72"
+              className="group relative w-72 shrink-0 md:w-80"
             >
               <Link
                 to="/watch/$id"
