@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-const WORKER_URL = "https://workers.dev";
+const WORKER_URL = "https://round-bread-8638.slinkingalt.workers.dev/";
 
 interface Input {
   tmdbId: string;
