@@ -16,6 +16,8 @@ function PersonPage() {
   const [person, setPerson] = useState<PersonDetails | null>(null);
   const [credits, setCredits] = useState<Media[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [bioOpen, setBioOpen] = useState(false);
+  const [tab, setTab] = useState<"movie" | "tv">("movie");
 
   useEffect(() => {
     let dead = false;
@@ -46,7 +48,14 @@ function PersonPage() {
   };
 
   const genres = [...new Set(credits.flatMap((m) => m.genres))].slice(0, 10);
-  const studios = [...new Set(credits.flatMap((m) => m.studios ?? []))].slice(0, 10);
+  const chips: string[] = [
+    person?.birthday ? `Born ${person.birthday}` : "",
+    person?.deathday ? `Died ${person.deathday}` : "",
+    person?.placeOfBirth ?? "",
+    person?.knownFor ?? "",
+    genres[0] ?? "",
+  ].filter(Boolean) as string[];
+  const shown = credits.filter((m) => m.type === tab);
 
   if (error) {
     return (

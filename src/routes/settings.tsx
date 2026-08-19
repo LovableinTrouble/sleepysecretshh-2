@@ -429,6 +429,29 @@ function SettingsPage() {
           />
         </Section>
 
+        {/* Continue Watching maintenance */}
+        <Section title="Continue Watching" desc="Clear everything you've partially watched.">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold">Clear Continue Watching</div>
+              <div className="text-[11px] text-muted-foreground">
+                Removes all saved playback positions. This can't be undone.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                clearAllProgress();
+                setCwCleared(true);
+                window.setTimeout(() => setCwCleared(false), 2000);
+              }}
+              className="shrink-0 rounded-full border border-rose-400/25 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-300 transition hover:bg-rose-500/20"
+            >
+              {cwCleared ? "Cleared" : "Clear all"}
+            </button>
+          </div>
+        </Section>
+
         {/* p-stream region — picks the closest CDN/proxy edge for subtitles. */}
         <Section
           title="Streaming region"
