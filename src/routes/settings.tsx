@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 import { DEFAULT_SETTINGS, useSettings, type Settings } from "@/lib/store";
 import { THEMES } from "@/lib/themes";
 import { REGION_OPTIONS, detectRegion, type Region } from "@/lib/detectRegion";
+import { clearAllProgress } from "@/lib/progress";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -383,6 +384,7 @@ function SettingsPage() {
   // Previously toggles updated a local draft and looked "broken" until the user
   // clicked Save; this applies on the spot.
   const [s, setSaved] = useSettings();
+  const [cwCleared, setCwCleared] = useState(false);
   const set = (patch: Partial<Settings>) => setSaved(patch);
   const setInt = (patch: Partial<Settings["integrations"]>) =>
     setSaved({ integrations: { ...s.integrations, ...patch } });

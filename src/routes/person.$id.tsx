@@ -165,46 +165,16 @@ function PersonPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {credits.map((m) => (
+            {shown.map((m) => (
               <MediaCard key={`${m.type}-${m.id}`} media={m} fill />
             ))}
-            {credits.length === 0 && (
+            {shown.length === 0 && credits.length === 0 && (
               <div className="col-span-full text-center text-sm text-muted-foreground">
                 Loading credits…
               </div>
             )}
           </div>
         </section>
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="text-2xl font-black">{value}</div>
-      <div className="mt-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
-function Info({ title, items }: { title: string; items: string[] }) {
-  if (!items.length) return null;
-  return (
-    <div>
-      <h3 className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-        {title}
-      </h3>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {items.map((item) => (
-          <span
-            key={item}
-            className="rounded-full bg-white/5 px-3 py-1 text-xs ring-1 ring-white/10"
-          >
-            {item}
-          </span>
-        ))}
       </div>
     </div>
   );
