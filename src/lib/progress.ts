@@ -110,6 +110,11 @@ export async function removeProgress(
   removeLocalProgress(mediaId, season, episode);
 }
 
+/** Wipe the entire Continue Watching list. */
+export function clearAllProgress() {
+  writeLocal([]);
+}
+
 export interface ContinueItem {
   mediaId: number;
   mediaType: string;

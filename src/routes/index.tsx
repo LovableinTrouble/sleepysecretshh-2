@@ -96,7 +96,7 @@ function Home() {
       {featured.length ? (
         <Hero items={featured} onPlay={play} onMore={openDetails} />
       ) : (
-        <div className="h-[80vh] min-h-[560px] w-full animate-shimmer" />
+        <div className="h-[100svh] min-h-[620px] w-full animate-shimmer" />
       )}
 
       <main className="relative -mt-20 animate-soft-rise space-y-12">

@@ -209,8 +209,8 @@ function MediaPage() {
           <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/60 to-transparent" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[48vh] max-w-7xl flex-col justify-end px-6 pb-2 pt-28 md:px-10 md:pb-3 md:pt-24">
-          <div className="max-w-3xl space-y-6">
+        <div className="relative mx-auto flex min-h-[62vh] max-w-7xl flex-col justify-end px-6 pb-4 pt-28 md:px-10 md:pb-6 md:pt-32">
+          <div className="max-w-3xl space-y-5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold uppercase tracking-[0.18em] text-foreground/70">
               {media.genres.slice(0, 3).map((g, i) => (
                 <span key={g} className="inline-flex items-center gap-3">
@@ -220,7 +220,7 @@ function MediaPage() {
               ))}
             </div>
 
-            <h1 className="text-balance text-5xl font-black uppercase leading-[0.92] tracking-tight md:text-7xl lg:text-8xl">
+            <h1 className="text-balance text-4xl font-black leading-[1.02] tracking-tight md:text-6xl">
               {media.title}
             </h1>
 
@@ -228,16 +228,16 @@ function MediaPage() {
               <p className="max-w-2xl text-base italic text-muted-foreground">"{extra.tagline}"</p>
             )}
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold text-foreground/75">
-              <span>{media.year}</span>
+            <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground/80">
+              <span className="rounded-lg bg-white/[0.07] px-2.5 py-1 ring-1 ring-white/10">
+                {media.year}
+              </span>
               {media.runtime && (
-                <>
-                  <span className="h-1 w-1 rounded-full bg-foreground/30" />
-                  <span>{media.runtime}</span>
-                </>
+                <span className="rounded-lg bg-white/[0.07] px-2.5 py-1 ring-1 ring-white/10">
+                  {media.runtime}
+                </span>
               )}
-              <span className="h-1 w-1 rounded-full bg-foreground/30" />
-              <span className="inline-flex items-center gap-1.5 text-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 py-1 text-foreground ring-1 ring-white/10">
                 <svg
                   viewBox="0 0 16 16"
                   className="h-3.5 w-3.5 text-primary"
@@ -253,11 +253,15 @@ function MediaPage() {
                 {media.rating.toFixed(1)}
               </span>
               {extra?.contentRating && (
-                <span className="rounded border border-white/25 px-1.5 py-0.5 text-[10px] uppercase tracking-wider">
+                <span className="rounded-lg border border-white/20 px-2 py-1 text-[11px] uppercase tracking-wider">
                   {extra.contentRating}
                 </span>
               )}
-              {extra?.status && extra.status !== "Released" && <span>{extra.status}</span>}
+              {extra?.status && extra.status !== "Released" && (
+                <span className="rounded-lg bg-white/[0.07] px-2.5 py-1 ring-1 ring-white/10">
+                  {extra.status}
+                </span>
+              )}
             </div>
 
             <p className="max-w-2xl text-[15px] leading-relaxed text-foreground/80 md:text-base">
@@ -298,7 +302,7 @@ function MediaPage() {
                 params={{ id: String(media.id) }}
                 search={{ t: media.type, s: isSeries ? season : undefined, e: isSeries ? episode : undefined, party: undefined }}
                 onClick={() => stashWatchMedia(media)}
-                className="group/btn relative z-10 mr-1 inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-primary px-6 text-sm font-bold text-primary-foreground shadow-[inset_0_0_18px_color-mix(in_oklab,var(--primary-foreground)_18%,transparent),0_6px_18px_-8px_color-mix(in_oklab,var(--primary)_65%,transparent)] ring-1 ring-primary/35 transition-all duration-200 hover:bg-primary/90 hover:shadow-[inset_0_0_22px_color-mix(in_oklab,var(--primary-foreground)_24%,transparent),0_8px_22px_-10px_color-mix(in_oklab,var(--primary)_75%,transparent)]"
+                className="group/btn relative z-10 mr-1 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full bg-foreground px-7 text-[15px] font-bold text-background shadow-[0_10px_30px_-12px_rgba(0,0,0,0.7)] transition-all duration-200 hover:scale-[1.03] hover:bg-foreground/90"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -314,7 +318,7 @@ function MediaPage() {
                 onClick={() => setWl(toggleWatchlist(media.id))}
                 aria-label={inWl ? "Remove from watchlist" : "Add to watchlist"}
                 title={inWl ? "In watchlist" : "Add to watchlist"}
-                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border backdrop-blur transition-all duration-200 hover:scale-105 ${
+                className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border backdrop-blur transition-all duration-200 hover:scale-105 ${
                   inWl
                     ? "border-primary/40 bg-primary/15 text-foreground"
                     : "border-white/10 bg-white/[0.06] text-foreground/85 hover:border-white/25 hover:bg-white/[0.12] hover:text-foreground"
@@ -380,7 +384,7 @@ function MediaPage() {
                   rel="noopener noreferrer"
                   aria-label="IMDb"
                   title="IMDb"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-[10px] font-black tracking-wider text-yellow-300 backdrop-blur transition-all duration-200 hover:border-yellow-300/40 hover:bg-yellow-300/15"
+                  className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-[10px] font-black tracking-wider text-yellow-300 backdrop-blur transition-all duration-200 hover:border-yellow-300/40 hover:bg-yellow-300/15"
                 >
                   IMDb
                 </a>

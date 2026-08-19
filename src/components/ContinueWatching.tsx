@@ -52,7 +52,7 @@ export function ContinueWatchingRow() {
           return (
             <div
               key={`${it.mediaId}-${it.mediaType}`}
-              className="group relative w-64 shrink-0 md:w-72"
+              className="group relative w-72 shrink-0 md:w-80"
             >
               <Link
                 to="/watch/$id"
@@ -63,7 +63,7 @@ export function ContinueWatchingRow() {
                   e: it.episode ?? undefined,
                   party: undefined,
                 }}
-                className="block overflow-hidden rounded-2xl ring-1 ring-white/10 transition-[transform,box-shadow,border-color] duration-300 ease-out hover:ring-white/20 hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)]"
+                className="block overflow-hidden rounded-3xl ring-1 ring-white/10 transition-all duration-500 ease-out will-change-transform hover:-translate-y-1.5 hover:ring-primary/30 hover:shadow-[0_24px_60px_-24px_color-mix(in_oklab,var(--primary)_45%,transparent)]"
               >
                 <div className="relative aspect-video bg-black">
                   {tmdbBackdrop(it.backdrop, it.poster) && (
@@ -71,12 +71,12 @@ export function ContinueWatchingRow() {
                       src={tmdbBackdrop(it.backdrop, it.poster)}
                       alt={it.title}
                       loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.015]"
+                      className="h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.06]"
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent transition-opacity duration-300 group-hover:from-black/95" />
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-90 opacity-0 transition-all duration-300 ease-out group-hover:scale-100 group-hover:opacity-100">
-                    <div className="grid h-11 w-11 place-items-center rounded-full bg-white/95 text-black shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent transition-opacity duration-500 group-hover:from-black/95" />
+                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-75 opacity-0 blur-[2px] transition-all duration-500 ease-out group-hover:scale-100 group-hover:opacity-100 group-hover:blur-0">
+                    <div className="grid h-12 w-12 place-items-center rounded-full bg-foreground/95 text-background shadow-2xl ring-1 ring-white/40">
                       <Play className="h-5 w-5 fill-current" />
                     </div>
                   </div>
