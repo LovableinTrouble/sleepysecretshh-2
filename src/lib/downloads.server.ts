@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-const WORKER_URL = "https://round-bread-8638.slinkingalt.workers.dev/";
+const WORKER_URL = "https://round-bread-8638.slinkingalt.workers.dev";
 
 interface Input {
   tmdbId: string;
@@ -38,16 +38,22 @@ function qualityLabel(q: any): string {
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   try {
-    const subPath =
-      input.type === "show"
-        ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
-        : `/movie/${input.tmdbId}`;
+    const subPath = input.type === "show" ? `/tv/${input.tmdbId}` : `/movie/${input.tmdbId}`;
+
+    // Use URLSearchParams to cleanly build query strings so Node/Nitro can never corrupt paths
+    const params = new URLSearchParams();
+    params.set("path", subPath); // Lock target route inside a safe string container
+
+    if (input.type === "show") {
+      params.set("season", String(input.season ?? 1));
+      params.set("episode", String(input.episode ?? 1));
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    // Call the worker with a verified absolute route
-    const res = await fetch(`${WORKER_URL}${subPath}`, {
+    // Call the worker root with safe query parameter parsing
+    const res = await fetch(`${WORKER_URL}?${params.toString()}`, {
       method: "GET",
       signal: controller.signal,
     });
@@ -69,7 +75,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
         const originalUrl = String(l.url);
         const providerName = String(l.source || l.server || "").toLowerCase();
 
-        // ROUTING CONDITION: Exclusively proxy Bolly, let Google/UHD remain native direct tracks
+        // Target intercept on "Bolly" nodes while leaving "UHD" links unproxied
         const finalUrl = providerName.includes("bolly")
           ? `${WORKER_URL}?proxy=${encodeURIComponent(originalUrl)}`
           : originalUrl;
