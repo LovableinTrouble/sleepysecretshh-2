@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { fetchTrendingPage, fetchPopularPage, fetchMovieVideos, fetchTVVideos } from "@/lib/tmdb";
 import type { Media } from "@/lib/catalog";
+import { addToFolder, removeFromFolder, getFolders, isInAnyFolder } from "@/lib/store";
+import { stashWatchMedia } from "@/lib/watch-stash";
 
 export const Route = createFileRoute("/shorts")({
   head: () => ({
@@ -46,23 +48,16 @@ const FILTERS = [
 
 type FilterId = (typeof FILTERS)[number]["id"];
 
-const WATCHLIST_KEY = "sleepy:watchlist.v1";
-
-function getWatchlist(): Media[] {
-  try {
-    const raw = localStorage.getItem(WATCHLIST_KEY);
-    return raw ? (JSON.parse(raw) as Media[]) : [];
-  } catch {
-    return [];
-  }
-}
+/** Shorts saves into the real folder-based watchlist so it shows on /watchlist. */
 function toggleWatchlist(m: Media) {
-  const list = getWatchlist();
-  const exists = list.some((x) => x.id === m.id && x.type === m.type);
-  const next = exists
-    ? list.filter((x) => !(x.id === m.id && x.type === m.type))
-    : [m, ...list.slice(0, 199)];
-  localStorage.setItem(WATCHLIST_KEY, JSON.stringify(next));
+  if (isInAnyFolder(m.id)) {
+    for (const f of getFolders()) {
+      if (f.mediaIds.includes(m.id)) removeFromFolder(f.id, m.id);
+    }
+  } else {
+    stashWatchMedia(m);
+    addToFolder("default", m.id);
+  }
   window.dispatchEvent(new CustomEvent("watchlist-changed"));
 }
 
@@ -141,11 +136,16 @@ function ShortsPage() {
 
   useEffect(() => {
     const update = () => {
-      setWatchlistIds(new Set(getWatchlist().map((m) => `${m.type}-${m.id}`)));
+      const ids = new Set<number>(getFolders().flatMap((f) => f.mediaIds));
+      setWatchlistIds(new Set([...ids].flatMap((id) => [`movie-${id}`, `tv-${id}`])));
     };
     update();
     window.addEventListener("watchlist-changed", update);
-    return () => window.removeEventListener("watchlist-changed", update);
+    const t = setInterval(update, 1500);
+    return () => {
+      window.removeEventListener("watchlist-changed", update);
+      clearInterval(t);
+    };
   }, []);
 
   const queryClient = useQueryClient();
@@ -260,8 +260,13 @@ function ShortsPage() {
       {/* Feed */}
       <div
         ref={containerRef}
-        className="h-full w-full overflow-y-scroll no-scrollbar snap-y snap-mandatory overscroll-contain"
-        style={{ scrollSnapType: "y mandatory" }}
+        className="h-full w-full overflow-y-scroll no-scrollbar snap-y snap-mandatory overscroll-y-contain"
+        style={{
+          scrollSnapType: "y mandatory",
+          scrollBehavior: "smooth",
+          scrollSnapStop: "always",
+          WebkitOverflowScrolling: "touch",
+        }}
       >
         {query.isLoading && shorts.length === 0 && (
           <div className="flex h-full items-center justify-center">
