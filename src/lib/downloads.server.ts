@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-// Direct API base (since it fetches properly without the worker)
+// Directly fetch metadata from the stable API endpoint
 const BASE = "https://streamrip.fun";
 
-// Your targeted proxy worker URL
-const WORKER_URL = "https://round-bread-8638.slinkingalt.workers.dev/";
+// Your targeted safety proxy worker URL
+const WORKER_URL = "https://workers.dev";
 
 interface Input {
   tmdbId: string;
@@ -47,7 +47,6 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
         ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
         : `/movie/${input.tmdbId}`;
 
-    // 1. Fetch metadata directly from the source API
     const res = await fetch(`${BASE}${path}`, {
       method: "GET",
       headers: {
@@ -58,9 +57,10 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
       signal: AbortSignal.timeout(15000),
     });
 
-    if (!res.ok) throw new Error(`streamrip api error: ${res.status}`);
+    if (!res.ok) throw new Error(`streamrip API failed: ${res.status}`);
     const json: any = await res.json();
 
+    // Map through the downloads array found in your payload
     const links: any[] = Array.isArray(json?.downloads) ? json.downloads : [];
     const downloads: DownloadItem[] = links
       .filter((l: any) => l?.url)
@@ -69,19 +69,23 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
         const ext = extFromUrl(String(l.url));
 
         const originalUrl = String(l.url);
-        const sourceLabel = String(l.source || l.server || l.provider || "Direct");
 
-        // 2. CONDITIONAL ROUTING: Only intercept "Bolly" links
-        // We use a case-insensitive check to cover variations like "bolly", "BollyDrive", etc.
-        let finalUrl = originalUrl;
-        if (sourceLabel.toLowerCase().includes("bolly")) {
-          finalUrl = `${WORKER_URL}?proxy=${encodeURIComponent(originalUrl)}`;
-        }
+        // Read provider name from either 'source' or 'server' fields based on your JSON structure
+        const providerName = String(l.source || l.server || "").toLowerCase();
+
+        // Target array containing providers triggering upstream 403 blocks
+        const blockedProviders = ["bolly", "moviesdrive", "hdhub"];
+
+        // Check if providerName contains any of our blocked keywords
+        const needsProxy = blockedProviders.some((provider) => providerName.includes(provider));
+
+        // CONDITIONAL INTERCEPTION: Wrap URL in proxy string only if provider is flagged
+        const finalUrl = needsProxy ? `${WORKER_URL}?proxy=${encodeURIComponent(originalUrl)}` : originalUrl;
 
         return {
           id: `streamrip-${i}-${originalUrl.slice(0, 40)}`,
-          url: finalUrl, // Routed through worker if Bolly, left direct if UHD
-          source: sourceLabel,
+          url: finalUrl,
+          source: l.source || l.server || "Direct",
           quality: q,
           type: ext,
           size: l.size ? String(l.size) : undefined,
@@ -95,7 +99,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
       ok: true,
       downloads: [],
       subtitles: [],
-      error: (e as Error)?.message || "Failed to fetch downloads",
+      error: (e as Error)?.message || "Failed to process downloads",
     };
   }
 }
