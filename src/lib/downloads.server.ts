@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-const BASE = "https://streamrip.fun";
+const BASE = "https://streamrip.fun/api/download";
 
 interface Input {
   tmdbId: string;
