@@ -88,9 +88,9 @@ function PersonPage() {
           Back
         </button>
 
-        <section className="mt-6 grid items-start gap-8 md:grid-cols-[18rem_minmax(0,1fr)]">
-          <div className="mx-auto w-48 md:sticky md:top-28 md:mx-0 md:w-full">
-            <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10 shadow-2xl">
+        <section className="mt-8 grid items-start gap-8 md:grid-cols-[16rem_minmax(0,1fr)] md:gap-12">
+          <div className="mx-auto w-40 sm:w-52 md:mx-0 md:w-full">
+            <div className="aspect-square overflow-hidden rounded-full bg-white/5 ring-1 ring-white/15 shadow-2xl">
               {person?.profile ? (
                 <img
                   src={person.profile}
@@ -98,56 +98,63 @@ function PersonPage() {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-5xl text-white/30">
+                <div className="flex h-full w-full items-center justify-center text-5xl text-muted-foreground/40">
                   {person?.name?.[0] ?? "·"}
                 </div>
               )}
             </div>
           </div>
           <div className="min-w-0 text-center md:text-left">
-            <div className="text-xs uppercase tracking-[0.3em] text-primary/80">
-              {person?.knownFor || "Cast"}
-            </div>
-            <h1 className="mt-2 text-balance text-4xl font-black uppercase leading-[0.95] md:text-6xl lg:text-7xl">
+            <h1 className="text-balance text-4xl font-black leading-[1.02] tracking-tight md:text-6xl">
               {person?.name || "Loading…"}
             </h1>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <Stat label="Credits" value={credits.length ? `${credits.length}` : "—"} />
-              <Stat label="Genres" value={genres.length ? `${genres.length}` : "—"} />
-              <Stat label="Studios" value={studios.length ? `${studios.length}` : "—"} />
+            <div className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
+              {chips.map((c) => (
+                <span
+                  key={c}
+                  className="rounded-full bg-white/[0.07] px-4 py-2 text-sm font-semibold text-foreground/85 ring-1 ring-white/10"
+                >
+                  {c}
+                </span>
+              ))}
             </div>
-            <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-              <div>
-                <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  Biography
-                </h2>
-                <p className="mt-3 max-w-3xl whitespace-pre-line text-[15px] leading-relaxed text-foreground/90">
-                  {person?.biography || "Loading biography…"}
-                </p>
-              </div>
-              <aside className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <Info
-                  title="Personal"
-                  items={
-                    [
-                      person?.birthday && `Born ${person.birthday}`,
-                      person?.deathday && `Died ${person.deathday}`,
-                      person?.placeOfBirth,
-                    ].filter(Boolean) as string[]
-                  }
-                />
-                <Info title="Genres" items={genres} />
-                <Info
-                  title="Studios"
-                  items={studios.length ? studios : ["Loading studio history…"]}
-                />
-              </aside>
-            </div>
+            <p
+              className={`mt-6 max-w-3xl whitespace-pre-line text-[15px] leading-relaxed text-foreground/80 ${
+                bioOpen ? "" : "line-clamp-6"
+              }`}
+            >
+              {person?.biography || "Loading biography…"}
+            </p>
+            {(person?.biography?.length ?? 0) > 320 && (
+              <button
+                onClick={() => setBioOpen((v) => !v)}
+                className="mt-3 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
+              >
+                {bioOpen ? "Read Less" : "Read More"}
+              </button>
+            )}
           </div>
         </section>
 
-        <section className="mt-14">
-          <h2 className="mb-4 text-xl font-bold">Known for</h2>
+        <section className="mt-16">
+          <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+            <h2 className="truncate text-2xl font-black tracking-tight md:text-3xl">Filmography</h2>
+            <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/[0.06] p-1 ring-1 ring-white/10">
+              {(["movie", "tv"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    tab === t
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t === "movie" ? "Movies" : "TV Shows"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {credits.map((m) => (
               <MediaCard key={`${m.type}-${m.id}`} media={m} fill />
