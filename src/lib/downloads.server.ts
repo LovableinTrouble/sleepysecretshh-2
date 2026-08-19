@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-const BASE = "https://streamrip.fun/api/download";
+const BASE = "https://streamrip.fun";
 
 interface Input {
   tmdbId: string;
@@ -45,14 +45,17 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
 
     const res = await fetch(`${BASE}${path}`, {
       headers: {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         Accept: "application/json",
       },
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) throw new Error(`streamrip ${res.status}`);
     const json: any = await res.json();
-    const links: any[] = Array.isArray(json?.links) ? json.links : [];
+
+    // CHANGED: Extract from json.downloads instead of json.links
+    const links: any[] = Array.isArray(json?.downloads) ? json.downloads : [];
 
     const downloads: DownloadItem[] = links
       .filter((l: any) => l?.url)
@@ -62,7 +65,8 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
         return {
           id: `streamrip-${i}-${String(l.url).slice(0, 40)}`,
           url: String(l.url),
-          source: String(l.source || l.provider || "Direct"),
+          // CHANGED: Fallback order mapped to match new object properties
+          source: String(l.source || l.server || l.provider || "Direct"),
           quality: q,
           type: ext,
           size: l.size ? String(l.size) : undefined,
