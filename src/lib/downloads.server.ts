@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-const BASE = "https://streamrip.fun";
+const BASE = "https://streamrip.fun/api/download";
 
 interface Input {
   tmdbId: string;
@@ -42,6 +42,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
       input.type === "show"
         ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
         : `/movie/${input.tmdbId}`;
+
     const res = await fetch(`${BASE}${path}`, {
       headers: {
         "User-Agent":
@@ -56,6 +57,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
 
     // CHANGED: Extract from json.downloads instead of json.links
     const links: any[] = Array.isArray(json?.downloads) ? json.downloads : [];
+
     const downloads: DownloadItem[] = links
       .filter((l: any) => l?.url)
       .map((l: any, i: number) => {
