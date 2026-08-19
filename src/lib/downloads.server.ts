@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-// Your deployed Cloudflare Worker proxy base URL
-const WORKER_URL = "https://round-bread-8638.slinkingalt.workers.dev";
+// Your Cloudflare Worker URL
+const WORKER_URL = "https://workers.dev";
 
 interface Input {
   tmdbId: string;
@@ -39,26 +39,19 @@ function qualityLabel(q: any): string {
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   try {
-    // 1. Build the absolute subpath for streamrip
+    // 1. Map out the correct path routing parameter strings
     const path =
       input.type === "show"
         ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
         : `/movie/${input.tmdbId}`;
 
-    // Standard cross-compatible timeout handler for Nitro server runtimes
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    // 2. Fetch metadata JSON through the Worker using a clean absolute URL string
+    // 2. Fetch directly from your Worker without using a disruptive local Node timeout handle
     const res = await fetch(`${WORKER_URL}${path}`, {
       method: "GET",
-      signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
-
     if (!res.ok) {
-      throw new Error(`Worker metadata failure status: ${res.status}`);
+      throw new Error(`Worker metadata request failed with status: ${res.status}`);
     }
 
     const json: any = await res.json();
@@ -71,10 +64,9 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
         const ext = extFromUrl(String(l.url));
         const originalUrl = String(l.url);
 
-        // Target property mappings found in your JSON payload
         const providerName = String(l.source || l.server || "").toLowerCase();
 
-        // 3. TARGETED CONDITIONAL INTERCEPTION: Route Bollyflix through worker, keep UHD direct
+        // 3. TARGETED INTERCEPTION: Selectively proxy Bollyflix links while preserving UHD links
         const finalUrl = providerName.includes("bolly")
           ? `${WORKER_URL}?proxy=${encodeURIComponent(originalUrl)}`
           : originalUrl;
@@ -84,7 +76,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
           url: finalUrl,
           source: String(l.source || l.server || "Direct"),
           quality: q,
-          type: ext, // Aligns with "mp4" | "hls" | "mkv" | "file" union type
+          type: ext,
           size: l.size ? String(l.size) : undefined,
           fileName: safeFileName(input.title, q, ext === "file" ? "mp4" : ext),
         };
@@ -92,7 +84,9 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
 
     return { ok: true, downloads, subtitles: [] };
   } catch (e) {
-    console.error("METADATA RESOLUTION EXCEPTION LOGGED INSIDE SERVER:", e);
+    // This logs cleanly to your terminal window where npm run dev is running
+    console.error("TANSTACK SERVER HANDLER EXCEPTION:", e);
+
     return {
       ok: false,
       downloads: [],
