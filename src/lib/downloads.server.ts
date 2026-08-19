@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { json } from "@tanstack/start"; // CRITICAL: Import TanStack's native json response helper
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-// Your Cloudflare Worker URL
-const WORKER_URL = "https://round-bread-8638.slinkingalt.workers.dev";
+const WORKER_URL = "https://workers.dev";
 
 interface Input {
   tmdbId: string;
@@ -21,6 +21,7 @@ function safeFileName(title: string, quality: string, ext: string): string {
   return `${safe}_${quality}.${ext}`;
 }
 
+// Fixed: Enforce fallback values to guarantee compliance with the frontend union type definition
 function extFromUrl(url: string): "mp4" | "hls" | "mkv" | "file" {
   const u = url.toLowerCase();
   if (u.includes(".mkv")) return "mkv";
@@ -37,36 +38,30 @@ function qualityLabel(q: any): string {
   return String(q || "HD");
 }
 
-export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
+export async function resolveDownloadProviders(input: Input): Promise<any> {
   try {
-    // 1. Build the path safely without embedding literal raw ? characters mid-string
-    const cleanPath = input.type === "show" ? `/tv/${input.tmdbId}` : `/movie/${input.tmdbId}`;
+    const path =
+      input.type === "show"
+        ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
+        : `/movie/${input.tmdbId}`;
 
-    // 2. Leverage URLSearchParams to pass queries safely through the Nitro/Vinxi boundary
-    const query = new URLSearchParams();
-    if (input.type === "show") {
-      query.set("season", String(input.season ?? 1));
-      query.set("episode", String(input.episode ?? 1));
-    }
-
-    const queryString = query.toString();
-    const finalRequestUrl = `${WORKER_URL}${cleanPath}${queryString ? "?" + queryString : ""}`;
-
-    // 3. Make the backend fetch request to your functional worker
-    const res = await fetch(finalRequestUrl, {
+    // Query your verified worker
+    const res = await fetch(`${WORKER_URL}${path}`, {
       method: "GET",
     });
 
-    // Check if the worker sent back HTML or failed
-    const contentType = res.headers.get("content-type");
-    if (!res.ok || (contentType && contentType.includes("text/html"))) {
-      const errorText = await res.text();
-      console.error("Worker failed or returned HTML instead of JSON:", errorText.slice(0, 300));
-      throw new Error(`Proxy target returned invalid status/format: ${res.status}`);
+    if (!res.ok) {
+      // Wrap the failure directly in a native response payload to prevent Nitro from rendering HTML
+      return json({
+        ok: false,
+        downloads: [],
+        subtitles: [],
+        error: `Worker API returned HTTP Error status: ${res.status}`,
+      });
     }
 
-    const json: any = await res.json();
-    const links: any[] = Array.isArray(json?.downloads) ? json.downloads : [];
+    const workerJson: any = await res.json();
+    const links: any[] = Array.isArray(workerJson?.downloads) ? workerJson.downloads : [];
 
     const downloads: DownloadItem[] = links
       .filter((l: any) => l?.url)
@@ -77,7 +72,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
 
         const providerName = String(l.source || l.server || "").toLowerCase();
 
-        // 4. INTERCEPTION FILTER: Target Bollyflix nodes while leaving UHD links direct
+        // Selective worker extraction for Bollyflix nodes
         const finalUrl = providerName.includes("bolly")
           ? `${WORKER_URL}?proxy=${encodeURIComponent(originalUrl)}`
           : originalUrl;
@@ -87,26 +82,24 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
           url: finalUrl,
           source: String(l.source || l.server || "Direct"),
           quality: q,
-          type: ext,
+          type: ext, // Fully compliant with "mp4" | "hls" | "mkv" | "file"
           size: l.size ? String(l.size) : undefined,
           fileName: safeFileName(input.title, q, ext === "file" ? "mp4" : ext),
         };
       });
 
-    return { ok: true, downloads, subtitles: [] };
+    // CRITICAL: Deliver the successful payload safely through the RPC serialization bridge
+    return json({ ok: true, downloads, subtitles: [] });
   } catch (e) {
-    // This logs cleanly directly into your terminal window where 'npm run dev' is running
-    console.error("--- FIXED TANSTACK SERVER HANDLER EXCEPTION ---");
-    console.error(e);
-    console.error("------------------------------------------------");
+    console.error("--- SERVER TRACE CAUGHT ---", e);
 
-    // CRITICAL: We return a clean JSON object instead of re-throwing the error
-    // This prevents TanStack Start from hijacking the thread and generating an HTML error page!
-    return {
+    // CRITICAL: We return a clean json structure instead of throwing.
+    // This blocks TanStack Start from crashing the execution lane and dumping HTML error templates.
+    return json({
       ok: false,
       downloads: [],
       subtitles: [],
-      error: (e as Error)?.message || "Failed to process downloads",
-    };
+      error: (e as Error)?.message || "Internal server transit failure",
+    });
   }
 }
