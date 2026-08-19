@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-const BASE = "https://downloads.shegu.xyz";
+const BASE = "https://streamrip.fun/api/download";
 
 interface Input {
   tmdbId: string;
@@ -13,7 +13,10 @@ interface Input {
 }
 
 function safeFileName(title: string, quality: string, ext: string): string {
-  const safe = title.replace(/[^a-zA-Z0-9]+/g, " ").trim().replace(/\s+/g, "_");
+  const safe = title
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, "_");
   return `${safe}_${quality}.${ext}`;
 }
 
@@ -37,8 +40,9 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
   try {
     const path =
       input.type === "show"
-        ? `/tv/${input.tmdbId}/${input.season ?? 1}/${input.episode ?? 1}`
+        ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
         : `/movie/${input.tmdbId}`;
+
     const res = await fetch(`${BASE}${path}`, {
       headers: {
         "User-Agent": "Mozilla/5.0",
@@ -46,7 +50,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
       },
       signal: AbortSignal.timeout(15000),
     });
-    if (!res.ok) throw new Error(`shegu ${res.status}`);
+    if (!res.ok) throw new Error(`streamrip ${res.status}`);
     const json: any = await res.json();
     const links: any[] = Array.isArray(json?.links) ? json.links : [];
 
@@ -56,7 +60,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
         const q = qualityLabel(l.quality);
         const ext = extFromUrl(String(l.url));
         return {
-          id: `shegu-${i}-${String(l.url).slice(0, 40)}`,
+          id: `streamrip-${i}-${String(l.url).slice(0, 40)}`,
           url: String(l.url),
           source: String(l.source || l.provider || "Direct"),
           quality: q,
