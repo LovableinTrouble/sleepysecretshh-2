@@ -22,7 +22,7 @@ export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
 
   return (
     <section
-      className="relative h-[80vh] min-h-[560px] w-full overflow-hidden"
+      className="relative h-[100svh] min-h-[620px] w-full overflow-hidden"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -51,7 +51,7 @@ export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
             className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/30 to-transparent"
             style={{ width: "55%" }}
           />
-          <div className="relative z-10 flex h-full max-w-3xl flex-col justify-end px-6 pb-32 md:px-12 md:pb-40">
+          <div className="relative z-10 flex h-full max-w-3xl flex-col justify-end px-6 pb-36 md:px-12 md:pb-44">
             <div className="mb-3 flex flex-wrap gap-1.5">
               {media.genres.slice(0, 3).map((g) => (
                 <span
