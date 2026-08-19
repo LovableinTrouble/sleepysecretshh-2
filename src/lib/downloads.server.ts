@@ -1,75 +1,92 @@
-// Keep BASE pointed to your worker so it handles the initial bypass
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { DownloadItem, DownloadsResult } from "./downloads";
+
+// Points to your worker so it handles metadata bypass and targeted routing
 const BASE = "https://round-bread-8638.slinkingalt.workers.dev/";
 
-async function resolveDownloadProviders(input) {
+interface Input {
+  tmdbId: string;
+  title: string;
+  year?: string;
+  type: "movie" | "show";
+  season?: number;
+  episode?: number;
+}
+
+function safeFileName(title: string, quality: string, ext: string): string {
+  const safe = title
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, "_");
+  return `${safe}_${quality}.${ext}`;
+}
+
+function extFromUrl(url: string): "mp4" | "mkv" | "file" {
+  const u = url.toLowerCase();
+  if (u.includes(".mkv")) return "mkv";
+  if (u.includes(".mp4")) return "mp4";
+  return "file";
+}
+
+function qualityLabel(q: any): string {
+  const n = Number(q);
+  if (Number.isFinite(n) && n > 0) {
+    if (n >= 2160) return "4K";
+    return `${n}p`;
+  }
+  return String(q || "HD");
+}
+
+export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   try {
     const path =
       input.type === "show"
         ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
         : `/movie/${input.tmdbId}`;
 
-    // 1. Fetch metadata through the worker proxy to bypass streamrip's HTML/Cloudflare block
-    const res = await fetch(BASE + path, {
+    // 1. Fetch metadata JSON through the Cloudflare Worker to avoid HTML blocks
+    const res = await fetch(`${BASE}${path}`, {
       method: "GET",
+      signal: AbortSignal.timeout(15000),
     });
 
-    if (!res.ok) throw new Error("Worker metadata failure status: " + res.status);
+    if (!res.ok) throw new Error(`Proxy metadata failure status: ${res.status}`);
+    const json: any = await res.json();
 
-    const json = await res.json();
-    const links = Array.isArray(json?.downloads) ? json.downloads : [];
-
-    const downloads = links
-      .filter((l) => l?.url)
-      .map((l, i) => {
+    const links: any[] = Array.isArray(json?.downloads) ? json.downloads : [];
+    const downloads: DownloadItem[] = links
+      .filter((l: any) => l?.url)
+      .map((l: any, i: number) => {
+        const q = qualityLabel(l.quality);
+        const ext = extFromUrl(String(l.url));
         const originalUrl = String(l.url);
 
-        // Unify checking both target JSON property variations
+        // Identify provider from server or source payload variables
         const providerName = String(l.source || l.server || "").toLowerCase();
 
-        // 2. TARGETED PROXY ROUTING: Intercept Bollyflix, let UHD/Google remain native
-        let finalUrl = originalUrl;
-        if (providerName.includes("bolly")) {
-          finalUrl = BASE + "?proxy=" + encodeURIComponent(originalUrl);
-        }
-
-        // Clean quality mapping logic
-        let q = "HD";
-        const n = Number(l.quality);
-        if (Number.isFinite(n) && n > 0) {
-          q = n >= 2160 ? "4K" : n + "p";
-        } else if (l.quality) {
-          q = String(l.quality);
-        }
-
-        // URL extension extractor
-        const u = originalUrl.toLowerCase();
-        const ext = u.includes(".mkv") ? "mkv" : u.includes(".mp4") ? "mp4" : "file";
-
-        // Clean filename string sanitization
-        const safeTitle = input.title
-          .replace(/[^a-zA-Z0-9]+/g, " ")
-          .trim()
-          .replace(/\s+/g, "_");
-        const fileName = safeTitle + "_" + q + "." + (ext === "file" ? "mp4" : ext);
+        // 2. TARGETED ROUTING: Only append proxy parameter to flagged provider paths
+        const finalUrl = providerName.includes("bolly")
+          ? `${BASE}?proxy=${encodeURIComponent(originalUrl)}`
+          : originalUrl;
 
         return {
-          id: "streamrip-" + i + "-" + originalUrl.slice(0, 40),
-          url: finalUrl, // Routed through worker if Bollyflix, left raw if UHD
-          source: l.source || l.server || "Direct",
+          id: `streamrip-${i}-${originalUrl.slice(0, 40)}`,
+          url: finalUrl,
+          source: String(l.source || l.server || "Direct"),
           quality: q,
           type: ext,
           size: l.size ? String(l.size) : undefined,
-          fileName: fileName,
+          fileName: safeFileName(input.title, q, ext === "file" ? "mp4" : ext),
         };
       });
 
-    return { ok: true, downloads: downloads, subtitles: [] };
+    return { ok: true, downloads, subtitles: [] };
   } catch (e) {
     return {
       ok: true,
       downloads: [],
       subtitles: [],
-      error: e?.message || "Failed to process downloads",
+      error: (e as Error)?.message || "Failed to process downloads",
     };
   }
 }
