@@ -2,7 +2,7 @@
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
 // Points to your worker so it handles metadata bypass and targeted routing
-const BASE = "https://workers.dev";
+const BASE = "https://round-bread-8638.slinkingalt.workers.dev/";
 
 interface Input {
   tmdbId: string;
