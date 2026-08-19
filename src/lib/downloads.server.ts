@@ -25,7 +25,7 @@ function extFromUrl(url: string): "mp4" | "hls" | "mkv" | "file" {
   const u = url.toLowerCase();
   if (u.includes(".mkv")) return "mkv";
   if (u.includes(".mp4")) return "mp4";
-  return "file"; // Match your downloads.ts type definitions safely
+  return "file";
 }
 
 function qualityLabel(q: any): string {
@@ -39,19 +39,16 @@ function qualityLabel(q: any): string {
 
 export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   try {
-    // 1. Properly format the subpath parameters
     const path =
       input.type === "show"
         ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
         : `/movie/${input.tmdbId}`;
 
-    // 2. Fetch directly from your Worker without external macro-task interruptions
     const res = await fetch(`${WORKER_URL}${path}`, {
       method: "GET",
     });
 
     if (!res.ok) {
-      // Return a plain literal object instead of throwing or using json() wrappers
       return {
         ok: false,
         downloads: [],
@@ -60,6 +57,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
       };
     }
 
+    // Direct parser bypasses restrictive manual content-type string lookups entirely
     const workerJson: any = await res.json();
     const links: any[] = Array.isArray(workerJson?.downloads) ? workerJson.downloads : [];
 
@@ -72,7 +70,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
 
         const providerName = String(l.source || l.server || "").toLowerCase();
 
-        // 3. Selective worker extraction for Bollyflix nodes
+        // Target intercept on "Bolly" links while leaving "UHD" links unproxied
         const finalUrl = providerName.includes("bolly")
           ? `${WORKER_URL}?proxy=${encodeURIComponent(originalUrl)}`
           : originalUrl;
@@ -80,7 +78,7 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
         return {
           id: `streamrip-${i}-${originalUrl.slice(0, 40)}`,
           url: finalUrl,
-          source: String(l.source || l.server || "Direct"),
+          source: l.source || l.server || "Direct",
           quality: q,
           type: ext,
           size: l.size ? String(l.size) : undefined,
@@ -88,12 +86,9 @@ export async function resolveDownloadProviders(input: Input): Promise<DownloadsR
         };
       });
 
-    // 4. Return a clean object literal. TanStack Start parses this safely across the client boundary.
     return { ok: true, downloads, subtitles: [] };
   } catch (e) {
-    console.error("--- SERVER TRACE CAUGHT ---", e);
-
-    // Fallback object literal preventing the Nitro HTML dump crash loop
+    console.error("--- LOGGED SERVER EXCEPTION ---", e);
     return {
       ok: false,
       downloads: [],
