@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { json } from "@tanstack/start"; // CRITICAL: Import TanStack's native json response helper
 import type { DownloadItem, DownloadsResult } from "./downloads";
 
-const WORKER_URL = "https://round-bread-8638.slinkingalt.workers.dev/";
+// Your Cloudflare Worker URL
+const WORKER_URL = "https://workers.dev";
 
 interface Input {
   tmdbId: string;
@@ -21,12 +21,11 @@ function safeFileName(title: string, quality: string, ext: string): string {
   return `${safe}_${quality}.${ext}`;
 }
 
-// Fixed: Enforce fallback values to guarantee compliance with the frontend union type definition
 function extFromUrl(url: string): "mp4" | "hls" | "mkv" | "file" {
   const u = url.toLowerCase();
   if (u.includes(".mkv")) return "mkv";
   if (u.includes(".mp4")) return "mp4";
-  return "file";
+  return "file"; // Match your downloads.ts type definitions safely
 }
 
 function qualityLabel(q: any): string {
@@ -38,26 +37,27 @@ function qualityLabel(q: any): string {
   return String(q || "HD");
 }
 
-export async function resolveDownloadProviders(input: Input): Promise<any> {
+export async function resolveDownloadProviders(input: Input): Promise<DownloadsResult> {
   try {
+    // 1. Properly format the subpath parameters
     const path =
       input.type === "show"
         ? `/tv/${input.tmdbId}?season=${input.season ?? 1}&episode=${input.episode ?? 1}`
         : `/movie/${input.tmdbId}`;
 
-    // Query your verified worker
+    // 2. Fetch directly from your Worker without external macro-task interruptions
     const res = await fetch(`${WORKER_URL}${path}`, {
       method: "GET",
     });
 
     if (!res.ok) {
-      // Wrap the failure directly in a native response payload to prevent Nitro from rendering HTML
-      return json({
+      // Return a plain literal object instead of throwing or using json() wrappers
+      return {
         ok: false,
         downloads: [],
         subtitles: [],
-        error: `Worker API returned HTTP Error status: ${res.status}`,
-      });
+        error: `Worker API returned HTTP error status: ${res.status}`,
+      };
     }
 
     const workerJson: any = await res.json();
@@ -72,7 +72,7 @@ export async function resolveDownloadProviders(input: Input): Promise<any> {
 
         const providerName = String(l.source || l.server || "").toLowerCase();
 
-        // Selective worker extraction for Bollyflix nodes
+        // 3. Selective worker extraction for Bollyflix nodes
         const finalUrl = providerName.includes("bolly")
           ? `${WORKER_URL}?proxy=${encodeURIComponent(originalUrl)}`
           : originalUrl;
@@ -82,24 +82,23 @@ export async function resolveDownloadProviders(input: Input): Promise<any> {
           url: finalUrl,
           source: String(l.source || l.server || "Direct"),
           quality: q,
-          type: ext, // Fully compliant with "mp4" | "hls" | "mkv" | "file"
+          type: ext,
           size: l.size ? String(l.size) : undefined,
           fileName: safeFileName(input.title, q, ext === "file" ? "mp4" : ext),
         };
       });
 
-    // CRITICAL: Deliver the successful payload safely through the RPC serialization bridge
-    return json({ ok: true, downloads, subtitles: [] });
+    // 4. Return a clean object literal. TanStack Start parses this safely across the client boundary.
+    return { ok: true, downloads, subtitles: [] };
   } catch (e) {
     console.error("--- SERVER TRACE CAUGHT ---", e);
 
-    // CRITICAL: We return a clean json structure instead of throwing.
-    // This blocks TanStack Start from crashing the execution lane and dumping HTML error templates.
-    return json({
+    // Fallback object literal preventing the Nitro HTML dump crash loop
+    return {
       ok: false,
       downloads: [],
       subtitles: [],
       error: (e as Error)?.message || "Internal server transit failure",
-    });
+    };
   }
 }
