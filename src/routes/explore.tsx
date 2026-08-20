@@ -326,7 +326,7 @@ function ProviderButton({
   onClear: () => void;
 }) {
   return (
-    <div className="flex h-11 min-w-0 items-center rounded-2xl bg-white/[0.04] text-xs font-semibold ring-1 ring-white/10 transition hover:bg-white/[0.07]">
+    <div className="liquid-glass flex h-11 min-w-0 items-center rounded-2xl text-xs font-semibold transition hover:bg-white/[0.07]">
       <button
         onClick={onOpen}
         className="inline-flex h-full min-w-0 flex-1 items-center gap-2 px-3 text-left text-foreground"
@@ -400,7 +400,7 @@ function SortSelect({ value, onChange }: { value: SortKey; onChange: (v: SortKey
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex h-11 w-full items-center justify-between gap-3 rounded-2xl bg-white/[0.04] px-3 text-xs font-semibold text-foreground ring-1 ring-white/10 transition hover:bg-white/[0.07]"
+        className="liquid-glass flex h-11 w-full items-center justify-between gap-3 rounded-2xl px-3 text-xs font-semibold text-foreground transition hover:bg-white/[0.07]"
         aria-expanded={open}
       >
         <span className="truncate">{active.label}</span>

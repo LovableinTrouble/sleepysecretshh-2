@@ -29,7 +29,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="relative rounded-3xl border border-glass-border bg-card/40 p-6 backdrop-blur-xl">
+         <section className="liquid-glass relative rounded-3xl p-6">
       <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
       {desc && <p className="mt-1 text-xs text-muted-foreground">{desc}</p>}
       <div className="mt-5 space-y-4">{children}</div>
@@ -371,7 +371,7 @@ function RegionDetectButton({ onPicked }: { onPicked: (r: Region) => void }) {
           setLoading(false);
         }
       }}
-      className="inline-flex h-10 items-center gap-2 rounded-full bg-primary/15 px-4 text-xs font-semibold text-primary ring-1 ring-primary/30 transition hover:bg-primary/25 disabled:opacity-60"
+      className="liquid-glass inline-flex h-10 items-center gap-2 rounded-full px-4 text-xs font-semibold text-primary transition hover:bg-primary/25 disabled:opacity-60"
       disabled={loading}
     >
       {loading ? "Detecting…" : result ? `Detected: ${result}` : "Detect now"}
@@ -447,7 +447,7 @@ function SettingsPage() {
                 setCwCleared(true);
                 window.setTimeout(() => setCwCleared(false), 2000);
               }}
-              className="shrink-0 rounded-full border border-rose-400/25 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-300 transition hover:bg-rose-500/20"
+              className="liquid-glass shrink-0 rounded-full px-4 py-2 text-xs font-bold text-rose-300 transition hover:bg-rose-500/20"
             >
               {cwCleared ? "Cleared" : "Clear all"}
             </button>

@@ -302,7 +302,7 @@ function MediaPage() {
                 params={{ id: String(media.id) }}
                 search={{ t: media.type, s: isSeries ? season : undefined, e: isSeries ? episode : undefined, party: undefined }}
                 onClick={() => stashWatchMedia(media)}
-                className="group/btn relative z-10 mr-1 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full bg-foreground px-7 text-[15px] font-bold text-background shadow-[0_10px_30px_-12px_rgba(0,0,0,0.7)] transition-all duration-200 hover:scale-[1.03] hover:bg-foreground/90"
+                className="liquid-glass group/btn relative z-10 mr-1 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full bg-foreground/90 px-7 text-[15px] font-bold text-background shadow-[0_10px_30px_-12px_rgba(0,0,0,0.7)] transition-all duration-200 hover:scale-[1.03] hover:bg-foreground"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -318,7 +318,7 @@ function MediaPage() {
                 onClick={() => setWl(toggleWatchlist(media.id))}
                 aria-label={inWl ? "Remove from watchlist" : "Add to watchlist"}
                 title={inWl ? "In watchlist" : "Add to watchlist"}
-                className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border backdrop-blur transition-all duration-200 hover:scale-105 ${
+                className={`liquid-glass inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:scale-105 ${
                   inWl
                     ? "border-primary/40 bg-primary/15 text-foreground"
                     : "border-white/10 bg-white/[0.06] text-foreground/85 hover:border-white/25 hover:bg-white/[0.12] hover:text-foreground"
@@ -384,7 +384,7 @@ function MediaPage() {
                   rel="noopener noreferrer"
                   aria-label="IMDb"
                   title="IMDb"
-                  className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-[10px] font-black tracking-wider text-yellow-300 backdrop-blur transition-all duration-200 hover:border-yellow-300/40 hover:bg-yellow-300/15"
+                  className="liquid-glass inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[10px] font-black tracking-wider text-yellow-300 transition-all duration-200 hover:scale-105 hover:border-yellow-300/40 hover:bg-yellow-300/15"
                 >
                   IMDb
                 </a>
@@ -522,7 +522,7 @@ function MediaPage() {
           )}
         </div>
 
-        <aside className="h-fit space-y-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm animate-soft-rise md:sticky md:top-6">
+        <aside className="liquid-glass h-fit space-y-6 rounded-3xl p-6 animate-soft-rise md:sticky md:top-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-black tracking-tight">{media.title}</h2>
@@ -548,7 +548,7 @@ function MediaPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     title={p.name}
-                    className="group flex min-w-0 items-center gap-2 rounded-2xl bg-white/[0.045] p-2 ring-1 ring-white/10 transition hover:bg-white/[0.08] hover:ring-primary/40"
+                    className="liquid-glass group flex min-w-0 items-center gap-2 rounded-2xl p-2 transition hover:bg-white/[0.08] hover:ring-primary/40"
                   >
                     <span className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
                       <img src={p.logo} alt={p.name} className="h-full w-full object-cover" />
@@ -934,7 +934,7 @@ function InfoBlock({ title, items }: { title: string; items: string[] }) {
         {items.map((item) => (
           <span
             key={item}
-            className="rounded-full bg-white/5 px-3 py-1 text-xs ring-1 ring-white/10"
+            className="liquid-glass rounded-full px-3 py-1 text-xs"
           >
             {item}
           </span>

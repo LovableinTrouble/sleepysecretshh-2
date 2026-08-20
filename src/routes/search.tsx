@@ -169,7 +169,7 @@ function Search() {
             {q && (
               <button
                 onClick={() => setQ("")}
-                className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+                className="liquid-glass grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
                 aria-label="Clear search"
               >
                 <svg
@@ -395,7 +395,7 @@ function SearchSortSelect({ value, onChange }: { value: SortKey; onChange: (v: S
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex h-8 min-w-36 items-center justify-between gap-3 rounded-full bg-white/5 px-3 text-xs font-semibold text-foreground ring-1 ring-white/10 transition hover:bg-white/10"
+        className="liquid-glass flex h-8 min-w-36 items-center justify-between gap-3 rounded-full px-3 text-xs font-semibold text-foreground transition hover:bg-white/10"
         aria-expanded={open}
       >
         <span className="truncate">{active.label}</span>
