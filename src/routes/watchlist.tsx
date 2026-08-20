@@ -92,19 +92,29 @@ function WatchlistPage() {
   return (
     <main className="fixed inset-0 z-30 overflow-y-auto bg-background px-5 pb-32 pt-16 md:px-10 md:pt-20 animate-page-in">
       <div className="mx-auto max-w-7xl">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.4em] text-primary/80">
-          <Bookmark className="h-3.5 w-3.5" /> Your Library
-        </div>
-        <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
-          <h1 className="text-4xl font-black tracking-tight md:text-6xl">Watchlist</h1>
-          <div className="text-sm text-muted-foreground">
-            {folders.length} folder{folders.length === 1 ? "" : "s"} ·{" "}
-            {folders.reduce((sum, f) => sum + f.mediaIds.length, 0)} titles
+        <header className="rounded-3xl border border-white/10 bg-white/[0.035] p-5 backdrop-blur-sm sm:p-7">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.35em] text-primary/80">
+                <Bookmark className="h-3.5 w-3.5 shrink-0" /> Your Library
+              </div>
+              <h1 className="mt-2 truncate text-3xl font-black tracking-tight sm:text-4xl md:text-5xl">
+                Watchlist
+              </h1>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-2xl font-black leading-none md:text-3xl">
+                {folders.reduce((sum, f) => sum + f.mediaIds.length, 0)}
+              </div>
+              <div className="mt-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+                titles · {folders.length} folder{folders.length === 1 ? "" : "s"}
+              </div>
+            </div>
           </div>
-        </div>
+        </header>
 
         {/* Folder tabs (drop targets) */}
-        <div className="mt-8 -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+        <div className="no-scrollbar mt-6 -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
           {folders.map((f) => {
             const on = f.id === active?.id;
             const isEditing = editingId === f.id;
@@ -125,10 +135,10 @@ function WatchlistPage() {
                     setEditingId(f.id);
                     setEditName(f.name);
                   }}
-                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
+                  className={`flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold transition-all duration-200 active:scale-95 ${
                     on
-                      ? "bg-primary text-primary-foreground shadow-[0_0_20px_oklch(0.72_0.18_305_/_0.45)]"
-                      : "glass-strong text-muted-foreground hover:text-foreground"
+                      ? "bg-foreground text-background shadow-[0_10px_30px_-14px_rgba(0,0,0,0.8)]"
+                      : "border border-white/10 bg-white/[0.06] text-muted-foreground backdrop-blur hover:bg-white/[0.12] hover:text-foreground"
                   }`}
                 >
                   {isEditing ? (
@@ -147,7 +157,7 @@ function WatchlistPage() {
                     <span>{f.name}</span>
                   )}
                   <span
-                    className={`rounded-full px-1.5 text-[10px] ${on ? "bg-white/20" : "bg-white/5"}`}
+                    className={`min-w-5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${on ? "bg-background/15" : "bg-white/10"}`}
                   >
                     {f.mediaIds.length}
                   </span>
@@ -162,7 +172,7 @@ function WatchlistPage() {
                 e.preventDefault();
                 submitCreate();
               }}
-              className="flex shrink-0 items-center gap-1 rounded-full glass-strong px-2 py-1.5"
+              className="flex h-11 shrink-0 items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] px-2 backdrop-blur"
             >
               <input
                 autoFocus
@@ -196,7 +206,7 @@ function WatchlistPage() {
           ) : (
             <button
               onClick={() => setCreating(true)}
-              className="flex shrink-0 items-center gap-2 rounded-full border border-dashed border-white/15 px-4 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
+              className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-dashed border-white/15 px-5 text-sm font-semibold text-muted-foreground transition hover:border-primary/50 hover:bg-white/[0.05] hover:text-foreground active:scale-95"
             >
               <FolderPlus className="h-4 w-4" /> New folder
             </button>
@@ -211,29 +221,29 @@ function WatchlistPage() {
 
         {/* Active folder actions */}
         {active && (
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">{active.name}</span>
+          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+              <span className="truncate font-bold text-foreground">{active.name}</span>
               <span>
                 · {active.mediaIds.length} title{active.mediaIds.length === 1 ? "" : "s"}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 onClick={() => {
                   setEditingId(active.id);
                   setEditName(active.name);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium transition hover:bg-white/10"
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3.5 text-xs font-semibold transition hover:bg-white/[0.12] active:scale-95"
               >
-                <Pencil className="h-3.5 w-3.5" /> Rename
+                <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Rename</span>
               </button>
               {active.id !== "default" && (
                 <button
                   onClick={() => setPendingFolderDelete(active)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/10 px-3.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20 active:scale-95"
                 >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete folder
+                  <Trash2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Delete</span>
                 </button>
               )}
             </div>
@@ -242,9 +252,11 @@ function WatchlistPage() {
 
         {/* Grid */}
         {items.length === 0 ? (
-          <div className="mt-20 flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-white/10 px-6 py-20 text-center">
-            <Bookmark className="h-10 w-10 text-muted-foreground/40" />
-            <div className="text-lg font-semibold">Nothing in this folder yet</div>
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-20 text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/12 ring-1 ring-primary/20">
+              <Bookmark className="h-7 w-7 text-primary/80" />
+            </div>
+            <div className="text-lg font-bold">Nothing in this folder yet</div>
             <p className="max-w-sm text-sm text-muted-foreground">
               Tap the <span className="rounded-full bg-primary/15 px-2 py-0.5 text-primary">+</span>{" "}
               on any poster to save it here.
