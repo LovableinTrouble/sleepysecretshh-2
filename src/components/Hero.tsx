@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { Play, Plus, Info, Star, Calendar, Clapperboard, Check } from "lucide-react";
 import type { Media } from "@/lib/catalog";
+import { getWatchlist, toggleWatchlist } from "@/lib/store";
 
 interface Props {
   items: Media[];
@@ -11,6 +13,9 @@ interface Props {
 export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [wl, setWl] = useState<number[]>([]);
+
+  useEffect(() => setWl(getWatchlist()), []);
 
   useEffect(() => {
     if (paused || items.length < 2) return;
@@ -48,78 +53,79 @@ export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
             }}
           />
           <div
-            className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/30 to-transparent"
-            style={{ width: "55%" }}
+            className="absolute inset-0 hidden bg-gradient-to-r from-background/90 via-background/40 to-transparent md:block"
+            style={{ width: "60%" }}
           />
-          <div className="relative z-10 flex h-full max-w-3xl flex-col justify-end px-6 pb-36 md:px-12 md:pb-44">
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {media.genres.slice(0, 3).map((g) => (
-                <span
-                  key={g}
-                  className="rounded-full border border-white/10 bg-white/10 px-2.5 py-0.5 text-xs text-white/85"
-                >
-                  {g}
-                </span>
-              ))}
-            </div>
-            <h1 className="max-w-4xl text-balance text-5xl font-black uppercase leading-none tracking-tight animate-fade-in md:text-7xl">
+          <div className="relative z-10 flex h-full w-full max-w-3xl flex-col justify-end px-5 pb-28 sm:px-8 md:px-12 md:pb-36">
+            <h1 className="max-w-4xl text-balance text-4xl font-black uppercase leading-[0.92] tracking-tight animate-fade-in sm:text-5xl md:text-7xl">
               {media.title}
             </h1>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1 text-foreground">
-                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-primary">
-                  <path d="m12 17.3 6.18 3.7-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                </svg>
-                {media.rating.toFixed(1)}
+
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] font-medium text-foreground/85 md:text-sm">
+              <span className="inline-flex items-center gap-1.5">
+                <Star className="h-4 w-4 shrink-0 fill-current" />
+                {media.rating.toFixed(1)}/10
               </span>
-              <span>·</span>
-              <span>{media.year}</span>
-              {media.runtime && (
+              <span className="h-1 w-1 rounded-full bg-foreground/40" />
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="h-4 w-4 shrink-0" />
+                {media.year}
+              </span>
+              {media.genres[0] && (
                 <>
-                  <span>·</span>
-                  <span>{media.runtime}</span>
+                  <span className="h-1 w-1 rounded-full bg-foreground/40" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clapperboard className="h-4 w-4 shrink-0" />
+                    {media.genres[0]}
+                  </span>
                 </>
               )}
             </div>
-            <p className="mt-5 max-w-xl text-sm leading-relaxed text-foreground/80 animate-fade-in md:text-base line-clamp-3">
+
+            <p className="mt-5 max-w-xl text-sm font-medium leading-relaxed text-foreground/85 animate-fade-in md:text-base line-clamp-3">
               {media.overview}
             </p>
-            <div className="mt-7 flex gap-3">
+
+            <div className="mt-7 flex flex-wrap items-center gap-3">
               <button
                 onClick={() => onPlay(media)}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 h-11 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90"
+                className="inline-flex h-12 items-center gap-2.5 rounded-full bg-foreground px-7 text-[15px] font-bold text-background shadow-[0_10px_30px_-12px_rgba(0,0,0,0.7)] transition-all duration-200 hover:scale-[1.03] hover:bg-foreground/90 active:scale-95"
               >
-                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
+                <Play className="h-4 w-4 fill-current" />
                 Play
               </button>
-              <button
-                onClick={() => onMore(media)}
-                className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-6 h-11 text-sm font-semibold text-foreground hover:bg-white/15"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+
+              <div className="flex h-12 items-center gap-1 rounded-full border border-white/10 bg-white/[0.07] px-1.5 backdrop-blur">
+                <button
+                  onClick={() => {
+                    toggleWatchlist(media.id);
+                    setWl(getWatchlist());
+                  }}
+                  aria-label="Add to watchlist"
+                  className="grid h-9 w-9 place-items-center rounded-full text-foreground/90 transition hover:bg-white/15 hover:text-foreground active:scale-95"
                 >
-                  <circle cx="12" cy="12" r="9" />
-                  <line x1="12" y1="11" x2="12" y2="16" />
-                  <circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none" />
-                </svg>
-                More Info
-              </button>
+                  {wl.includes(media.id) ? (
+                    <Check className="h-5 w-5" strokeWidth={2.5} />
+                  ) : (
+                    <Plus className="h-5 w-5" strokeWidth={2.5} />
+                  )}
+                </button>
+                <span className="h-5 w-px bg-white/15" />
+                <button
+                  onClick={() => onMore(media)}
+                  aria-label="More info"
+                  className="grid h-9 w-9 place-items-center rounded-full text-foreground/90 transition hover:bg-white/15 hover:text-foreground active:scale-95"
+                >
+                  <Info className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
       ))}
 
       {items.length > 1 && (
-        <div className="absolute bottom-10 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5">
+        <div className="absolute bottom-10 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 md:left-auto md:right-10 md:translate-x-0">
           {items.map((_, i) => (
             <button
               key={i}
