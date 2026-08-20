@@ -300,9 +300,14 @@ function MediaPage() {
               <Link
                 to="/watch/$id"
                 params={{ id: String(media.id) }}
-                search={{ t: media.type, s: isSeries ? season : undefined, e: isSeries ? episode : undefined, party: undefined }}
+                search={{
+                  t: media.type,
+                  s: isSeries ? season : undefined,
+                  e: isSeries ? episode : undefined,
+                  party: undefined,
+                }}
                 onClick={() => stashWatchMedia(media)}
-                className="liquid-glass group/btn relative z-10 mr-1 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full bg-foreground/90 px-7 text-[15px] font-bold text-background shadow-[0_10px_30px_-12px_rgba(0,0,0,0.7)] transition-all duration-200 hover:scale-[1.03] hover:bg-foreground"
+                className="liquid-pill group/btn relative z-10 mr-1 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full px-7 text-[15px] font-bold transition-all duration-200 hover:scale-[1.03]"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -318,10 +323,10 @@ function MediaPage() {
                 onClick={() => setWl(toggleWatchlist(media.id))}
                 aria-label={inWl ? "Remove from watchlist" : "Add to watchlist"}
                 title={inWl ? "In watchlist" : "Add to watchlist"}
-                className={`liquid-glass inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:scale-105 ${
+                className={`liquid-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:scale-105 ${
                   inWl
-                    ? "border-primary/40 bg-primary/15 text-foreground"
-                    : "border-white/10 bg-white/[0.06] text-foreground/85 hover:border-white/25 hover:bg-white/[0.12] hover:text-foreground"
+                    ? "border-primary/50 bg-primary/20 text-foreground ring-1 ring-primary/30"
+                    : ""
                 }`}
               >
                 {inWl ? (
@@ -384,7 +389,7 @@ function MediaPage() {
                   rel="noopener noreferrer"
                   aria-label="IMDb"
                   title="IMDb"
-                  className="liquid-glass inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[10px] font-black tracking-wider text-yellow-300 transition-all duration-200 hover:scale-105 hover:border-yellow-300/40 hover:bg-yellow-300/15"
+                  className="liquid-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[10px] font-black tracking-wider text-yellow-300 transition-all duration-200 hover:scale-105 hover:border-yellow-300/40 hover:bg-yellow-300/15"
                 >
                   IMDb
                 </a>
@@ -522,20 +527,23 @@ function MediaPage() {
           )}
         </div>
 
-        <aside className="liquid-glass h-fit space-y-6 rounded-3xl p-6 animate-soft-rise md:sticky md:top-6">
+        <aside className="media-sidebar-card h-fit space-y-6 rounded-[28px] p-5 animate-soft-rise md:sticky md:top-6 md:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black tracking-tight">{media.title}</h2>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                Title details
+              </p>
+              <h2 className="mt-2 text-lg font-black tracking-tight">{media.title}</h2>
               <p className="mt-1 text-xs font-medium text-muted-foreground">
                 {isSeries ? "Series" : "Movie"} · {media.year}
               </p>
             </div>
-            <span className="shrink-0 rounded-md border border-white/15 bg-white/[0.06] px-2 py-1 text-xs font-black uppercase tracking-wider text-foreground">
+            <span className="media-info-chip shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-black uppercase tracking-wider text-foreground">
               {extra?.contentRating || "NR"}
             </span>
           </div>
 
-          <div>
+          <div className="border-t border-white/10 pt-5">
             <h3 className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               Where to watch
             </h3>
@@ -548,7 +556,7 @@ function MediaPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     title={p.name}
-                    className="liquid-glass group flex min-w-0 items-center gap-2 rounded-2xl p-2 transition hover:bg-white/[0.08] hover:ring-primary/40"
+                    className="liquid-glass group flex min-w-0 items-center gap-2 rounded-2xl p-2 transition hover:ring-primary/40"
                   >
                     <span className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
                       <img src={p.logo} alt={p.name} className="h-full w-full object-cover" />
@@ -615,7 +623,7 @@ function MediaPage() {
               href={extra.homepage}
               target="_blank"
               rel="noopener noreferrer"
-              className="block truncate rounded-full bg-white/5 px-3 py-2.5 text-center text-xs font-semibold text-primary ring-1 ring-white/10 transition hover:bg-white/10"
+              className="liquid-glass block truncate rounded-full px-3 py-2.5 text-center text-xs font-semibold text-primary transition"
             >
               Official site
             </a>
@@ -932,10 +940,7 @@ function InfoBlock({ title, items }: { title: string; items: string[] }) {
       </h3>
       <div className="mt-3 flex flex-wrap gap-2">
         {items.map((item) => (
-          <span
-            key={item}
-            className="liquid-glass rounded-full px-3 py-1 text-xs"
-          >
+          <span key={item} className="media-info-chip rounded-full px-3 py-1.5 text-xs">
             {item}
           </span>
         ))}
@@ -946,7 +951,7 @@ function InfoBlock({ title, items }: { title: string; items: string[] }) {
 
 function Detail({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex justify-between gap-3 border-b border-white/5 pb-1.5">
+    <div className="media-info-row flex justify-between gap-3 pb-2">
       <span className="text-muted-foreground">{k}</span>
       <span className="text-right">{v}</span>
     </div>
@@ -973,10 +978,10 @@ function IconBtn({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`group/icon relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border backdrop-blur transition-all duration-200 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`liquid-icon group/icon relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
         active
           ? "border-primary/50 bg-primary/20 text-primary-foreground ring-1 ring-primary/40"
-          : "border-white/10 bg-white/[0.06] text-foreground/85 hover:border-white/25 hover:bg-white/[0.14] hover:text-foreground"
+          : ""
       }`}
     >
       {children}
@@ -991,7 +996,7 @@ function DownloadButton({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       aria-label="Downloads"
       title="Downloads"
-      className="group/icon relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-foreground/85 backdrop-blur transition-all duration-200 hover:scale-105 hover:border-white/25 hover:bg-white/[0.14] hover:text-foreground active:scale-95"
+      className="liquid-icon group/icon relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
     >
       <svg
         viewBox="0 0 24 24"

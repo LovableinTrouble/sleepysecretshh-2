@@ -130,7 +130,7 @@ function Search() {
 
         {/* Clean search bar */}
         <div className="sticky top-3 z-20 md:top-4">
-          <div className="group relative flex items-center gap-3 rounded-2xl border border-white/10 bg-background/80 pl-5 pr-2 py-2 backdrop-blur-2xl shadow-[0_10px_40px_-20px_rgba(0,0,0,0.6)] transition-all duration-200 focus-within:border-primary/60 focus-within:shadow-[0_10px_40px_-15px_color-mix(in_oklab,var(--primary)_45%,transparent)]">
+          <div className="liquid-glass group relative flex items-center gap-3 rounded-2xl pl-5 pr-2 py-2 transition-all duration-200 focus-within:border-primary/60 focus-within:shadow-[0_10px_40px_-15px_color-mix(in_oklab,var(--primary)_45%,transparent)]">
             <svg
               viewBox="0 0 24 24"
               className="h-4 w-4 shrink-0 text-muted-foreground transition group-focus-within:text-primary"
@@ -160,7 +160,7 @@ function Search() {
               className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
                 aiMode
                   ? "bg-primary text-primary-foreground shadow-[0_0_20px_color-mix(in_oklab,var(--primary)_45%,transparent)]"
-                  : "bg-white/5 text-muted-foreground ring-1 ring-white/10 hover:text-foreground"
+                  : "liquid-glass text-muted-foreground hover:text-foreground"
               }`}
             >
               <Sparkles className="h-3.5 w-3.5" />
@@ -169,7 +169,7 @@ function Search() {
             {q && (
               <button
                 onClick={() => setQ("")}
-                className="liquid-glass grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+                className="liquid-icon grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition hover:text-foreground"
                 aria-label="Clear search"
               >
                 <svg
@@ -187,32 +187,32 @@ function Search() {
 
           {/* Filter chips */}
           {!aiMode && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 animate-fade-in">
-            <div className="flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
-              {(
-                [
-                  ["all", "All"],
-                  ["movie", "Movies"],
-                  ["tv", "TV"],
-                  ["anime", "Anime"],
-                  ["people", "People"],
-                ] as [FilterType, string][]
-              ).map(([k, label]) => (
-                <button
-                  key={k}
-                  onClick={() => setFilter(k)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                    filter === k
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+            <div className="mt-3 flex flex-wrap items-center gap-2 animate-fade-in">
+              <div className="liquid-glass flex items-center gap-1 rounded-full p-1">
+                {(
+                  [
+                    ["all", "All"],
+                    ["movie", "Movies"],
+                    ["tv", "TV"],
+                    ["anime", "Anime"],
+                    ["people", "People"],
+                  ] as [FilterType, string][]
+                ).map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => setFilter(k)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      filter === k
+                        ? "liquid-pill text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <SearchSortSelect value={sort} onChange={setSort} />
             </div>
-            <SearchSortSelect value={sort} onChange={setSort} />
-          </div>
           )}
         </div>
 
@@ -395,7 +395,7 @@ function SearchSortSelect({ value, onChange }: { value: SortKey; onChange: (v: S
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="liquid-glass flex h-8 min-w-36 items-center justify-between gap-3 rounded-full px-3 text-xs font-semibold text-foreground transition hover:bg-white/10"
+        className="liquid-glass flex h-8 min-w-36 items-center justify-between gap-3 rounded-full px-3 text-xs font-semibold text-foreground transition"
         aria-expanded={open}
       >
         <span className="truncate">{active.label}</span>

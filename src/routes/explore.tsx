@@ -186,7 +186,7 @@ function ExplorePage() {
         <div className="mx-auto max-w-7xl px-4 py-4 md:px-10">
           <div className="space-y-3">
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(560px,620px)] xl:items-center">
-              <div className="grid w-full grid-cols-5 gap-1 rounded-2xl bg-white/[0.04] p-1 ring-1 ring-white/10">
+              <div className="liquid-glass grid w-full grid-cols-5 gap-1 rounded-2xl p-1">
                 {(
                   [
                     ["all", "All"],
@@ -201,7 +201,7 @@ function ExplorePage() {
                     onClick={() => setType(k)}
                     className={`h-9 min-w-0 rounded-xl px-2 text-center text-xs font-semibold transition md:text-[13px] ${
                       type === k
-                        ? "bg-primary text-primary-foreground shadow-[0_8px_22px_color-mix(in_oklab,var(--primary)_35%,transparent)]"
+                        ? "liquid-pill text-primary-foreground shadow-[0_8px_22px_color-mix(in_oklab,var(--primary)_25%,transparent)]"
                         : "text-muted-foreground hover:bg-white/7 hover:text-foreground"
                     }`}
                   >
@@ -217,7 +217,7 @@ function ExplorePage() {
                   onClear={() => setProviderId(null)}
                 />
                 <SortSelect value={sort} onChange={setSort} />
-                <div className="flex h-11 min-w-0 items-center gap-2 rounded-2xl bg-white/[0.04] px-3 text-xs ring-1 ring-white/10">
+                <div className="liquid-glass flex h-11 min-w-0 items-center gap-2 rounded-2xl px-3 text-xs">
                   <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     Rating
                   </span>
@@ -237,12 +237,12 @@ function ExplorePage() {
               </div>
             </div>
 
-            <div className="flex max-w-full items-center gap-2 overflow-x-auto rounded-2xl bg-white/[0.025] p-2 ring-1 ring-white/8 no-scrollbar">
+            <div className="liquid-glass flex max-w-full items-center gap-2 overflow-x-auto rounded-2xl p-2 no-scrollbar">
               <button
                 onClick={() => setGenreId(null)}
                 className={`h-9 shrink-0 rounded-xl px-3.5 text-xs font-semibold transition ${
                   genreId == null
-                    ? "bg-white/12 text-foreground ring-1 ring-white/14"
+                    ? "liquid-pill text-foreground"
                     : "text-muted-foreground hover:bg-white/7 hover:text-foreground"
                 }`}
               >
@@ -254,7 +254,7 @@ function ExplorePage() {
                   onClick={() => setGenreId(g.id === genreId ? null : g.id)}
                   className={`h-9 shrink-0 rounded-xl px-3.5 text-xs font-semibold transition ${
                     genreId === g.id
-                      ? "bg-white/12 text-foreground ring-1 ring-white/14"
+                      ? "liquid-pill text-foreground"
                       : "text-muted-foreground hover:bg-white/7 hover:text-foreground"
                   }`}
                 >
@@ -265,7 +265,7 @@ function ExplorePage() {
               <button
                 onClick={pickRandomMovie}
                 disabled={randomLoading}
-                className="ml-2 flex h-9 shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-primary/80 to-accent/80 px-4 text-xs font-semibold text-white shadow-lg transition hover:brightness-110 disabled:opacity-60"
+                className="liquid-pill ml-2 flex h-9 shrink-0 items-center gap-2 rounded-full px-4 text-xs font-bold transition hover:brightness-105 disabled:opacity-60"
               >
                 {randomLoading ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -326,7 +326,7 @@ function ProviderButton({
   onClear: () => void;
 }) {
   return (
-    <div className="liquid-glass flex h-11 min-w-0 items-center rounded-2xl text-xs font-semibold transition hover:bg-white/[0.07]">
+    <div className="liquid-glass flex h-11 min-w-0 items-center rounded-full text-xs font-semibold transition">
       <button
         onClick={onOpen}
         className="inline-flex h-full min-w-0 flex-1 items-center gap-2 px-3 text-left text-foreground"
@@ -400,7 +400,7 @@ function SortSelect({ value, onChange }: { value: SortKey; onChange: (v: SortKey
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="liquid-glass flex h-11 w-full items-center justify-between gap-3 rounded-2xl px-3 text-xs font-semibold text-foreground transition hover:bg-white/[0.07]"
+        className="liquid-glass flex h-11 w-full items-center justify-between gap-3 rounded-full px-4 text-xs font-semibold text-foreground transition"
         aria-expanded={open}
       >
         <span className="truncate">{active.label}</span>

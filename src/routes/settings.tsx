@@ -29,7 +29,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-         <section className="liquid-glass relative rounded-3xl p-6">
+    <section className="liquid-glass relative rounded-3xl p-6">
       <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
       {desc && <p className="mt-1 text-xs text-muted-foreground">{desc}</p>}
       <div className="mt-5 space-y-4">{children}</div>
@@ -212,7 +212,7 @@ function Select({
           if (pos) setMenuPos(pos);
           setOpen(true);
         }}
-        className="flex h-10 min-w-[10rem] items-center justify-between gap-3 rounded-2xl bg-white/[0.04] px-3 text-sm font-semibold text-foreground ring-1 ring-white/10 transition hover:bg-white/[0.07]"
+        className="liquid-glass flex h-10 min-w-[10rem] items-center justify-between gap-3 rounded-full px-4 text-sm font-semibold text-foreground transition"
         aria-expanded={open}
       >
         <span className="truncate">{active?.label}</span>
@@ -371,7 +371,7 @@ function RegionDetectButton({ onPicked }: { onPicked: (r: Region) => void }) {
           setLoading(false);
         }
       }}
-      className="liquid-glass inline-flex h-10 items-center gap-2 rounded-full px-4 text-xs font-semibold text-primary transition hover:bg-primary/25 disabled:opacity-60"
+      className="liquid-pill inline-flex h-10 items-center gap-2 rounded-full px-4 text-xs font-bold transition hover:brightness-105 disabled:opacity-60"
       disabled={loading}
     >
       {loading ? "Detecting…" : result ? `Detected: ${result}` : "Detect now"}
@@ -410,7 +410,9 @@ function SettingsPage() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold">Android app</div>
-            <div className="text-[11px] text-muted-foreground">Instant startup · offline · no ads</div>
+            <div className="text-[11px] text-muted-foreground">
+              Instant startup · offline · no ads
+            </div>
           </div>
           <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-primary-foreground transition group-hover:brightness-110">
             Get
@@ -704,7 +706,7 @@ function SettingsPage() {
             localStorage.removeItem("sleepy.settings.v2");
             location.reload();
           }}
-          className="rounded-full border border-glass-border px-5 py-2.5 text-sm text-muted-foreground transition hover:bg-background/40 hover:text-foreground"
+          className="liquid-glass rounded-full px-5 py-2.5 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
         >
           Reset to defaults
         </button>
