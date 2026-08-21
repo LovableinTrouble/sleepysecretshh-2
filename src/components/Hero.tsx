@@ -89,7 +89,7 @@ export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <button
                 onClick={() => onPlay(media)}
-                className="inline-flex h-12 items-center gap-2.5 rounded-full bg-foreground px-7 text-[15px] font-bold text-background shadow-[0_10px_30px_-12px_rgba(0,0,0,0.7)] transition-all duration-200 hover:scale-[1.03] hover:bg-foreground/90 active:scale-95"
+                className="inline-flex h-12 items-center gap-2.5 rounded-full bg-foreground px-7 text-[15px] font-bold text-background shadow-[0_10px_30px_-12px_rgba(0,0,0,0.7)] transition-all duration-500 ease-out hover:scale-[1.02] hover:bg-foreground/90 active:scale-95"
               >
                 <Play className="h-4 w-4 fill-current" />
                 Play
