@@ -301,7 +301,7 @@ function MediaPage() {
               >
                 <svg
                   viewBox="0 0 24 24"
-                  className="h-4 w-4 fill-current transition-transform group-hover/btn:scale-110"
+                  className="h-4 w-4 fill-current transition-transform duration-500 ease-out group-hover/btn:scale-110"
                 >
                   <path d="M8 5v14l11-7z" />
                 </svg>
