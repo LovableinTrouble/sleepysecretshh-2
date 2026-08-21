@@ -297,7 +297,7 @@ function MediaPage() {
                   party: undefined,
                 }}
                 onClick={() => stashWatchMedia(media)}
-                className="liquid-pill group/btn relative z-10 mr-1 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full px-7 text-[15px] font-bold transition-all duration-200 hover:scale-[1.03]"
+                className="liquid-pill group/btn relative z-10 mr-1 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full px-7 text-[15px] font-bold transition-all duration-500 ease-out hover:scale-[1.02]"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -313,7 +313,7 @@ function MediaPage() {
                 onClick={() => setWl(toggleWatchlist(media.id))}
                 aria-label={inWl ? "Remove from watchlist" : "Add to watchlist"}
                 title={inWl ? "In watchlist" : "Add to watchlist"}
-                className={`liquid-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:scale-105 ${
+                className={`liquid-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all duration-500 ease-out hover:scale-[1.04] ${
                   inWl
                     ? "border-primary/50 bg-primary/20 text-foreground ring-1 ring-primary/30"
                     : ""
@@ -379,7 +379,7 @@ function MediaPage() {
                   rel="noopener noreferrer"
                   aria-label="IMDb"
                   title="IMDb"
-                  className="liquid-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[10px] font-black tracking-wider text-yellow-300 transition-all duration-200 hover:scale-105 hover:border-yellow-300/40 hover:bg-yellow-300/15"
+                  className="liquid-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[10px] font-black tracking-wider text-yellow-300 transition-all duration-500 ease-out hover:scale-[1.04] hover:border-yellow-300/40 hover:bg-yellow-300/15"
                 >
                   IMDb
                 </a>
@@ -750,7 +750,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       type="button"
       aria-label="Back"
-      className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/15 backdrop-blur transition-all duration-200 hover:scale-105 hover:bg-black/85 hover:ring-white/30 md:left-6 md:top-5"
+      className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/15 backdrop-blur transition-all duration-500 ease-out hover:scale-[1.04] hover:bg-black/85 hover:ring-white/30 md:left-6 md:top-5"
     >
       <svg
         viewBox="0 0 24 24"
@@ -968,7 +968,7 @@ function IconBtn({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`liquid-icon group/icon relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`liquid-icon group/icon relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-500 ease-out hover:scale-[1.04] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
         active
           ? "border-primary/50 bg-primary/20 text-primary-foreground ring-1 ring-primary/40"
           : ""
@@ -986,7 +986,7 @@ function DownloadButton({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       aria-label="Downloads"
       title="Downloads"
-      className="liquid-icon group/icon relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+      className="liquid-icon group/icon relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-500 ease-out hover:scale-[1.04] active:scale-95"
     >
       <svg
         viewBox="0 0 24 24"
