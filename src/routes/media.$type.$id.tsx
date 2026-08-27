@@ -248,11 +248,6 @@ function MediaPage() {
                     {extra.contentRating}
                   </span>
                 )}
-                {extra?.status && (
-                  <span className="rounded-full bg-white/[0.07] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/60 ring-1 ring-white/10">
-                    {extra.status}
-                  </span>
-                )}
               </div>
 
               <h1 className="text-balance text-4xl font-black leading-[0.9] tracking-[-0.04em] sm:text-5xl md:text-[4rem]">
@@ -278,12 +273,6 @@ function MediaPage() {
                     <span>{media.runtime}</span>
                   </>
                 )}
-                {extra?.originalLanguage && (
-                  <>
-                    <span className="text-foreground/25">•</span>
-                    <span className="uppercase">{extra.originalLanguage}</span>
-                  </>
-                )}
               </div>
 
               {media.genres.length > 0 && (
@@ -299,9 +288,6 @@ function MediaPage() {
                 </div>
               )}
 
-              <p className="max-w-2xl text-[14.5px] leading-relaxed text-foreground/60 line-clamp-2">
-                {media.overview}
-              </p>
 
 
               <div className="flex flex-wrap items-center gap-2 pt-1.5">
@@ -406,45 +392,6 @@ function MediaPage() {
         </div>
       </section>
 
-      {/* STAT STRIP */}
-      <section className="relative z-10 mx-auto -mt-2 max-w-7xl px-6 md:px-10">
-        <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
-          <StatCard label="Rating" value={`${media.rating.toFixed(1)}/10`} sub="TMDB score" />
-          {media.runtime && <StatCard label="Runtime" value={media.runtime} sub="per view" />}
-          {isSeries ? (
-            <>
-              {extra?.numberOfSeasons ? (
-                <StatCard label="Seasons" value={String(extra.numberOfSeasons)} sub="total" />
-              ) : null}
-              {extra?.numberOfEpisodes ? (
-                <StatCard label="Episodes" value={String(extra.numberOfEpisodes)} sub="total" />
-              ) : null}
-              {extra?.firstAirDate && (
-                <StatCard label="First aired" value={extra.firstAirDate} sub="premiere" />
-              )}
-            </>
-          ) : (
-            <>
-              {extra?.releaseDate && (
-                <StatCard label="Released" value={extra.releaseDate} sub="theatrical" />
-              )}
-              {extra?.budget ? (
-                <StatCard label="Budget" value={fmtMoney(extra.budget)} sub="production" />
-              ) : null}
-              {extra?.revenue ? (
-                <StatCard label="Revenue" value={fmtMoney(extra.revenue)} sub="box office" />
-              ) : null}
-            </>
-          )}
-          {extra?.originalLanguage && (
-            <StatCard
-              label="Language"
-              value={extra.originalLanguage.toUpperCase()}
-              sub="original"
-            />
-          )}
-        </div>
-      </section>
 
       {/* CONTENT */}
       <section className="relative z-0 mx-auto grid max-w-7xl gap-8 px-6 pb-32 pt-8 md:grid-cols-[minmax(0,1fr)_19rem] md:gap-10 md:px-10 md:pb-24 md:pt-10">
@@ -454,22 +401,6 @@ function MediaPage() {
             <p className="mt-3 max-w-3xl text-[15px] leading-[1.75] text-foreground/75">
               {media.overview || "No synopsis available for this title yet."}
             </p>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <FactRow k={isSeries ? "Networks" : "Studios"} v={studios.slice(0, 3).join(", ")} />
-              {extra?.productionCountries?.length ? (
-                <FactRow k="Countries" v={extra.productionCountries.slice(0, 3).join(", ")} />
-              ) : null}
-              {extra?.spokenLanguages?.length ? (
-                <FactRow k="Spoken languages" v={extra.spokenLanguages.slice(0, 3).join(", ")} />
-              ) : null}
-              {extra?.createdBy?.length ? (
-                <FactRow k="Created by" v={extra.createdBy.slice(0, 3).join(", ")} />
-              ) : null}
-              {extra?.originalTitle && extra.originalTitle !== media.title ? (
-                <FactRow k="Original title" v={extra.originalTitle} />
-              ) : null}
-              {extra?.status ? <FactRow k="Status" v={extra.status} /> : null}
-            </div>
           </div>
 
           {cast.length > 0 && <PeopleStrip title="Cast" people={cast} />}
@@ -654,10 +585,10 @@ function MediaPage() {
             <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               Details
             </h3>
-            <Detail k="Type" v={isSeries ? "TV Series" : "Movie"} />
             {extra?.status && <Detail k="Status" v={extra.status} />}
-            {extra?.originalLanguage && <Detail k="Original language" v={extra.originalLanguage} />}
-            {media.runtime && <Detail k="Runtime" v={media.runtime} />}
+            {extra?.originalLanguage && (
+              <Detail k="Original language" v={extra.originalLanguage.toUpperCase()} />
+            )}
             {isSeries ? (
               <>
                 {extra?.firstAirDate && <Detail k="First aired" v={extra.firstAirDate} />}
@@ -670,10 +601,7 @@ function MediaPage() {
                 ) : null}
               </>
             ) : (
-              <>
-                {extra?.releaseDate && <Detail k="Released" v={extra.releaseDate} />}
-                {media.year && <Detail k="Year" v={media.year} />}
-              </>
+              <>{extra?.releaseDate && <Detail k="Released" v={extra.releaseDate} />}</>
             )}
             {extra?.originalTitle && extra.originalTitle !== media.title && (
               <Detail k="Original title" v={extra.originalTitle} />
@@ -1029,9 +957,9 @@ function InfoBlock({ title, items }: { title: string; items: string[] }) {
 
 function Detail({ k, v }: { k: string; v: string }) {
   return (
-    <div className="media-info-row flex justify-between gap-3 pb-2">
-      <span className="text-muted-foreground">{k}</span>
-      <span className="text-right">{v}</span>
+    <div className="media-info-row flex items-start justify-between gap-3 pb-2">
+      <span className="shrink-0 text-muted-foreground">{k}</span>
+      <span className="min-w-0 break-words text-right">{v}</span>
     </div>
   );
 }
@@ -1089,19 +1017,6 @@ function DownloadButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="liquid-glass min-w-[8.5rem] shrink-0 rounded-2xl px-4 py-3">
-      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1.5 truncate text-[15px] font-black tracking-tight text-foreground">
-        {value}
-      </p>
-      {sub && <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
 
 function SectionHeading({ kicker, title }: { kicker?: string; title: string }) {
   return (
@@ -1114,16 +1029,3 @@ function SectionHeading({ kicker, title }: { kicker?: string; title: string }) {
   );
 }
 
-function FactRow({ k, v }: { k: string; v: string }) {
-  if (!v) return null;
-  return (
-    <div className="flex items-baseline gap-3 rounded-xl bg-white/[0.03] px-3.5 py-2.5 ring-1 ring-white/[0.06]">
-      <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-        {k}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-right text-[12.5px] font-semibold text-foreground/85">
-        {v}
-      </span>
-    </div>
-  );
-}
