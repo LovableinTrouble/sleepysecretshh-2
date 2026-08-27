@@ -233,7 +233,7 @@ function MediaPage() {
               </div>
 
 
-              <h1 className="text-balance text-5xl font-black leading-[0.92] tracking-[-0.035em] md:text-7xl">
+              <h1 className="text-balance text-4xl font-black leading-[0.95] tracking-[-0.035em] sm:text-5xl md:text-6xl">
                 {media.title}
               </h1>
 
