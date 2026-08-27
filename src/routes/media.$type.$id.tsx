@@ -211,7 +211,7 @@ function MediaPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/10" />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/65 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-background via-background/85 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-background via-background/95 to-transparent" />
         </div>
 
         <div className="relative mx-auto flex min-h-[78svh] max-w-7xl flex-col justify-end px-6 pb-12 pt-28 md:px-10 md:pb-16 md:pt-32">
