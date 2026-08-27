@@ -1086,3 +1086,42 @@ function DownloadButton({ onClick }: { onClick: () => void }) {
     </button>
   );
 }
+
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="liquid-glass min-w-[8.5rem] shrink-0 rounded-2xl px-4 py-3">
+      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1.5 truncate text-[15px] font-black tracking-tight text-foreground">
+        {value}
+      </p>
+      {sub && <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
+
+function SectionHeading({ kicker, title }: { kicker?: string; title: string }) {
+  return (
+    <div>
+      {kicker && (
+        <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-primary/80">{kicker}</p>
+      )}
+      <h2 className="mt-1 text-2xl font-black tracking-tight md:text-[1.7rem]">{title}</h2>
+    </div>
+  );
+}
+
+function FactRow({ k, v }: { k: string; v: string }) {
+  if (!v) return null;
+  return (
+    <div className="flex items-baseline gap-3 rounded-xl bg-white/[0.03] px-3.5 py-2.5 ring-1 ring-white/[0.06]">
+      <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+        {k}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-right text-[12.5px] font-semibold text-foreground/85">
+        {v}
+      </span>
+    </div>
+  );
+}
