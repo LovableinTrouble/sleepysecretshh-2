@@ -239,75 +239,44 @@ function MediaPage() {
               )}
 
 
-              {/* Meta chips */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold ring-1 ring-white/10">
-                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-primary text-primary">
+              {/* Meta row */}
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[13px] font-semibold text-foreground/70">
+                <span className="inline-flex items-center gap-1.5 text-foreground">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-primary">
                     <path d="M12 2l2.9 6.1 6.7.9-4.9 4.6 1.2 6.6L12 17.1 6.1 20.2l1.2-6.6L2.4 9l6.7-.9z" />
                   </svg>
                   {media.rating.toFixed(1)}
                 </span>
-                <span className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold ring-1 ring-white/10">
-                  {media.year}
-                </span>
+                <span className="text-foreground/25">•</span>
+                <span>{media.year}</span>
                 {media.runtime && (
-                  <span className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold ring-1 ring-white/10">
-                    {media.runtime}
-                  </span>
+                  <>
+                    <span className="text-foreground/25">•</span>
+                    <span>{media.runtime}</span>
+                  </>
                 )}
-                {media.genres.slice(0, 3).map((g) => (
-                  <span
-                    key={g}
-                    className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold text-foreground/80 ring-1 ring-white/10"
-                  >
-                    {g}
-                  </span>
-                ))}
+                {media.genres.length > 0 && (
+                  <>
+                    <span className="text-foreground/25">•</span>
+                    <span>{media.genres.slice(0, 3).join(", ")}</span>
+                  </>
+                )}
                 {extra?.contentRating && (
-                  <span className="rounded-full border border-white/25 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider">
+                  <span className="ml-1 rounded-md border border-white/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground/80">
                     {extra.contentRating}
                   </span>
                 )}
                 {extra?.status && extra.status !== "Released" && (
-                  <span className="rounded-full bg-primary/15 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-primary ring-1 ring-primary/30">
+                  <span className="ml-1 rounded-md bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary ring-1 ring-primary/30">
                     {extra.status}
                   </span>
                 )}
               </div>
 
-              <p className="max-w-xl text-[15px] leading-relaxed text-foreground/70 line-clamp-4 md:text-base">
+              <p className="max-w-xl text-[14.5px] leading-relaxed text-foreground/65 line-clamp-3">
                 {media.overview}
               </p>
 
-
-
-            {/* Warning for newly released movies (likely low quality streams) */}
-            {!isSeries &&
-              extra?.releaseDate &&
-              (() => {
-                const releaseDate = new Date(extra.releaseDate);
-                const daysSinceRelease =
-                  (Date.now() - releaseDate.getTime()) / (1000 * 60 * 60 * 24);
-                const isNewRelease = daysSinceRelease < 45 && daysSinceRelease > 0;
-                return (
-                  isNewRelease && (
-                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200 ring-1 ring-amber-400/25">
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-4 w-4 shrink-0 fill-none stroke-current"
-                        strokeWidth="2"
-                      >
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="8" x2="12" y2="12" />
-                        <line x1="12" y1="16" x2="12.01" y2="16" />
-                      </svg>
-                      <span>
-                        This content was newly released — expect streams to play in low quality.
-                      </span>
-                    </div>
-                  )
-                );
-              })()}
 
             <div className="flex flex-wrap items-center gap-2 pt-2 pb-1">
               <Link
