@@ -209,27 +209,29 @@ function MediaPage() {
             alt=""
             className="h-full w-full scale-105 object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/10" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/10" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/65 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-background via-background/85 to-transparent" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[86svh] max-w-7xl flex-col justify-end px-6 pb-10 pt-32 md:px-10 md:pb-14 md:pt-36">
-          <div className="grid items-end gap-8 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-10">
+        <div className="relative mx-auto flex min-h-[78svh] max-w-7xl flex-col justify-end px-6 pb-12 pt-28 md:px-10 md:pb-16 md:pt-32">
+          <div className="grid items-end gap-8 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-10">
             <div className="hidden md:block">
               <div className="aspect-[2/3] w-full overflow-hidden rounded-[22px] ring-1 ring-white/15 shadow-[0_30px_70px_-30px_rgba(0,0,0,0.9)]">
                 <img
                   src={media.poster || media.backdrop}
                   alt={media.title}
                   className="h-full w-full object-cover"
+                  loading="eager"
                 />
               </div>
             </div>
 
-            <div className="max-w-2xl space-y-5">
+            <div className="max-w-2xl space-y-4">
               <div className="text-[11px] font-semibold uppercase tracking-[0.4em] text-primary/80">
                 {isSeries ? "Series" : "Feature Film"}
               </div>
+
 
               <h1 className="text-balance text-5xl font-black leading-[0.92] tracking-[-0.035em] md:text-7xl">
                 {media.title}
