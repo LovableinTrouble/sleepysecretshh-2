@@ -202,44 +202,66 @@ function MediaPage() {
       )}
 
       {/* HERO */}
-      <section className="relative z-20 w-full overflow-visible pb-0">
-        <div className="absolute inset-0 overflow-hidden">
+      <section className="relative z-20 w-full overflow-hidden">
+        <div className="absolute inset-0">
           <img
             src={media.backdrop || media.poster}
             alt=""
-            className="h-full w-full object-cover object-center"
+            className="h-full w-full object-cover object-top"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-background via-background/90 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/25" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/55 to-transparent" />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(120% 90% at 15% 100%, color-mix(in oklab, var(--primary) 14%, transparent) 0%, transparent 60%)",
+            }}
+          />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[58svh] max-w-7xl flex-col justify-end px-6 pb-8 pt-24 md:min-h-[62svh] md:px-10 md:pb-10 md:pt-28">
-          <div className="grid items-end gap-6 md:grid-cols-[10.5rem_minmax(0,1fr)] md:gap-8">
+        <div className="relative mx-auto flex min-h-[64svh] max-w-7xl flex-col justify-end px-6 pb-10 pt-28 md:min-h-[70svh] md:px-10 md:pb-12">
+          <div className="grid items-end gap-7 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-9">
             <div className="hidden md:block">
-              <div className="aspect-[2/3] w-full overflow-hidden rounded-[20px] ring-1 ring-white/15 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.95)]">
-                <img
-                  src={media.poster || media.backdrop}
-                  alt={media.title}
-                  className="h-full w-full object-cover"
-                  loading="eager"
-                />
+              <div className="relative">
+                <div className="absolute -inset-3 rounded-[28px] bg-primary/20 blur-2xl" />
+                <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[22px] ring-1 ring-white/20 shadow-[0_30px_70px_-30px_rgba(0,0,0,0.95)]">
+                  <img
+                    src={media.poster || media.backdrop}
+                    alt={media.title}
+                    className="h-full w-full object-cover"
+                    loading="eager"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="max-w-2xl space-y-3">
-              <h1 className="text-balance text-4xl font-black leading-[0.92] tracking-[-0.035em] sm:text-5xl md:text-[3.6rem]">
+            <div className="min-w-0 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-primary/20 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-primary ring-1 ring-primary/30">
+                  {isSeries ? "Series" : "Film"}
+                </span>
+                {extra?.contentRating && (
+                  <span className="rounded-full border border-white/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-foreground/80">
+                    {extra.contentRating}
+                  </span>
+                )}
+                {extra?.status && (
+                  <span className="rounded-full bg-white/[0.07] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/60 ring-1 ring-white/10">
+                    {extra.status}
+                  </span>
+                )}
+              </div>
+
+              <h1 className="text-balance text-4xl font-black leading-[0.9] tracking-[-0.04em] sm:text-5xl md:text-[4rem]">
                 {media.title}
               </h1>
 
               {extra?.tagline && (
-                <p className="max-w-xl text-sm italic text-muted-foreground">
-                  &ldquo;{extra.tagline}&rdquo;
-                </p>
+                <p className="max-w-xl text-sm italic text-foreground/50">{extra.tagline}</p>
               )}
 
-
-              {/* Meta row */}
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[13px] font-semibold text-foreground/70">
                 <span className="inline-flex items-center gap-1.5 text-foreground">
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-primary">
@@ -255,87 +277,100 @@ function MediaPage() {
                     <span>{media.runtime}</span>
                   </>
                 )}
-                {media.genres.length > 0 && (
+                {extra?.originalLanguage && (
                   <>
                     <span className="text-foreground/25">•</span>
-                    <span>{media.genres.slice(0, 3).join(", ")}</span>
+                    <span className="uppercase">{extra.originalLanguage}</span>
                   </>
-                )}
-                {extra?.contentRating && (
-                  <span className="ml-1 rounded-md border border-white/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground/80">
-                    {extra.contentRating}
-                  </span>
-                )}
-                {extra?.status && extra.status !== "Released" && (
-                  <span className="ml-1 rounded-md bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary ring-1 ring-primary/30">
-                    {extra.status}
-                  </span>
                 )}
               </div>
 
-              <p className="max-w-xl text-[14.5px] leading-relaxed text-foreground/65 line-clamp-3">
+              {media.genres.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {media.genres.slice(0, 4).map((g) => (
+                    <span
+                      key={g}
+                      className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-semibold text-foreground/75 ring-1 ring-white/10"
+                    >
+                      {g}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <p className="max-w-2xl text-[14.5px] leading-relaxed text-foreground/65 line-clamp-3">
                 {media.overview}
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-1.5">
-
-              <Link
-                to="/watch/$id"
-                params={{ id: String(media.id) }}
-                search={{
-                  t: media.type,
-                  s: isSeries ? season : undefined,
-                  e: isSeries ? episode : undefined,
-                  party: undefined,
-                }}
-                onClick={() => stashWatchMedia(media)}
-                className="liquid-pill group/btn relative z-10 mr-1 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full px-7 text-[15px] font-bold transition-all duration-500 ease-out hover:scale-[1.02]"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4 fill-current transition-transform duration-500 ease-out group-hover/btn:scale-110"
+                <Link
+                  to="/watch/$id"
+                  params={{ id: String(media.id) }}
+                  search={{
+                    t: media.type,
+                    s: isSeries ? season : undefined,
+                    e: isSeries ? episode : undefined,
+                    party: undefined,
+                  }}
+                  onClick={() => stashWatchMedia(media)}
+                  className="liquid-pill group/btn relative z-10 mr-1 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full px-7 text-[15px] font-bold transition-all duration-500 ease-out hover:scale-[1.02]"
                 >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                Play {isSeries && `S${season} · E${episode}`}
-              </Link>
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4 fill-current transition-transform duration-500 ease-out group-hover/btn:scale-110"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  Play {isSeries && `S${season} · E${episode}`}
+                </Link>
 
-              <button
-                type="button"
-                onClick={() => setWl(toggleWatchlist(media.id))}
-                aria-label={inWl ? "Remove from watchlist" : "Add to watchlist"}
-                title={inWl ? "In watchlist" : "Add to watchlist"}
-                className={`liquid-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all duration-500 ease-out hover:scale-[1.04] ${
-                  inWl
-                    ? "border-primary/50 bg-primary/20 text-foreground ring-1 ring-primary/30"
-                    : ""
-                }`}
-              >
-                {inWl ? (
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-[18px] w-[18px]"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.4"
-                  >
-                    <path d="M5 12l5 5L20 7" />
-                  </svg>
-                ) : (
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-[18px] w-[18px]"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M12 5v14m-7-7h14" />
-                  </svg>
+                <button
+                  type="button"
+                  onClick={() => setWl(toggleWatchlist(media.id))}
+                  aria-label={inWl ? "Remove from watchlist" : "Add to watchlist"}
+                  title={inWl ? "In watchlist" : "Add to watchlist"}
+                  className={`liquid-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all duration-500 ease-out hover:scale-[1.04] ${
+                    inWl ? "border-primary/50 bg-primary/20 text-foreground ring-1 ring-primary/30" : ""
+                  }`}
+                >
+                  {inWl ? (
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-[18px] w-[18px]"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.4"
+                    >
+                      <path d="M5 12l5 5L20 7" />
+                    </svg>
+                  ) : (
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-[18px] w-[18px]"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M12 5v14m-7-7h14" />
+                    </svg>
+                  )}
+                </button>
+
+                {extra?.trailerKey && (
+                  <IconBtn onClick={() => setTrailerOpen(true)} label="Trailer">
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-[18px] w-[18px]"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polygon points="23 7 16 12 23 17 23 7" />
+                      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                    </svg>
+                  </IconBtn>
                 )}
-              </button>
-
-              {extra?.trailerKey && (
-                <IconBtn onClick={() => setTrailerOpen(true)} label="Trailer">
+                <IconBtn onClick={handleShare} label="Share">
                   <svg
                     viewBox="0 0 24 24"
                     className="h-[18px] w-[18px]"
@@ -343,61 +378,107 @@ function MediaPage() {
                     stroke="currentColor"
                     strokeWidth="2"
                   >
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                   </svg>
                 </IconBtn>
-              )}
-              <IconBtn onClick={handleShare} label="Share">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-[18px] w-[18px]"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <circle cx="18" cy="5" r="3" />
-                  <circle cx="6" cy="12" r="3" />
-                  <circle cx="18" cy="19" r="3" />
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                </svg>
-              </IconBtn>
-              <DownloadButton onClick={() => setDownloadsOpen(true)} />
-              {extra?.imdbId && (
-                <a
-                  href={`https://www.imdb.com/title/${extra.imdbId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="IMDb"
-                  title="IMDb"
-                  className="liquid-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[10px] font-black tracking-wider text-yellow-300 transition-all duration-500 ease-out hover:scale-[1.04] hover:border-yellow-300/40 hover:bg-yellow-300/15"
-                >
-                  IMDb
-                </a>
-              )}
+                <DownloadButton onClick={() => setDownloadsOpen(true)} />
+                {extra?.imdbId && (
+                  <a
+                    href={`https://www.imdb.com/title/${extra.imdbId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="IMDb"
+                    title="IMDb"
+                    className="liquid-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[10px] font-black tracking-wider text-yellow-300 transition-all duration-500 ease-out hover:scale-[1.04] hover:border-yellow-300/40 hover:bg-yellow-300/15"
+                  >
+                    IMDb
+                  </a>
+                )}
               </div>
             </div>
           </div>
         </div>
       </section>
 
+      {/* STAT STRIP */}
+      <section className="relative z-10 mx-auto -mt-2 max-w-7xl px-6 md:px-10">
+        <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
+          <StatCard label="Rating" value={`${media.rating.toFixed(1)}/10`} sub="TMDB score" />
+          {media.runtime && <StatCard label="Runtime" value={media.runtime} sub="per view" />}
+          {isSeries ? (
+            <>
+              {extra?.numberOfSeasons ? (
+                <StatCard label="Seasons" value={String(extra.numberOfSeasons)} sub="total" />
+              ) : null}
+              {extra?.numberOfEpisodes ? (
+                <StatCard label="Episodes" value={String(extra.numberOfEpisodes)} sub="total" />
+              ) : null}
+              {extra?.firstAirDate && (
+                <StatCard label="First aired" value={extra.firstAirDate} sub="premiere" />
+              )}
+            </>
+          ) : (
+            <>
+              {extra?.releaseDate && (
+                <StatCard label="Released" value={extra.releaseDate} sub="theatrical" />
+              )}
+              {extra?.budget ? (
+                <StatCard label="Budget" value={fmtMoney(extra.budget)} sub="production" />
+              ) : null}
+              {extra?.revenue ? (
+                <StatCard label="Revenue" value={fmtMoney(extra.revenue)} sub="box office" />
+              ) : null}
+            </>
+          )}
+          {extra?.originalLanguage && (
+            <StatCard
+              label="Language"
+              value={extra.originalLanguage.toUpperCase()}
+              sub="original"
+            />
+          )}
+        </div>
+      </section>
+
       {/* CONTENT */}
-      <section className="relative z-0 mx-auto grid max-w-7xl gap-8 px-6 pb-32 pt-2 md:grid-cols-[minmax(0,1fr)_20rem] md:gap-10 md:px-10 md:pb-24 md:pt-3">
-        <div className="min-w-0 space-y-7 md:space-y-9">
+      <section className="relative z-0 mx-auto grid max-w-7xl gap-8 px-6 pb-32 pt-8 md:grid-cols-[minmax(0,1fr)_19rem] md:gap-10 md:px-10 md:pb-24 md:pt-10">
+        <div className="min-w-0 space-y-10 md:space-y-12">
+          <div className="animate-soft-rise">
+            <SectionHeading kicker="Story" title={isSeries ? "About the series" : "About the film"} />
+            <p className="mt-3 max-w-3xl text-[15px] leading-[1.75] text-foreground/75">
+              {media.overview || "No synopsis available for this title yet."}
+            </p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <FactRow k={isSeries ? "Networks" : "Studios"} v={studios.slice(0, 3).join(", ")} />
+              {extra?.productionCountries?.length ? (
+                <FactRow k="Countries" v={extra.productionCountries.slice(0, 3).join(", ")} />
+              ) : null}
+              {extra?.spokenLanguages?.length ? (
+                <FactRow k="Spoken languages" v={extra.spokenLanguages.slice(0, 3).join(", ")} />
+              ) : null}
+              {extra?.createdBy?.length ? (
+                <FactRow k="Created by" v={extra.createdBy.slice(0, 3).join(", ")} />
+              ) : null}
+              {extra?.originalTitle && extra.originalTitle !== media.title ? (
+                <FactRow k="Original title" v={extra.originalTitle} />
+              ) : null}
+              {extra?.status ? <FactRow k="Status" v={extra.status} /> : null}
+            </div>
+          </div>
 
           {cast.length > 0 && <PeopleStrip title="Cast" people={cast} />}
 
           {isSeries && (
             <div className="animate-soft-rise">
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight">Episodes</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Season {season}
-                    {episodes.length ? ` · ${episodes.length} episodes` : ""}
-                  </p>
-                </div>
+                <SectionHeading
+                  kicker={`Season ${season}${episodes.length ? ` · ${episodes.length} episodes` : ""}`}
+                  title="Episodes"
+                />
                 {seasons.length > 0 && (
                   <SeasonPicker
                     seasons={seasons}
@@ -501,8 +582,8 @@ function MediaPage() {
 
           {similar.length > 0 && (
             <div>
-              <h2 className="mb-3 text-2xl font-bold tracking-tight">More like this</h2>
-              <div className="no-scrollbar -mx-2 flex gap-4 overflow-x-auto px-2 pb-3 pt-3">
+              <SectionHeading kicker="Recommended" title="More like this" />
+              <div className="no-scrollbar -mx-2 mt-3 flex gap-4 overflow-x-auto px-2 pb-3 pt-3">
                 {similar.map((m) => (
                   <MediaCard key={`${m.type}-${m.id}`} media={m} />
                 ))}
@@ -511,23 +592,29 @@ function MediaPage() {
           )}
         </div>
 
-        <aside className="media-sidebar-card h-fit space-y-6 rounded-[28px] p-5 animate-soft-rise md:sticky md:top-6 md:p-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                Title details
-              </p>
-              <h2 className="mt-2 text-lg font-black tracking-tight">{media.title}</h2>
-              <p className="mt-1 text-xs font-medium text-muted-foreground">
-                {isSeries ? "Series" : "Movie"} · {media.year}
-              </p>
+        <aside className="h-fit space-y-4 animate-soft-rise md:sticky md:top-6">
+          <div className="media-sidebar-card rounded-[26px] p-5">
+            <div className="flex items-center gap-3">
+              <div className="h-16 w-11 shrink-0 overflow-hidden rounded-lg ring-1 ring-white/12">
+                <img
+                  src={media.poster || media.backdrop}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-black tracking-tight">{media.title}</h2>
+                <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+                  {isSeries ? "TV Series" : "Movie"} · {media.year}
+                </p>
+              </div>
+              <span className="media-info-chip ml-auto shrink-0 rounded-lg px-2 py-1 text-[10px] font-black uppercase tracking-wider text-foreground">
+                {extra?.contentRating || "NR"}
+              </span>
             </div>
-            <span className="media-info-chip shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-black uppercase tracking-wider text-foreground">
-              {extra?.contentRating || "NR"}
-            </span>
           </div>
 
-          <div className="border-t border-white/10 pt-5">
+          <div className="media-sidebar-card rounded-[26px] p-5">
             <h3 className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               Where to watch
             </h3>
@@ -561,18 +648,10 @@ function MediaPage() {
             )}
           </div>
 
-          <InfoBlock title={isSeries ? "Networks" : "Studios"} items={studios} />
-          {extra?.spokenLanguages?.length ? (
-            <InfoBlock title="Languages" items={extra.spokenLanguages} />
-          ) : null}
-          {extra?.productionCountries?.length ? (
-            <InfoBlock title="Countries" items={extra.productionCountries} />
-          ) : null}
-          {extra?.createdBy?.length ? (
-            <InfoBlock title="Created by" items={extra.createdBy} />
-          ) : null}
-
-          <div className="space-y-2 border-t border-white/10 pt-5 text-sm">
+          <div className="media-sidebar-card space-y-2 rounded-[26px] p-5 text-sm">
+            <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+              Details
+            </h3>
             <Detail k="Type" v={isSeries ? "TV Series" : "Movie"} />
             {extra?.status && <Detail k="Status" v={extra.status} />}
             {extra?.originalLanguage && <Detail k="Original language" v={extra.originalLanguage} />}
@@ -599,7 +678,19 @@ function MediaPage() {
             )}
             {extra?.budget ? <Detail k="Budget" v={fmtMoney(extra.budget)} /> : null}
             {extra?.revenue ? <Detail k="Revenue" v={fmtMoney(extra.revenue)} /> : null}
-            {extra?.contentRating && <Detail k="Rated" v={extra.contentRating} />}
+          </div>
+
+          <div className="media-sidebar-card space-y-5 rounded-[26px] p-5">
+            <InfoBlock title={isSeries ? "Networks" : "Studios"} items={studios} />
+            {extra?.spokenLanguages?.length ? (
+              <InfoBlock title="Languages" items={extra.spokenLanguages} />
+            ) : null}
+            {extra?.productionCountries?.length ? (
+              <InfoBlock title="Countries" items={extra.productionCountries} />
+            ) : null}
+            {extra?.createdBy?.length ? (
+              <InfoBlock title="Created by" items={extra.createdBy} />
+            ) : null}
           </div>
 
           {extra?.homepage && (
@@ -614,6 +705,7 @@ function MediaPage() {
           )}
         </aside>
       </section>
+
 
       {trailerOpen && extra?.trailerKey && (
         <div
