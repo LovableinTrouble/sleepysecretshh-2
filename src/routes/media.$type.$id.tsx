@@ -277,8 +277,8 @@ function MediaPage() {
                 {media.overview}
               </p>
 
+              <div className="flex flex-wrap items-center gap-2 pt-1.5">
 
-            <div className="flex flex-wrap items-center gap-2 pt-2 pb-1">
               <Link
                 to="/watch/$id"
                 params={{ id: String(media.id) }}
