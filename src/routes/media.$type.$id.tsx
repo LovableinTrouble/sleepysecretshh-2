@@ -409,10 +409,12 @@ function MediaPage() {
                   IMDb
                 </a>
               )}
+              </div>
             </div>
           </div>
         </div>
       </section>
+
 
       {/* CONTENT */}
       <section className="relative z-0 mx-auto grid max-w-7xl gap-8 px-6 pb-4 pt-1 md:grid-cols-[minmax(0,1fr)_22rem] md:gap-12 md:px-10 md:pt-2">
