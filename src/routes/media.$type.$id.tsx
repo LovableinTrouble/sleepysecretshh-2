@@ -209,19 +209,20 @@ function MediaPage() {
             alt=""
             className="h-full w-full object-cover object-top"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/25" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/55 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/35 to-transparent" />
           <div
             className="absolute inset-0"
             style={{
               background:
-                "radial-gradient(120% 90% at 15% 100%, color-mix(in oklab, var(--primary) 14%, transparent) 0%, transparent 60%)",
+                "radial-gradient(110% 80% at 12% 100%, color-mix(in oklab, var(--primary) 12%, transparent) 0%, transparent 58%)",
             }}
           />
-          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[64svh] max-w-7xl flex-col justify-end px-6 pb-10 pt-28 md:min-h-[70svh] md:px-10 md:pb-12">
+        <div className="relative mx-auto flex min-h-[56svh] max-w-7xl flex-col justify-end px-6 pb-9 pt-24 md:min-h-[60svh] md:px-10 md:pb-11 md:pt-28">
+
           <div className="grid items-end gap-7 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-9">
             <div className="hidden md:block">
               <div className="relative">
