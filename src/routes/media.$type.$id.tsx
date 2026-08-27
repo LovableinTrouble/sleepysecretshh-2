@@ -419,7 +419,7 @@ function MediaPage() {
 
 
       {/* CONTENT */}
-      <section className="relative z-0 mx-auto grid max-w-7xl gap-8 px-6 pb-4 pt-1 md:grid-cols-[minmax(0,1fr)_22rem] md:gap-12 md:px-10 md:pt-2">
+      <section className="relative z-0 mx-auto grid max-w-7xl gap-8 px-6 pb-28 pt-6 md:grid-cols-[minmax(0,1fr)_22rem] md:gap-12 md:px-10 md:pb-16 md:pt-8">
         <div className="min-w-0 space-y-8 md:space-y-10">
           {cast.length > 0 && <PeopleStrip title="Cast" people={cast} />}
 
