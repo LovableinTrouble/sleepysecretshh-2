@@ -299,9 +299,10 @@ function MediaPage() {
                 </div>
               )}
 
-              <p className="max-w-2xl text-[14.5px] leading-relaxed text-foreground/65 line-clamp-3">
+              <p className="max-w-2xl text-[14.5px] leading-relaxed text-foreground/60 line-clamp-2">
                 {media.overview}
               </p>
+
 
               <div className="flex flex-wrap items-center gap-2 pt-1.5">
                 <Link
