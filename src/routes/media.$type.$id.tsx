@@ -203,7 +203,7 @@ function MediaPage() {
 
       {/* HERO */}
       <section className="relative z-20 w-full overflow-visible pb-0">
-        <div className="absolute inset-0">
+        <div className="absolute inset-0 overflow-hidden">
           <img
             src={media.backdrop || media.poster}
             alt=""
