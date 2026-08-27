@@ -207,17 +207,17 @@ function MediaPage() {
           <img
             src={media.backdrop || media.poster}
             alt=""
-            className="h-full w-full object-cover object-top"
+            className="h-full w-full object-cover object-center"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/10" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/65 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-background via-background/95 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-background via-background/90 to-transparent" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[78svh] max-w-7xl flex-col justify-end px-6 pb-12 pt-28 md:px-10 md:pb-16 md:pt-32">
-          <div className="grid items-end gap-8 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-10">
+        <div className="relative mx-auto flex min-h-[58svh] max-w-7xl flex-col justify-end px-6 pb-8 pt-24 md:min-h-[62svh] md:px-10 md:pb-10 md:pt-28">
+          <div className="grid items-end gap-6 md:grid-cols-[10.5rem_minmax(0,1fr)] md:gap-8">
             <div className="hidden md:block">
-              <div className="aspect-[2/3] w-full overflow-hidden rounded-[22px] ring-1 ring-white/15 shadow-[0_30px_70px_-30px_rgba(0,0,0,0.9)]">
+              <div className="aspect-[2/3] w-full overflow-hidden rounded-[20px] ring-1 ring-white/15 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.95)]">
                 <img
                   src={media.poster || media.backdrop}
                   alt={media.title}
@@ -227,21 +227,17 @@ function MediaPage() {
               </div>
             </div>
 
-            <div className="max-w-2xl space-y-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.4em] text-primary/80">
-                {isSeries ? "Series" : "Feature Film"}
-              </div>
-
-
-              <h1 className="text-balance text-4xl font-black leading-[0.95] tracking-[-0.035em] sm:text-5xl md:text-6xl">
+            <div className="max-w-2xl space-y-3">
+              <h1 className="text-balance text-4xl font-black leading-[0.92] tracking-[-0.035em] sm:text-5xl md:text-[3.6rem]">
                 {media.title}
               </h1>
 
               {extra?.tagline && (
-                <p className="max-w-xl text-base italic text-muted-foreground">
+                <p className="max-w-xl text-sm italic text-muted-foreground">
                   &ldquo;{extra.tagline}&rdquo;
                 </p>
               )}
+
 
               {/* Meta chips */}
               <div className="flex flex-wrap items-center gap-2">
