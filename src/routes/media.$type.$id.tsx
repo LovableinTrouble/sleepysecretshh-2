@@ -207,7 +207,7 @@ function MediaPage() {
           <img
             src={media.backdrop || media.poster}
             alt=""
-            className="h-full w-full scale-105 object-cover"
+            className="h-full w-full object-cover object-top"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/10" />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/65 to-transparent" />
