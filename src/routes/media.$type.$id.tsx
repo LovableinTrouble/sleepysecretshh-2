@@ -204,58 +204,83 @@ function MediaPage() {
       {/* HERO */}
       <section className="relative z-20 w-full overflow-visible pb-0">
         <div className="absolute inset-0">
-          <img src={media.backdrop || media.poster} alt="" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/10" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
+          <img
+            src={media.backdrop || media.poster}
+            alt=""
+            className="h-full w-full scale-105 object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/10" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
         </div>
 
         <div className="relative mx-auto flex min-h-[86svh] max-w-7xl flex-col justify-end px-6 pb-10 pt-32 md:px-10 md:pb-14 md:pt-36">
-          <div className="max-w-2xl space-y-6">
-            <h1 className="text-balance text-5xl font-black leading-[0.95] tracking-[-0.03em] md:text-7xl">
-              {media.title}
-            </h1>
-
-            {extra?.tagline && (
-              <p className="max-w-xl text-base italic text-muted-foreground">"{extra.tagline}"</p>
-            )}
-
-            {/* Star · Year · Genre meta row */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-semibold text-foreground/75">
-              <span className="inline-flex items-center gap-1.5 text-foreground">
-                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-primary text-primary">
-                  <path d="M12 2l2.9 6.1 6.7.9-4.9 4.6 1.2 6.6L12 17.1 6.1 20.2l1.2-6.6L2.4 9l6.7-.9z" />
-                </svg>
-                {media.rating.toFixed(1)}
-              </span>
-              <span className="h-1 w-1 rounded-full bg-foreground/30" />
-              <span>{media.year}</span>
-              {media.runtime && (
-                <>
-                  <span className="h-1 w-1 rounded-full bg-foreground/30" />
-                  <span>{media.runtime}</span>
-                </>
-              )}
-              {media.genres.slice(0, 2).map((g) => (
-                <span key={g} className="inline-flex items-center gap-3">
-                  <span className="h-1 w-1 rounded-full bg-foreground/30" />
-                  {g}
-                </span>
-              ))}
-              {extra?.contentRating && (
-                <span className="rounded-md border border-white/25 px-2 py-0.5 text-[11px] uppercase tracking-wider">
-                  {extra.contentRating}
-                </span>
-              )}
-              {extra?.status && extra.status !== "Released" && (
-                <span className="rounded-md bg-white/[0.08] px-2 py-0.5 text-[11px] uppercase tracking-wider ring-1 ring-white/10">
-                  {extra.status}
-                </span>
-              )}
+          <div className="grid items-end gap-8 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-10">
+            <div className="hidden md:block">
+              <div className="aspect-[2/3] w-full overflow-hidden rounded-[22px] ring-1 ring-white/15 shadow-[0_30px_70px_-30px_rgba(0,0,0,0.9)]">
+                <img
+                  src={media.poster || media.backdrop}
+                  alt={media.title}
+                  className="h-full w-full object-cover"
+                />
+              </div>
             </div>
 
-            <p className="max-w-xl text-[15px] leading-relaxed text-foreground/70 line-clamp-4 md:text-base">
-              {media.overview}
-            </p>
+            <div className="max-w-2xl space-y-5">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.4em] text-primary/80">
+                {isSeries ? "Series" : "Feature Film"}
+              </div>
+
+              <h1 className="text-balance text-5xl font-black leading-[0.92] tracking-[-0.035em] md:text-7xl">
+                {media.title}
+              </h1>
+
+              {extra?.tagline && (
+                <p className="max-w-xl text-base italic text-muted-foreground">
+                  &ldquo;{extra.tagline}&rdquo;
+                </p>
+              )}
+
+              {/* Meta chips */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold ring-1 ring-white/10">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-primary text-primary">
+                    <path d="M12 2l2.9 6.1 6.7.9-4.9 4.6 1.2 6.6L12 17.1 6.1 20.2l1.2-6.6L2.4 9l6.7-.9z" />
+                  </svg>
+                  {media.rating.toFixed(1)}
+                </span>
+                <span className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold ring-1 ring-white/10">
+                  {media.year}
+                </span>
+                {media.runtime && (
+                  <span className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold ring-1 ring-white/10">
+                    {media.runtime}
+                  </span>
+                )}
+                {media.genres.slice(0, 3).map((g) => (
+                  <span
+                    key={g}
+                    className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold text-foreground/80 ring-1 ring-white/10"
+                  >
+                    {g}
+                  </span>
+                ))}
+                {extra?.contentRating && (
+                  <span className="rounded-full border border-white/25 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider">
+                    {extra.contentRating}
+                  </span>
+                )}
+                {extra?.status && extra.status !== "Released" && (
+                  <span className="rounded-full bg-primary/15 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-primary ring-1 ring-primary/30">
+                    {extra.status}
+                  </span>
+                )}
+              </div>
+
+              <p className="max-w-xl text-[15px] leading-relaxed text-foreground/70 line-clamp-4 md:text-base">
+                {media.overview}
+              </p>
+
 
 
             {/* Warning for newly released movies (likely low quality streams) */}
