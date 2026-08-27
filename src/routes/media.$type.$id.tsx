@@ -207,17 +207,17 @@ function MediaPage() {
           <img
             src={media.backdrop || media.poster}
             alt=""
-            className="h-full w-full object-cover object-top"
+            className="h-full w-full object-cover object-center"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/10" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/65 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-background via-background/95 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-background via-background/90 to-transparent" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[78svh] max-w-7xl flex-col justify-end px-6 pb-12 pt-28 md:px-10 md:pb-16 md:pt-32">
-          <div className="grid items-end gap-8 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-10">
+        <div className="relative mx-auto flex min-h-[58svh] max-w-7xl flex-col justify-end px-6 pb-8 pt-24 md:min-h-[62svh] md:px-10 md:pb-10 md:pt-28">
+          <div className="grid items-end gap-6 md:grid-cols-[10.5rem_minmax(0,1fr)] md:gap-8">
             <div className="hidden md:block">
-              <div className="aspect-[2/3] w-full overflow-hidden rounded-[22px] ring-1 ring-white/15 shadow-[0_30px_70px_-30px_rgba(0,0,0,0.9)]">
+              <div className="aspect-[2/3] w-full overflow-hidden rounded-[20px] ring-1 ring-white/15 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.95)]">
                 <img
                   src={media.poster || media.backdrop}
                   alt={media.title}
@@ -227,93 +227,58 @@ function MediaPage() {
               </div>
             </div>
 
-            <div className="max-w-2xl space-y-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.4em] text-primary/80">
-                {isSeries ? "Series" : "Feature Film"}
-              </div>
-
-
-              <h1 className="text-balance text-4xl font-black leading-[0.95] tracking-[-0.035em] sm:text-5xl md:text-6xl">
+            <div className="max-w-2xl space-y-3">
+              <h1 className="text-balance text-4xl font-black leading-[0.92] tracking-[-0.035em] sm:text-5xl md:text-[3.6rem]">
                 {media.title}
               </h1>
 
               {extra?.tagline && (
-                <p className="max-w-xl text-base italic text-muted-foreground">
+                <p className="max-w-xl text-sm italic text-muted-foreground">
                   &ldquo;{extra.tagline}&rdquo;
                 </p>
               )}
 
-              {/* Meta chips */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold ring-1 ring-white/10">
-                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-primary text-primary">
+
+              {/* Meta row */}
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[13px] font-semibold text-foreground/70">
+                <span className="inline-flex items-center gap-1.5 text-foreground">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-primary">
                     <path d="M12 2l2.9 6.1 6.7.9-4.9 4.6 1.2 6.6L12 17.1 6.1 20.2l1.2-6.6L2.4 9l6.7-.9z" />
                   </svg>
                   {media.rating.toFixed(1)}
                 </span>
-                <span className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold ring-1 ring-white/10">
-                  {media.year}
-                </span>
+                <span className="text-foreground/25">•</span>
+                <span>{media.year}</span>
                 {media.runtime && (
-                  <span className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold ring-1 ring-white/10">
-                    {media.runtime}
-                  </span>
+                  <>
+                    <span className="text-foreground/25">•</span>
+                    <span>{media.runtime}</span>
+                  </>
                 )}
-                {media.genres.slice(0, 3).map((g) => (
-                  <span
-                    key={g}
-                    className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-semibold text-foreground/80 ring-1 ring-white/10"
-                  >
-                    {g}
-                  </span>
-                ))}
+                {media.genres.length > 0 && (
+                  <>
+                    <span className="text-foreground/25">•</span>
+                    <span>{media.genres.slice(0, 3).join(", ")}</span>
+                  </>
+                )}
                 {extra?.contentRating && (
-                  <span className="rounded-full border border-white/25 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider">
+                  <span className="ml-1 rounded-md border border-white/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground/80">
                     {extra.contentRating}
                   </span>
                 )}
                 {extra?.status && extra.status !== "Released" && (
-                  <span className="rounded-full bg-primary/15 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-primary ring-1 ring-primary/30">
+                  <span className="ml-1 rounded-md bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary ring-1 ring-primary/30">
                     {extra.status}
                   </span>
                 )}
               </div>
 
-              <p className="max-w-xl text-[15px] leading-relaxed text-foreground/70 line-clamp-4 md:text-base">
+              <p className="max-w-xl text-[14.5px] leading-relaxed text-foreground/65 line-clamp-3">
                 {media.overview}
               </p>
 
+              <div className="flex flex-wrap items-center gap-2 pt-1.5">
 
-
-            {/* Warning for newly released movies (likely low quality streams) */}
-            {!isSeries &&
-              extra?.releaseDate &&
-              (() => {
-                const releaseDate = new Date(extra.releaseDate);
-                const daysSinceRelease =
-                  (Date.now() - releaseDate.getTime()) / (1000 * 60 * 60 * 24);
-                const isNewRelease = daysSinceRelease < 45 && daysSinceRelease > 0;
-                return (
-                  isNewRelease && (
-                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200 ring-1 ring-amber-400/25">
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-4 w-4 shrink-0 fill-none stroke-current"
-                        strokeWidth="2"
-                      >
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="8" x2="12" y2="12" />
-                        <line x1="12" y1="16" x2="12.01" y2="16" />
-                      </svg>
-                      <span>
-                        This content was newly released — expect streams to play in low quality.
-                      </span>
-                    </div>
-                  )
-                );
-              })()}
-
-            <div className="flex flex-wrap items-center gap-2 pt-2 pb-1">
               <Link
                 to="/watch/$id"
                 params={{ id: String(media.id) }}
@@ -417,10 +382,10 @@ function MediaPage() {
         </div>
       </section>
 
-
       {/* CONTENT */}
-      <section className="relative z-0 mx-auto grid max-w-7xl gap-8 px-6 pb-28 pt-6 md:grid-cols-[minmax(0,1fr)_22rem] md:gap-12 md:px-10 md:pb-16 md:pt-8">
-        <div className="min-w-0 space-y-8 md:space-y-10">
+      <section className="relative z-0 mx-auto grid max-w-7xl gap-8 px-6 pb-32 pt-2 md:grid-cols-[minmax(0,1fr)_20rem] md:gap-10 md:px-10 md:pb-24 md:pt-3">
+        <div className="min-w-0 space-y-7 md:space-y-9">
+
           {cast.length > 0 && <PeopleStrip title="Cast" people={cast} />}
 
           {isSeries && (
