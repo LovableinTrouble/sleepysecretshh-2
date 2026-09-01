@@ -525,7 +525,7 @@ function MediaPage() {
           )}
         </div>
 
-        <aside className="h-fit space-y-4 animate-soft-rise md:sticky md:top-6">
+        <aside className="no-scrollbar h-fit self-start space-y-4 animate-soft-rise md:sticky md:top-24 md:max-h-[calc(100vh-7rem)] md:overflow-y-auto md:pb-2">
           <div className="media-sidebar-card rounded-[26px] p-5">
             <div className="flex items-center gap-3">
               <div className="h-16 w-11 shrink-0 overflow-hidden rounded-lg ring-1 ring-white/12">
