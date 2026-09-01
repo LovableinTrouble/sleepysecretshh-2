@@ -192,7 +192,7 @@ function MediaPage() {
       : [isSeries ? "Network details unavailable" : "Studio details unavailable"];
 
   return (
-    <main className="pb-8">
+    <main className="min-w-0 overflow-x-clip pb-8">
       <BackButton onClick={goBack} />
 
       {shareToast && (
@@ -202,7 +202,7 @@ function MediaPage() {
       )}
 
       {/* HERO */}
-      <section className="relative z-20 w-full overflow-hidden">
+      <section className="relative z-20 w-full overflow-clip">
         <div className="absolute inset-0">
           <img
             src={media.backdrop || media.poster}
@@ -221,7 +221,7 @@ function MediaPage() {
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[480px] max-w-7xl flex-col justify-end px-6 pb-9 pt-24 md:min-h-[560px] md:px-10 md:pb-11 md:pt-28">
+        <div className="relative mx-auto flex min-h-[520px] max-w-7xl flex-col justify-end px-5 pb-10 pt-24 sm:px-6 md:min-h-[560px] md:px-10 md:pb-11 md:pt-28">
 
           <div className="grid items-end gap-7 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-9">
             <div className="hidden md:block">
@@ -250,7 +250,7 @@ function MediaPage() {
                 )}
               </div>
 
-              <h1 className="text-balance text-4xl font-black leading-[0.9] tracking-[-0.04em] sm:text-5xl md:text-[4rem]">
+              <h1 className="max-w-full break-words text-balance text-4xl font-black leading-[0.98] tracking-normal sm:text-5xl md:text-[4rem] md:leading-[0.95]">
                 {media.title}
               </h1>
 
@@ -290,7 +290,7 @@ function MediaPage() {
 
 
 
-              <div className="flex flex-wrap items-center gap-2 pt-1.5">
+              <div className="flex max-w-full flex-wrap items-center gap-2 pt-1.5">
                 <Link
                   to="/watch/$id"
                   params={{ id: String(media.id) }}
@@ -301,7 +301,7 @@ function MediaPage() {
                     party: undefined,
                   }}
                   onClick={() => stashWatchMedia(media)}
-                  className="liquid-pill group/btn relative z-10 mr-1 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full px-7 text-[15px] font-bold transition-all duration-500 ease-out hover:scale-[1.02]"
+                   className="liquid-pill group/btn relative z-10 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full px-6 text-[15px] font-bold transition-all duration-500 ease-out hover:scale-[1.02] sm:mr-1 sm:px-7"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -394,7 +394,7 @@ function MediaPage() {
 
 
       {/* CONTENT */}
-      <section className="relative z-0 mx-auto grid max-w-7xl gap-8 px-6 pb-32 pt-8 md:grid-cols-[minmax(0,1fr)_19rem] md:gap-10 md:px-10 md:pb-24 md:pt-10">
+      <section className="relative z-0 mx-auto grid min-w-0 max-w-7xl gap-8 px-5 pb-36 pt-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-10 lg:px-10 lg:pb-28 lg:pt-10">
         <div className="min-w-0 space-y-10 md:space-y-12">
           <div className="animate-soft-rise">
             <SectionHeading kicker="Story" title={isSeries ? "About the series" : "About the film"} />
@@ -428,7 +428,7 @@ function MediaPage() {
                   <div
                     key={ep.number}
                     style={{ animationDelay: `${i * 40}ms` }}
-                    className={`group relative flex items-center gap-4 rounded-2xl p-3 transition-all duration-200 animate-soft-rise ${ep.number === episode ? "bg-primary/15 ring-1 ring-primary/40 shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--primary)_50%,transparent)]" : "ring-1 ring-white/[0.05] hover:bg-white/[0.05] hover:ring-white/15"}`}
+                    className={`group relative grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_2.25rem] items-center gap-3 rounded-2xl p-3 transition-all duration-200 animate-soft-rise sm:grid-cols-[8rem_minmax(0,1fr)_2.25rem] sm:gap-4 ${ep.number === episode ? "bg-primary/15 ring-1 ring-primary/40 shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--primary)_50%,transparent)]" : "ring-1 ring-white/[0.05] hover:bg-white/[0.05] hover:ring-white/15"}`}
                   >
                     <Link
                       to="/watch/$id"
@@ -438,7 +438,7 @@ function MediaPage() {
                       className="absolute inset-0 z-0 rounded-2xl"
                       aria-label={`Play episode ${ep.number}`}
                     />
-                    <div className="relative z-[1] h-20 w-32 shrink-0 overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10 pointer-events-none">
+                    <div className="relative z-[1] aspect-video w-full overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10 pointer-events-none">
                       {ep.still && (
                         <img
                           src={ep.still}
@@ -451,7 +451,7 @@ function MediaPage() {
                       </span>
                     </div>
                     <div className="relative z-[1] min-w-0 flex-1 pointer-events-none">
-                      <div className="flex items-baseline justify-between gap-3">
+                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
                         <span className="truncate text-sm font-semibold">{ep.title}</span>
                         <span className="shrink-0 text-xs text-muted-foreground">{ep.runtime}</span>
                       </div>
@@ -525,7 +525,7 @@ function MediaPage() {
           )}
         </div>
 
-        <aside className="no-scrollbar h-fit self-start space-y-4 animate-soft-rise md:sticky md:top-24 md:max-h-[calc(100vh-7rem)] md:overflow-y-auto md:pb-2">
+        <aside className="min-w-0 self-start space-y-4 animate-soft-rise lg:sticky lg:top-24 lg:h-fit lg:pb-2">
           <div className="media-sidebar-card rounded-[26px] p-5">
             <div className="flex items-center gap-3">
               <div className="h-16 w-11 shrink-0 overflow-hidden rounded-lg ring-1 ring-white/12">
@@ -536,7 +536,7 @@ function MediaPage() {
                 />
               </div>
               <div className="min-w-0">
-                <h2 className="truncate text-sm font-black tracking-tight">{media.title}</h2>
+                <h2 className="break-words text-sm font-black tracking-tight">{media.title}</h2>
                 <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">
                   {isSeries ? "TV Series" : "Movie"} · {media.year}
                 </p>
@@ -628,7 +628,7 @@ function MediaPage() {
               href={extra.homepage}
               target="_blank"
               rel="noopener noreferrer"
-              className="liquid-glass block truncate rounded-full px-3 py-2.5 text-center text-xs font-semibold text-primary transition"
+              className="liquid-glass block break-words rounded-full px-3 py-2.5 text-center text-xs font-semibold text-primary transition"
             >
               Official site
             </a>
