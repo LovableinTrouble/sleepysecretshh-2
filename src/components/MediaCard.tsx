@@ -31,7 +31,7 @@ export function MediaCard({ media, size = "md", fill = false }: Props) {
         className="block w-full text-left"
       >
         <div
-          className={`relative aspect-[2/3] overflow-hidden ${radius} bg-white/5 ring-1 ring-white/5 transition-all duration-300 ease-out group-hover:scale-[1.04] group-hover:ring-primary/40 group-hover:shadow-[0_18px_40px_-12px_color-mix(in_oklab,var(--primary)_35%,transparent)]`}
+          className={`media-poster relative aspect-[2/3] overflow-hidden ${radius} bg-foreground/5 ring-1 ring-foreground/8 transition-all duration-500 ease-out group-hover:-translate-y-1 group-hover:scale-[1.025] group-hover:ring-foreground/20`}
         >
           <img
             src={media.poster}
@@ -40,7 +40,7 @@ export function MediaCard({ media, size = "md", fill = false }: Props) {
             className="h-full w-full object-cover"
           />
           {s.showRatings && media.rating > 0 && (
-            <div className="absolute left-1.5 top-1.5 inline-flex h-5 items-center gap-1 rounded-md bg-black/70 px-1.5 text-[10px] font-semibold leading-none backdrop-blur">
+            <div className="absolute left-2 top-2 inline-flex h-6 items-center gap-1 rounded-md bg-background/75 px-2 text-[10px] font-semibold leading-none ring-1 ring-foreground/10 backdrop-blur-md">
               <svg
                 viewBox="0 0 16 16"
                 className="h-2.5 w-2.5 shrink-0 text-primary"
@@ -56,16 +56,16 @@ export function MediaCard({ media, size = "md", fill = false }: Props) {
               <span className="tabular-nums">{media.rating.toFixed(1)}</span>
             </div>
           )}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center opacity-0 transition-all duration-300 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0">
-            <div className="grid h-11 w-11 place-items-center rounded-full bg-white text-black shadow-lg">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center opacity-0 transition-all duration-500 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0">
+            <div className="grid h-11 w-11 place-items-center rounded-full bg-foreground text-background shadow-lg">
               <Play className="h-4 w-4 fill-current" />
             </div>
           </div>
         </div>
-        <div className="mt-2 px-0.5">
-          <div className="truncate text-[13px] font-medium">{media.title}</div>
-          <div className="mt-0.5 text-[11px] text-muted-foreground">
+        <div className="mt-3 px-0.5">
+          <div className="truncate text-sm font-semibold text-foreground/95">{media.title}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
             {media.year}
             {media.genres[0] ? ` · ${media.genres[0]}` : ""}
           </div>

@@ -15,34 +15,34 @@ export function AnimatedBackground() {
       className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
       style={{ background: "var(--gradient-bg)" }}
     >
-      {/* Deep base tint */}
+      {/* Restrained cinematic illumination */}
       <div
         className="absolute inset-0 opacity-90"
         style={{
           backgroundImage:
-            "radial-gradient(120% 80% at 50% -10%, color-mix(in oklab, var(--primary) 20%, transparent) 0%, transparent 60%)",
+            "radial-gradient(100% 65% at 50% -15%, color-mix(in oklab, var(--primary) 13%, transparent) 0%, transparent 66%)",
         }}
       />
 
-      {/* Aurora ribbons */}
+      {/* Slow ambient light, kept away from the reading plane */}
       <div
-        className={`absolute -top-1/3 left-[-15%] h-[70rem] w-[70rem] rounded-full bg-primary/12 blur-[150px] ${
+        className={`absolute -top-1/2 left-[-22%] h-[72rem] w-[72rem] rounded-full bg-primary/8 blur-[180px] ${
           still ? "" : "animate-float-orb"
         }`}
       />
       <div
-        className={`absolute top-1/4 right-[-20%] h-[60rem] w-[60rem] rounded-full bg-accent/12 blur-[160px] ${
+        className={`absolute top-1/3 right-[-28%] h-[62rem] w-[62rem] rounded-full bg-accent/7 blur-[190px] ${
           still ? "" : "animate-float-orb [animation-delay:-7s]"
         }`}
       />
       <div
-        className={`absolute bottom-[-20rem] left-1/3 h-[52rem] w-[52rem] rounded-full bg-primary/8 blur-[170px] ${
+        className={`absolute bottom-[-26rem] left-1/3 h-[54rem] w-[54rem] rounded-full bg-primary/6 blur-[190px] ${
           still ? "" : "animate-float-orb [animation-delay:-14s]"
         }`}
       />
 
       {/* Fine mesh lines for depth */}
-      <div className="absolute inset-0 bg-mesh-grid opacity-[0.05]" />
+      <div className="absolute inset-0 bg-mesh-grid opacity-[0.025]" />
 
       {/* Grain */}
       <div className="absolute inset-0 bg-grain opacity-[0.035]" />
