@@ -221,7 +221,7 @@ function MediaPage() {
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[56svh] max-w-7xl flex-col justify-end px-6 pb-9 pt-24 md:min-h-[60svh] md:px-10 md:pb-11 md:pt-28">
+        <div className="relative mx-auto flex min-h-[480px] max-w-7xl flex-col justify-end px-6 pb-9 pt-24 md:min-h-[560px] md:px-10 md:pb-11 md:pt-28">
 
           <div className="grid items-end gap-7 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-9">
             <div className="hidden md:block">
@@ -525,7 +525,7 @@ function MediaPage() {
           )}
         </div>
 
-        <aside className="h-fit space-y-4 animate-soft-rise md:sticky md:top-6">
+        <aside className="no-scrollbar h-fit self-start space-y-4 animate-soft-rise md:sticky md:top-24 md:max-h-[calc(100vh-7rem)] md:overflow-y-auto md:pb-2">
           <div className="media-sidebar-card rounded-[26px] p-5">
             <div className="flex items-center gap-3">
               <div className="h-16 w-11 shrink-0 overflow-hidden rounded-lg ring-1 ring-white/12">
