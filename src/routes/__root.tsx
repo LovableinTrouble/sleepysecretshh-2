@@ -20,6 +20,9 @@ import { BootLoader } from "../components/BootLoader";
 import { BottomNav } from "../components/BottomNav";
 import { LogoWord } from "../components/Logo";
 import { useSettings } from "../lib/store";
+import { Toaster } from "../components/ui/sonner";
+import { supabase } from "../integrations/supabase/client";
+import { pullSync } from "../lib/sync";
 
 function NotFoundComponent() {
   return (
@@ -215,11 +218,32 @@ function AppShell() {
     <div className={animOn ? "" : "no-anim"}>
       <AnimatedBackground />
       <BootLoader />
+      <AutoSync />
       <Outlet />
       <BottomNav />
+      <Toaster />
       <SiteFooter pathname={pathname} />
     </div>
   );
+}
+
+/** Restores the signed-in user's cloud library once per session on launch. */
+function AutoSync() {
+  const [settings] = useSettings();
+  useEffect(() => {
+    if (settings.autoSync === false) return;
+    let done = false;
+    supabase.auth.getSession().then(({ data }) => {
+      const uid = data.session?.user?.id;
+      if (!uid || done) return;
+      done = true;
+      pullSync(uid).catch(() => {});
+    });
+    return () => {
+      done = true;
+    };
+  }, [settings.autoSync]);
+  return null;
 }
 
 function SiteFooter({ pathname }: { pathname: string }) {

@@ -85,6 +85,8 @@ export interface Settings {
   autoDownload: boolean;
   /** Has user dismissed the first-visit uBlock recommendation? */
   ublockNoticeSeen: boolean;
+  /** Restore cloud library automatically when the app launches (signed-in only). */
+  autoSync: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -143,6 +145,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showLogo: true,
   autoDownload: false,
   ublockNoticeSeen: false,
+  autoSync: true,
 };
 
 const KEY = "sleepy.settings.v2";

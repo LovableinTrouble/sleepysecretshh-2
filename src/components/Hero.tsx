@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Play, Plus, Info, Star, Calendar, Clapperboard, Check } from "lucide-react";
 import type { Media } from "@/lib/catalog";
-import { getWatchlist, toggleWatchlist } from "@/lib/store";
+import { addToFolder, isInAnyFolder, removeFromFolder, useFolders } from "@/lib/store";
+import { stashWatchMedia } from "@/lib/watch-stash";
 
 interface Props {
   items: Media[];
@@ -13,9 +14,7 @@ interface Props {
 export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [wl, setWl] = useState<number[]>([]);
-
-  useEffect(() => setWl(getWatchlist()), []);
+  useFolders(); // subscribe so the check/plus state stays live
 
   useEffect(() => {
     if (paused || items.length < 2) return;
@@ -89,22 +88,28 @@ export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <button
                 onClick={() => onPlay(media)}
-                className="inline-flex h-12 items-center gap-2.5 rounded-full bg-foreground px-7 text-[15px] font-bold text-background shadow-[0_10px_30px_-12px_rgba(0,0,0,0.7)] transition-all duration-500 ease-out hover:scale-[1.02] hover:bg-foreground/90 active:scale-95"
+                className="liquid-pill inline-flex h-12 items-center gap-2.5 rounded-full px-7 text-[15px] font-bold"
               >
                 <Play className="h-4 w-4 fill-current" />
                 Play
               </button>
 
-              <div className="flex h-12 items-center gap-1 rounded-full border border-white/10 bg-white/[0.07] px-1.5 backdrop-blur">
+              <div className="liquid-glass flex h-12 items-center gap-1 rounded-full px-1.5">
                 <button
                   onClick={() => {
-                    toggleWatchlist(media.id);
-                    setWl(getWatchlist());
+                    if (isInAnyFolder(media.id)) {
+                      removeFromFolder("default", media.id);
+                    } else {
+                      stashWatchMedia(media);
+                      addToFolder("default", media.id);
+                    }
                   }}
-                  aria-label="Add to watchlist"
+                  aria-label={
+                    isInAnyFolder(media.id) ? "Remove from watchlist" : "Add to watchlist"
+                  }
                   className="grid h-9 w-9 place-items-center rounded-full text-foreground/90 transition hover:bg-white/15 hover:text-foreground active:scale-95"
                 >
-                  {wl.includes(media.id) ? (
+                  {isInAnyFolder(media.id) ? (
                     <Check className="h-5 w-5" strokeWidth={2.5} />
                   ) : (
                     <Plus className="h-5 w-5" strokeWidth={2.5} />
