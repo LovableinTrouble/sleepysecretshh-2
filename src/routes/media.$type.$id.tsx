@@ -221,7 +221,7 @@ function MediaPage() {
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[56svh] max-w-7xl flex-col justify-end px-6 pb-9 pt-24 md:min-h-[60svh] md:px-10 md:pb-11 md:pt-28">
+        <div className="relative mx-auto flex min-h-[480px] max-w-7xl flex-col justify-end px-6 pb-9 pt-24 md:min-h-[560px] md:px-10 md:pb-11 md:pt-28">
 
           <div className="grid items-end gap-7 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-9">
             <div className="hidden md:block">
