@@ -930,10 +930,8 @@ a,
 /* ----------------- Mobile polish ----------------- */
 html {
   -webkit-text-size-adjust: 100%;
-  touch-action: manipulation;
 }
 body {
-  overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
 }
 button,
