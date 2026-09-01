@@ -117,20 +117,20 @@ function Search() {
   const totalCount = results.length + (showPeople ? peopleResults.length : 0);
 
   return (
-    <div className="min-h-screen px-5 pb-32 pt-16 md:px-10 md:pt-20 animate-page-in">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-7">
+    <div className="min-h-screen px-4 pb-32 pt-12 sm:px-6 md:px-10 md:pt-16 animate-page-in">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8">
           <div className="text-xs uppercase tracking-[0.32em] text-primary/80">
             {aiMode ? "AI Search" : "Search"}
           </div>
-          <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
+          <h1 className="mt-3 text-3xl font-bold tracking-tight md:text-5xl">
             {aiMode ? "Find something with AI" : "Find something to watch"}
           </h1>
         </div>
 
         {/* Clean search bar */}
         <div className="sticky top-3 z-20 md:top-4">
-          <div className="liquid-glass group relative flex items-center gap-3 rounded-2xl pl-5 pr-2 py-2 transition-all duration-200 focus-within:border-primary/60 focus-within:shadow-[0_10px_40px_-15px_color-mix(in_oklab,var(--primary)_45%,transparent)]">
+          <div className="search-surface group relative flex items-center gap-3 rounded-2xl py-2.5 pl-5 pr-2.5 transition-all duration-300 focus-within:border-foreground/20 focus-within:ring-2 focus-within:ring-foreground/10">
             <svg
               viewBox="0 0 24 24"
               className="h-4 w-4 shrink-0 text-muted-foreground transition group-focus-within:text-primary"
@@ -151,7 +151,7 @@ function Search() {
               placeholder={
                 aiMode ? "Ask AI: mood, genre, actor, vibe…" : "Movies, TV, anime, people…"
               }
-              className="h-10 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/70"
+               className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground/70"
             />
             <button
               onClick={() => setAiMode((v) => !v)}
@@ -188,7 +188,7 @@ function Search() {
           {/* Filter chips */}
           {!aiMode && (
             <div className="mt-3 flex flex-wrap items-center gap-2 animate-fade-in">
-              <div className="liquid-glass flex items-center gap-1 rounded-full p-1">
+              <div className="filter-rail flex max-w-full items-center gap-1 overflow-x-auto rounded-xl p-1 no-scrollbar">
                 {(
                   [
                     ["all", "All"],
@@ -201,7 +201,7 @@ function Search() {
                   <button
                     key={k}
                     onClick={() => setFilter(k)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                       filter === k
                         ? "liquid-pill text-primary-foreground"
                         : "text-muted-foreground hover:text-foreground"
@@ -273,7 +273,7 @@ function Search() {
           </section>
         )}
 
-        <div className="mt-10 flex items-baseline justify-between border-b border-white/10 pb-3">
+        <div className="mt-12 flex items-baseline justify-between border-b border-foreground/10 pb-4">
           <h2 className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             {debounced ? `Results for "${debounced}"` : "Trending now"}
           </h2>
@@ -285,7 +285,7 @@ function Search() {
         </div>
 
         {loading ? (
-          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="aspect-[2/3] rounded-xl animate-shimmer" />
             ))}
@@ -352,7 +352,7 @@ function Search() {
               </section>
             )}
             {results.length > 0 && (
-              <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-7 overflow-visible sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-9 overflow-visible sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {results.map((m, i) => (
                   <div
                     key={`${m.type}-${m.id}`}
@@ -395,7 +395,7 @@ function SearchSortSelect({ value, onChange }: { value: SortKey; onChange: (v: S
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="liquid-glass flex h-8 min-w-36 items-center justify-between gap-3 rounded-full px-3 text-xs font-semibold text-foreground transition"
+        className="filter-rail flex h-9 min-w-36 items-center justify-between gap-3 rounded-xl px-3 text-xs font-semibold text-foreground transition"
         aria-expanded={open}
       >
         <span className="truncate">{active.label}</span>
