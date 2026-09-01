@@ -6,6 +6,7 @@ import {
   Bookmark,
   RadioTower,
   Settings as SettingsIcon,
+  UserRound,
   Gamepad2,
   Smartphone,
   type LucideIcon,
@@ -18,6 +19,7 @@ const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/shorts", label: "Shorts", icon: Smartphone },
   { to: "/watchlist", label: "Watchlist", icon: Bookmark },
   { to: "/search", label: "Search", icon: Search },
+  { to: "/account", label: "Account", icon: UserRound },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
