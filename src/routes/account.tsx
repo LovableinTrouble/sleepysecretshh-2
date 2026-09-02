@@ -45,6 +45,7 @@ function AccountPage() {
   const [busy, setBusy] = useState<"push" | "pull" | null>(null);
   const [lastSync, setLastSync] = useState<number | null>(null);
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
 
   useEffect(() => setLastSync(getLastSync()), []);
 
@@ -53,10 +54,19 @@ function AccountPage() {
     ensureAccountRows(user.id).catch(() => {});
     void supabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, username")
       .eq("id", user.id)
       .maybeSingle()
-      .then(({ data }) => setName((data?.display_name as string) ?? ""), () => setName(""));
+      .then(
+        ({ data }) => {
+          setName((data?.display_name as string) ?? "");
+          setUsername((data?.username as string) ?? "");
+        },
+        () => {
+          setName("");
+          setUsername("");
+        },
+      );
   }, [user]);
 
   if (loading) {
@@ -125,11 +135,19 @@ function AccountPage() {
     try {
       const { error } = await supabase
         .from("profiles")
-        .upsert({ id: user.id, display_name: name.trim() || null }, { onConflict: "id" });
+        .upsert(
+          {
+            id: user.id,
+            display_name: name.trim() || null,
+            username: username.trim() || null,
+          },
+          { onConflict: "id" },
+        );
       if (error) throw error;
-      toast.success("Name saved");
+      toast.success("Profile saved");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save your name");
+      const message = error instanceof Error ? error.message : "Could not save your profile";
+      toast.error(/duplicate|unique/i.test(message) ? "That username is taken" : message);
     }
   };
 
@@ -145,12 +163,12 @@ function AccountPage() {
   };
 
   return (
-    <div className="relative min-h-screen px-5 pb-28 pt-8 animate-page-in md:px-8">
+    <div className="relative flex h-[100svh] flex-col overflow-hidden px-5 pb-24 pt-6 animate-page-in md:px-8 md:pb-8">
       <BackHome />
 
-      <div className="mx-auto mt-8 w-full max-w-3xl space-y-5">
+      <div className="mx-auto mt-5 w-full max-w-3xl space-y-4">
         {/* Identity */}
-        <section className="media-sidebar-card rounded-3xl p-6">
+        <section className="media-sidebar-card rounded-3xl p-5">
           <div className="flex flex-wrap items-center gap-4">
             <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[var(--gradient-primary)] text-xl font-black text-primary-foreground">
               {(name || user.email || "?").slice(0, 1).toUpperCase()}
@@ -159,7 +177,10 @@ function AccountPage() {
               <h1 className="truncate text-2xl font-black tracking-tight">
                 {name || "Your account"}
               </h1>
-              <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+              <p className="truncate text-sm text-muted-foreground">
+                {username ? `@${username} · ` : ""}
+                {user.email}
+              </p>
             </div>
             <button
               onClick={signOut}
@@ -177,6 +198,17 @@ function AccountPage() {
               placeholder="Display name"
               className="liquid-glass h-11 flex-1 rounded-2xl px-4 text-sm outline-none placeholder:text-muted-foreground"
             />
+            <div className="liquid-glass flex h-11 flex-1 items-center rounded-2xl px-4">
+              <span className="text-sm text-muted-foreground">@</span>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g, ""))}
+                placeholder="username"
+                autoComplete="username"
+                maxLength={24}
+                className="ml-1 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+            </div>
             <button
               onClick={saveName}
               className="liquid-icon h-11 rounded-2xl px-5 text-sm font-semibold"
@@ -187,7 +219,7 @@ function AccountPage() {
         </section>
 
         {/* Sync */}
-        <section className="media-sidebar-card rounded-3xl p-6">
+        <section className="media-sidebar-card rounded-3xl p-5">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
