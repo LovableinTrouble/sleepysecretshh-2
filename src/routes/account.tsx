@@ -17,6 +17,7 @@ import { getFolders, useSettings } from "@/lib/store";
 import { getLocalProgress } from "@/lib/progress";
 
 export const Route = createFileRoute("/account")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Your account — Sleepy" },
@@ -30,6 +31,8 @@ export const Route = createFileRoute("/account")({
         property: "og:description",
         content: "Manage your Sleepy account and sync your library across devices.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AccountPage,
@@ -48,12 +51,12 @@ function AccountPage() {
   useEffect(() => {
     if (!user) return;
     ensureAccountRows(user.id).catch(() => {});
-    supabase
+    void supabase
       .from("profiles")
       .select("display_name")
       .eq("id", user.id)
       .maybeSingle()
-      .then(({ data }) => setName((data?.display_name as string) ?? ""));
+      .then(({ data }) => setName((data?.display_name as string) ?? ""), () => setName(""));
   }, [user]);
 
   if (loading) {
@@ -119,14 +122,26 @@ function AccountPage() {
   };
 
   const saveName = async () => {
-    await supabase.from("profiles").upsert({ id: user.id, display_name: name }, { onConflict: "id" });
-    toast.success("Name saved");
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({ id: user.id, display_name: name.trim() || null }, { onConflict: "id" });
+      if (error) throw error;
+      toast.success("Name saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save your name");
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    toast.success("Signed out");
-    navigate({ to: "/" });
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      toast.success("Signed out");
+      navigate({ to: "/", replace: true });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not sign out");
+    }
   };
 
   return (
