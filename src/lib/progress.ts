@@ -99,8 +99,25 @@ export function removeLocalProgress(
   );
 }
 
+let syncTimer: number | null = null;
+
+/** Debounced cloud backup of watch progress for signed-in users. */
 export async function syncProgressUp(_entry: LocalProgressEntry) {
-  /* no-op */
+  if (typeof window === "undefined") return;
+  if (syncTimer) window.clearTimeout(syncTimer);
+  syncTimer = window.setTimeout(async () => {
+    syncTimer = null;
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id;
+      if (!userId) return;
+      const { pushSync } = await import("@/lib/sync");
+      await pushSync(userId);
+    } catch {
+      /* offline or signed out — local progress still works */
+    }
+  }, 8000);
 }
 export async function removeProgress(
   mediaId: number,
