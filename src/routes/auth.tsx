@@ -49,8 +49,9 @@ function AuthPage() {
           options: { emailRedirectTo: `${window.location.origin}/account` },
         });
         if (error) throw error;
-        if (data.user) {
-          await ensureAccountRows(data.user.id, email.split("@")[0]);
+        // Only touch the database once a session actually exists.
+        if (data.session?.user) {
+          await ensureAccountRows(data.session.user.id, email.split("@")[0]).catch(() => {});
           toast.success("Account created");
           navigate({ to: "/account" });
         } else {
@@ -59,9 +60,9 @@ function AuthPage() {
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        if (data.user) {
-          await ensureAccountRows(data.user.id);
-          await pullSync(data.user.id).catch(() => false);
+        if (data.session?.user) {
+          await ensureAccountRows(data.session.user.id).catch(() => {});
+          await pullSync(data.session.user.id).catch(() => false);
         }
         toast.success("Welcome back");
         navigate({ to: "/account" });
