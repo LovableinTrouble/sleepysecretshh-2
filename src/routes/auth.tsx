@@ -32,6 +32,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -51,6 +52,7 @@ function AuthPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setNotice(null);
     setBusy(true);
     try {
       if (mode === "signup") {
@@ -66,7 +68,9 @@ function AuthPage() {
           toast.success("Account created");
           navigate({ to: "/account" });
         } else {
-          toast.success("Check your email to confirm your account");
+          const message = "Check your email to confirm your account, then return here to sign in.";
+          setNotice(message);
+          toast.success("Confirmation email sent");
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -80,6 +84,27 @@ function AuthPage() {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const forgotPassword = async () => {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      toast.error("Enter your email first");
+      return;
+    }
+    setBusy(true);
+    setNotice(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setNotice("Password reset sent. Check your email.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send reset email");
     } finally {
       setBusy(false);
     }
@@ -183,9 +208,30 @@ function AuthPage() {
             </button>
           </form>
 
+          {notice && (
+            <p role="status" className="mt-4 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-foreground">
+              {notice}
+            </p>
+          )}
+
+          {mode === "signin" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={forgotPassword}
+              className="mt-4 w-full text-center text-sm text-muted-foreground transition hover:text-foreground disabled:opacity-60"
+            >
+              Forgot password?
+            </button>
+          )}
+
           <button
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            className="mt-5 w-full text-center text-sm text-muted-foreground transition hover:text-foreground"
+            type="button"
+            onClick={() => {
+              setMode(mode === "signin" ? "signup" : "signin");
+              setNotice(null);
+            }}
+            className="mt-4 w-full text-center text-sm text-muted-foreground transition hover:text-foreground"
           >
             {mode === "signin"
               ? "No account yet? Create one"

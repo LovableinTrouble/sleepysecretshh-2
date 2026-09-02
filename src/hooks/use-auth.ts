@@ -7,36 +7,32 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+    const finish = (nextSession: Session | null) => {
+      if (!active) return;
+      setSession(nextSession);
+      setLoading(false);
+    };
+
     // Never let a backend/env failure crash the tree — auth degrades to signed-out.
     try {
       const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-        setSession(s);
-        setLoading(false);
+        finish(s);
       });
-      supabase.auth.getUser().then(
-        ({ data, error }) => {
-          if (!error && data.user) {
-            supabase.auth.getSession().then(({ data: sessionData }) => {
-              setSession(sessionData.session ?? null);
-              setLoading(false);
-            }, () => {
-              setSession(null);
-              setLoading(false);
-            });
-            return;
-          }
-          setSession(null);
-          setLoading(false);
-        },
-        () => {
-          setSession(null);
-          setLoading(false);
-        },
-      );
-      return () => sub.subscription.unsubscribe();
+      void supabase.auth.getSession().then(({ data }) => finish(data.session ?? null), () => finish(null));
+
+      // A network outage must never leave the account page spinning forever.
+      const timeout = window.setTimeout(() => finish(null), 5000);
+      return () => {
+        active = false;
+        window.clearTimeout(timeout);
+        sub.subscription.unsubscribe();
+      };
     } catch {
-      setLoading(false);
-      return;
+      finish(null);
+      return () => {
+        active = false;
+      };
     }
   }, []);
 

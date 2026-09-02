@@ -74,9 +74,13 @@ export async function pullSync(userId: string) {
 
 /** Ensure a profile + sync row exists for the signed-in user. */
 export async function ensureAccountRows(userId: string, displayName?: string | null) {
-  await supabase.from("profiles").upsert(
+  const { error: profileError } = await supabase.from("profiles").upsert(
     { id: userId, ...(displayName ? { display_name: displayName } : {}) },
     { onConflict: "id" },
   );
-  await supabase.from("user_sync").upsert({ user_id: userId }, { onConflict: "user_id" });
+  if (profileError) throw profileError;
+  const { error: syncError } = await supabase
+    .from("user_sync")
+    .upsert({ user_id: userId }, { onConflict: "user_id" });
+  if (syncError) throw syncError;
 }
