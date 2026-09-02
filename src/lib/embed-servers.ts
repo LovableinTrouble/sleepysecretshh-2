@@ -2,17 +2,23 @@ import type { Media } from "./catalog";
 
 export type ServerId = "edge" | "rize";
 
+export interface BuildOpts {
+  febbox?: string;
+  /** Resume position in seconds (Continue Watching). */
+  startSeconds?: number;
+}
+
 export interface EmbedServer {
   id: ServerId;
   name: string;
   host: string;
   tagline: string;
   supportsFebbox: boolean;
-  build: (m: Media, season?: number, episode?: number, febbox?: string) => string;
+  build: (m: Media, season?: number, episode?: number, opts?: BuildOpts) => string;
 }
 
 /** EDGE — cinesrc.st embed (cleanest UI, supports Febbox tokens). */
-function buildEdge(m: Media, season?: number, episode?: number, febbox?: string): string {
+function buildEdge(m: Media, season?: number, episode?: number, opts?: BuildOpts): string {
   const isShow = m.type !== "movie";
   const base = isShow
     ? `https://cinesrc.st/embed/tv/${m.id}`
@@ -27,12 +33,20 @@ function buildEdge(m: Media, season?: number, episode?: number, febbox?: string)
   p.set("autoskip", "false");
   p.set("controls", "true");
   p.set("color", "6366f1");
-  if (febbox) p.set("febbox", febbox);
+  if (opts?.febbox) p.set("febbox", opts.febbox);
+  const start = Math.floor(opts?.startSeconds ?? 0);
+  if (start > 10) {
+    // cinesrc accepts a resume position; send the known aliases so playback
+    // always continues where the user left off.
+    p.set("progress", String(start));
+    p.set("startAt", String(start));
+    p.set("t", String(start));
+  }
   return `${base}?${p.toString()}`;
 }
 
 /** RIZE — vidup.to embed (best stream quality). */
-function buildRize(m: Media, season?: number, episode?: number): string {
+function buildRize(m: Media, season?: number, episode?: number, opts?: BuildOpts): string {
   const isShow = m.type !== "movie";
   const base = isShow
     ? `https://vidup.to/tv/${m.id}/${season ?? 1}/${episode ?? 1}`
@@ -44,6 +58,11 @@ function buildRize(m: Media, season?: number, episode?: number): string {
     poster: "true",
     color: "6366f1",
   });
+  const start = Math.floor(opts?.startSeconds ?? 0);
+  if (start > 10) {
+    p.set("progress", String(start));
+    p.set("startAt", String(start));
+  }
   return `${base}?${p.toString()}`;
 }
 

@@ -21,7 +21,11 @@ export function StreamPlayer({ media, season, episode, server, onClose }: Props)
     const febbox = s.supportsFebbox
       ? getSettings().integrations.febboxCookie?.trim() || undefined
       : undefined;
-    return s.build(media, season, episode, febbox);
+    const saved = getLocalProgressFor(media.id, season ?? null, episode ?? null);
+    return s.build(media, season, episode, {
+      febbox,
+      startSeconds: saved?.completed ? 0 : (saved?.positionSeconds ?? 0),
+    });
   }, [media, season, episode, server]);
 
   // Lock page scroll while the player is open.
@@ -67,6 +71,20 @@ export function StreamPlayer({ media, season, episode, server, onClose }: Props)
     return () => window.removeEventListener("message", onMessage);
   }, [media, season, episode]);
 
+  // Ask the embed to resume where the user left off (belt and braces with the URL param).
+  useEffect(() => {
+    const saved = getLocalProgressFor(media.id, season ?? null, episode ?? null);
+    const start = saved && !saved.completed ? Math.floor(saved.positionSeconds) : 0;
+    if (start <= 10) return;
+    let sent = 0;
+    const timer = window.setInterval(() => {
+      const frame = document.querySelector<HTMLIFrameElement>("iframe[data-sleepy-player]");
+      frame?.contentWindow?.postMessage({ type: "SEEK", time: start, currentTime: start }, "*");
+      if (++sent >= 6) window.clearInterval(timer);
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [media, season, episode, src]);
+
   // Keep the last known position so Continue Watching still works.
   useEffect(() => {
     const saved = getLocalProgressFor(media.id, season ?? null, episode ?? null);
@@ -81,6 +99,7 @@ export function StreamPlayer({ media, season, episode, server, onClose }: Props)
       <div className="relative flex-1 overflow-hidden bg-black">
         <iframe
           key={src}
+          data-sleepy-player
           src={src}
           title={media.title}
           className="h-full w-full border-0"
