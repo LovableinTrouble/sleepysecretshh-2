@@ -64,16 +64,7 @@ function Home() {
 
   return (
     <div className="relative min-h-screen pb-20 md:pb-8 animate-page-in">
-      {/* Online user count - top right, home page only */}
-      {onlineCount !== null && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white/80 ring-1 ring-white/10">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-          </span>
-          <span>{onlineCount.toLocaleString()} online</span>
-        </div>
-      )}
+
 
       {featured.length ? (
         <Hero items={featured} onPlay={play} onMore={openDetails} />
