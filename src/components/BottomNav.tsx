@@ -1,4 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
+import { useAvatarUrl } from "@/lib/avatar";
 import {
   Home,
   Compass,
@@ -21,6 +22,7 @@ const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/settings", label: "Settings", icon: SettingsIcon },
   { to: "/account", label: "Account", icon: UserRound },
 ];
+
 
 export function BottomNav() {
   const loc = useLocation();
