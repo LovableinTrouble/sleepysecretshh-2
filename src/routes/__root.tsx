@@ -233,12 +233,16 @@ function AutoSync() {
   useEffect(() => {
     if (settings.autoSync === false) return;
     let done = false;
-    supabase.auth.getSession().then(({ data }) => {
-      const uid = data.session?.user?.id;
-      if (!uid || done) return;
-      done = true;
-      pullSync(uid).catch(() => {});
-    });
+    try {
+      supabase.auth.getSession().then(({ data }) => {
+        const uid = data.session?.user?.id;
+        if (!uid || done) return;
+        done = true;
+        pullSync(uid).catch(() => {});
+      }, () => {});
+    } catch {
+      /* backend unavailable — skip sync */
+    }
     return () => {
       done = true;
     };
