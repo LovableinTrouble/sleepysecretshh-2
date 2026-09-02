@@ -7,6 +7,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { ensureAccountRows, pullSync } from "@/lib/sync";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Sign in — Sleepy" },
@@ -33,9 +34,19 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/account" });
-    });
+    let active = true;
+    const checkSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (active && !error && data.user) navigate({ to: "/account", replace: true });
+      } catch {
+        // Keep the auth form usable when the backend is temporarily unavailable.
+      }
+    };
+    void checkSession();
+    return () => {
+      active = false;
+    };
   }, [navigate]);
 
   const submit = async (e: React.FormEvent) => {
@@ -46,7 +57,7 @@ function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/account` },
+          options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
         // Only touch the database once a session actually exists.
@@ -76,16 +87,18 @@ function AuthPage() {
 
   const google = async () => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) throw result.error;
+      if (result.redirected) return;
+      navigate({ to: "/account" });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Google sign-in failed");
+    } finally {
       setBusy(false);
-      toast.error("Google sign-in failed");
-      return;
     }
-    if (result.redirected) return;
-    navigate({ to: "/account" });
   };
 
   return (

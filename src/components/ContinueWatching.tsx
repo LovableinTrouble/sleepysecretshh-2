@@ -52,7 +52,7 @@ export function ContinueWatchingRow() {
           return (
             <div
               key={`${it.mediaId}-${it.mediaType}`}
-              className="group relative w-72 shrink-0 md:w-80"
+              className="group relative isolate w-72 shrink-0 md:w-80"
             >
               <Link
                 to="/watch/$id"
@@ -63,7 +63,7 @@ export function ContinueWatchingRow() {
                   e: it.episode ?? undefined,
                   party: undefined,
                 }}
-                className="block overflow-hidden rounded-3xl ring-1 ring-white/10 transition-all duration-500 ease-out will-change-transform hover:-translate-y-1.5 hover:ring-primary/30 hover:shadow-[0_24px_60px_-24px_color-mix(in_oklab,var(--primary)_45%,transparent)]"
+                className="relative z-0 block overflow-hidden rounded-2xl ring-1 ring-foreground/10 transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:ring-foreground/20 hover:shadow-xl"
               >
                 <div className="relative aspect-video bg-black">
                   {tmdbBackdrop(it.backdrop, it.poster) && (
@@ -71,11 +71,11 @@ export function ContinueWatchingRow() {
                       src={tmdbBackdrop(it.backdrop, it.poster)}
                       alt={it.title}
                       loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.06]"
+                      className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.025]"
                     />
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent transition-opacity duration-500 group-hover:from-black/95" />
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-75 opacity-0 blur-[2px] transition-all duration-500 ease-out group-hover:scale-100 group-hover:opacity-100 group-hover:blur-0">
+                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-90 opacity-0 transition-[opacity,transform] duration-300 ease-out group-hover:scale-100 group-hover:opacity-100">
                     <div className="grid h-12 w-12 place-items-center rounded-full bg-foreground/95 text-background shadow-2xl ring-1 ring-white/40">
                       <Play className="h-5 w-5 fill-current" />
                     </div>
@@ -124,7 +124,8 @@ export function ContinueWatchingRow() {
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 aria-label="Remove from continue watching"
-                className="pointer-events-auto absolute right-2 top-2 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white/70 opacity-0 group-hover:opacity-100 ring-1 ring-white/20 backdrop-blur-sm transition-all duration-200 hover:bg-destructive hover:text-white hover:ring-destructive/50 active:scale-90"
+                title="Remove from continue watching"
+                className="pointer-events-auto absolute right-2 top-2 z-20 flex h-9 w-9 touch-manipulation items-center justify-center rounded-full bg-background/90 text-foreground opacity-100 ring-1 ring-foreground/15 transition-[background-color,color,transform,opacity] duration-200 hover:bg-destructive hover:text-destructive-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
