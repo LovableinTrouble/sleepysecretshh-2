@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { MediaCard } from "@/components/MediaCard";
-import { Shuffle, Sparkles } from "lucide-react";
+import { Shuffle } from "lucide-react";
 import {
   fetchPopular,
   fetchTrending,
