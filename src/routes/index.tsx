@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { Hero } from "@/components/Hero";
 import { MediaRow } from "@/components/MediaRow";
 import { ContinueWatchingRow } from "@/components/ContinueWatching";
@@ -24,24 +23,7 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const navigate = useNavigate();
-  const [onlineCount, setOnlineCount] = useState<number | null>(null);
 
-  // Fetch online count once on mount
-  useEffect(() => {
-    const fetchOnline = async () => {
-      try {
-        const res = await fetch("https://api.countapi.xyz/hit/sleepy-stream/online");
-        if (res.ok) {
-          const data = await res.json();
-          setOnlineCount(data.value);
-        }
-      } catch {
-        // Fallback to simulated count
-        setOnlineCount(Math.floor(Math.random() * 500) + 800);
-      }
-    };
-    fetchOnline();
-  }, []);
 
   const trending = useQuery({
     queryKey: ["trending"],

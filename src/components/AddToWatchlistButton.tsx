@@ -47,17 +47,18 @@ export function AddToWatchlistButton({ media, className }: Props) {
         type="button"
         onClick={onClick}
         aria-label={inList ? "Remove from watchlist" : "Add to watchlist"}
-        className={`pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full opacity-100 backdrop-blur-md ring-1 shadow-lg transition active:scale-95 ${
+        className={`pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full opacity-100 backdrop-blur-md ring-1 shadow-md transition active:scale-95 ${
           inList
-            ? "bg-primary text-primary-foreground ring-primary/60 shadow-[0_0_18px_oklch(0.72_0.18_305_/_0.55)] hover:bg-primary/90"
-            : "bg-black/65 text-white ring-white/20 hover:bg-black/85 hover:ring-white/50"
+            ? "bg-primary text-primary-foreground ring-primary/60 hover:bg-primary/90"
+            : "bg-black/55 text-white ring-white/20 hover:bg-black/80 hover:ring-white/45"
         } ${className ?? ""}`}
       >
         {inList ? (
-          <Check className="h-4 w-4" strokeWidth={3} />
+          <Check className="h-3.5 w-3.5" strokeWidth={3} />
         ) : (
-          <Plus className="h-4 w-4" strokeWidth={3} />
+          <Plus className="h-3.5 w-3.5" strokeWidth={3} />
         )}
+
       </button>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
