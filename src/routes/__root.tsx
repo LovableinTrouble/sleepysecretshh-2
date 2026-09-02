@@ -16,7 +16,6 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import sleepyOg from "../assets/sleepy-og.jpg";
 import voidIcon from "../assets/void-icon.png.asset.json";
 import { AnimatedBackground } from "../components/AnimatedBackground";
-import { BootLoader } from "../components/BootLoader";
 import { BottomNav } from "../components/BottomNav";
 import { LogoWord } from "../components/Logo";
 import { useSettings } from "../lib/store";
@@ -217,7 +216,6 @@ function AppShell() {
   return (
     <div className={animOn ? "" : "no-anim"}>
       <AnimatedBackground />
-      <BootLoader />
       <AutoSync />
       <Outlet />
       <BottomNav />
