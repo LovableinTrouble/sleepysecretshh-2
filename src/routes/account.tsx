@@ -228,15 +228,16 @@ function AccountPage() {
         {/* Identity */}
         <section className="media-sidebar-card overflow-hidden rounded-3xl">
           <div
-            className="h-24 w-full"
+            className="h-32 w-full md:h-36"
             style={{
               background:
                 "linear-gradient(120deg, color-mix(in oklab, var(--primary) 42%, transparent), color-mix(in oklab, var(--accent) 32%, transparent))",
             }}
           />
-          <div className="-mt-12 flex flex-wrap items-end gap-5 px-5 pb-5 md:px-7">
+          <div className="-mt-10 flex flex-wrap items-end gap-5 px-5 pb-5 md:px-7">
             <div className="relative">
               <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-[var(--gradient-primary)] text-3xl font-black text-primary-foreground ring-4 ring-background">
+
                 {avatar ? (
                   <img src={avatar} alt="" className="h-full w-full object-cover" />
                 ) : (
