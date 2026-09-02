@@ -7,15 +7,24 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
+    // Never let a backend/env failure crash the tree — auth degrades to signed-out.
+    try {
+      const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+        setSession(s);
+        setLoading(false);
+      });
+      supabase.auth.getSession().then(
+        ({ data }) => {
+          setSession(data.session ?? null);
+          setLoading(false);
+        },
+        () => setLoading(false),
+      );
+      return () => sub.subscription.unsubscribe();
+    } catch {
       setLoading(false);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session ?? null);
-      setLoading(false);
-    });
-    return () => sub.subscription.unsubscribe();
+      return;
+    }
   }, []);
 
   const user: User | null = session?.user ?? null;
