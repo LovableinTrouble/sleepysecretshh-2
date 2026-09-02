@@ -26,7 +26,7 @@ export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
 
   return (
     <section
-      className="relative h-[100svh] min-h-[620px] w-full overflow-hidden"
+      className="pointer-events-none relative h-[100svh] min-h-[620px] w-full overflow-hidden"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -85,7 +85,7 @@ export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
               {media.overview}
             </p>
 
-            <div className="mt-7 flex flex-wrap items-center gap-3">
+            <div className="pointer-events-auto mt-7 flex flex-wrap items-center gap-3">
               <button
                 onClick={() => onPlay(media)}
                 className="liquid-pill inline-flex h-12 items-center gap-2.5 rounded-full px-7 text-[15px] font-bold"
@@ -130,7 +130,7 @@ export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
       ))}
 
       {items.length > 1 && (
-        <div className="absolute bottom-10 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 md:left-auto md:right-10 md:translate-x-0">
+        <div className="pointer-events-auto absolute bottom-10 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 md:left-auto md:right-10 md:translate-x-0">
           {items.map((_, i) => (
             <button
               key={i}
