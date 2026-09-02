@@ -2,8 +2,8 @@ import { useSettings } from "@/lib/store";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /**
- * Site background. Layered aurora mesh + fine grain + vignette so foreground
- * glass/pill controls always read cleanly on top of it.
+ * Site background. Uses plain radial gradients (no large blur filters) so
+ * scrolling and clicks stay responsive on every device.
  */
 export function AnimatedBackground() {
   const [settings] = useSettings();
@@ -13,7 +13,7 @@ export function AnimatedBackground() {
   return (
     <div
       className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
-      style={{ background: "var(--gradient-bg)" }}
+      style={{ background: "var(--gradient-bg)", contain: "strict" }}
     >
       {/* Restrained cinematic illumination */}
       <div
@@ -24,21 +24,22 @@ export function AnimatedBackground() {
         }}
       />
 
-      {/* Slow ambient light, kept away from the reading plane */}
+      {/* Soft ambient light — gradients instead of blurred orbs (much cheaper) */}
       <div
-        className={`absolute -top-1/2 left-[-22%] h-[72rem] w-[72rem] rounded-full bg-primary/8 blur-[180px] ${
-          still ? "" : "animate-float-orb"
-        }`}
+        className={`absolute -top-[30%] left-[-20%] h-[70rem] w-[70rem] rounded-full ${still ? "" : "animate-float-orb"}`}
+        style={{
+          backgroundImage:
+            "radial-gradient(closest-side, color-mix(in oklab, var(--primary) 16%, transparent), transparent 72%)",
+          willChange: still ? undefined : "transform",
+        }}
       />
       <div
-        className={`absolute top-1/3 right-[-28%] h-[62rem] w-[62rem] rounded-full bg-accent/7 blur-[190px] ${
-          still ? "" : "animate-float-orb [animation-delay:-7s]"
-        }`}
-      />
-      <div
-        className={`absolute bottom-[-26rem] left-1/3 h-[54rem] w-[54rem] rounded-full bg-primary/6 blur-[190px] ${
-          still ? "" : "animate-float-orb [animation-delay:-14s]"
-        }`}
+        className={`absolute top-1/3 right-[-26%] h-[60rem] w-[60rem] rounded-full ${still ? "" : "animate-float-orb [animation-delay:-7s]"}`}
+        style={{
+          backgroundImage:
+            "radial-gradient(closest-side, color-mix(in oklab, var(--accent) 14%, transparent), transparent 72%)",
+          willChange: still ? undefined : "transform",
+        }}
       />
 
       {/* Fine mesh lines for depth */}

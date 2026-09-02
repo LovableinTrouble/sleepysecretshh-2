@@ -1,4 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
+import { useAvatarUrl } from "@/lib/avatar";
 import {
   Home,
   Compass,
@@ -22,8 +23,11 @@ const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/account", label: "Account", icon: UserRound },
 ];
 
+
 export function BottomNav() {
   const loc = useLocation();
+  const avatar = useAvatarUrl();
+
 
   // Don't render over the immersive player — it covers the bottom control bar.
   if (
@@ -49,7 +53,16 @@ export function BottomNav() {
                   : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
               }`}
             >
-              <Icon className="h-[1.15rem] w-[1.15rem] shrink-0 md:h-5 md:w-5" strokeWidth={2.15} />
+              {to === "/account" && avatar ? (
+                <img
+                  src={avatar}
+                  alt=""
+                  className="h-[1.35rem] w-[1.35rem] shrink-0 rounded-full object-cover ring-1 ring-foreground/25 md:h-6 md:w-6"
+                />
+              ) : (
+                <Icon className="h-[1.15rem] w-[1.15rem] shrink-0 md:h-5 md:w-5" strokeWidth={2.15} />
+              )}
+
               <span
                 className={`hidden overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 md:inline-block ${
                   active

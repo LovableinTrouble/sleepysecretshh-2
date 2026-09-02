@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { Hero } from "@/components/Hero";
 import { MediaRow } from "@/components/MediaRow";
 import { ContinueWatchingRow } from "@/components/ContinueWatching";
@@ -24,24 +23,7 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const navigate = useNavigate();
-  const [onlineCount, setOnlineCount] = useState<number | null>(null);
 
-  // Fetch online count once on mount
-  useEffect(() => {
-    const fetchOnline = async () => {
-      try {
-        const res = await fetch("https://api.countapi.xyz/hit/sleepy-stream/online");
-        if (res.ok) {
-          const data = await res.json();
-          setOnlineCount(data.value);
-        }
-      } catch {
-        // Fallback to simulated count
-        setOnlineCount(Math.floor(Math.random() * 500) + 800);
-      }
-    };
-    fetchOnline();
-  }, []);
 
   const trending = useQuery({
     queryKey: ["trending"],
@@ -82,16 +64,7 @@ function Home() {
 
   return (
     <div className="relative min-h-screen pb-20 md:pb-8 animate-page-in">
-      {/* Online user count - top right, home page only */}
-      {onlineCount !== null && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white/80 ring-1 ring-white/10">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-          </span>
-          <span>{onlineCount.toLocaleString()} online</span>
-        </div>
-      )}
+
 
       {featured.length ? (
         <Hero items={featured} onPlay={play} onMore={openDetails} />

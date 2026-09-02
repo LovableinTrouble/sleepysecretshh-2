@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { MediaCard } from "@/components/MediaCard";
-import { Shuffle, Sparkles } from "lucide-react";
+import { Shuffle } from "lucide-react";
 import {
   fetchPopular,
   fetchTrending,
@@ -170,116 +170,118 @@ function ExplorePage() {
   };
 
   return (
-    <div className="min-h-screen pb-32 pt-16 animate-page-in md:pt-20">
-      <header className="px-6 md:px-10">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-2 text-xs uppercase tracking-[0.4em] text-primary/80">Discover</div>
-          <h1 className="text-4xl font-black tracking-tight md:text-6xl">Explore</h1>
-          <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
-            Movies, series, and anime — all in one library. Filter by type, genre, provider, rating,
-            and sort.
-          </p>
+    <div className="min-h-screen pb-32 pt-12 animate-page-in md:pt-16">
+      <header className="px-5 md:px-10">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="mb-1.5 text-[10px] uppercase tracking-[0.4em] text-primary/80">
+              Discover
+            </div>
+            <h1 className="text-3xl font-black tracking-tight md:text-5xl">Explore</h1>
+          </div>
+          <button
+            onClick={pickRandomMovie}
+            disabled={randomLoading}
+            className="liquid-pill flex h-11 shrink-0 items-center gap-2 rounded-full px-5 text-sm font-bold transition hover:brightness-105 disabled:opacity-60"
+          >
+            {randomLoading ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <Shuffle className="h-4 w-4" />
+            )}
+            <span>Surprise me</span>
+          </button>
         </div>
       </header>
 
-      <div className="sticky top-0 z-30 mt-8 border-y border-white/5 bg-background/90 backdrop-blur-2xl">
-        <div className="mx-auto max-w-7xl px-4 py-4 md:px-10">
-          <div className="space-y-3">
-            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(560px,620px)] xl:items-center">
-              <div className="liquid-glass grid w-full grid-cols-5 gap-1 rounded-2xl p-1">
-                {(
-                  [
-                    ["all", "All"],
-                    ["movie", "Movies"],
-                    ["tv", "TV"],
-                    ["anime", "Anime"],
-                    ["upcoming", "Upcoming"],
-                  ] as [ContentType, string][]
-                ).map(([k, label]) => (
-                  <button
-                    key={k}
-                    onClick={() => setType(k)}
-                    className={`h-9 min-w-0 rounded-xl px-2 text-center text-xs font-semibold transition md:text-[13px] ${
-                      type === k
-                        ? "liquid-pill text-primary-foreground shadow-[0_8px_22px_color-mix(in_oklab,var(--primary)_25%,transparent)]"
-                        : "text-muted-foreground hover:bg-white/7 hover:text-foreground"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+      <div className="sticky top-0 z-30 mt-6 bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl space-y-2.5 px-5 py-3 md:px-10">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="liquid-glass flex items-center gap-1 rounded-full p-1">
+              {(
+                [
+                  ["all", "All"],
+                  ["movie", "Movies"],
+                  ["tv", "TV"],
+                  ["anime", "Anime"],
+                  ["upcoming", "Upcoming"],
+                ] as [ContentType, string][]
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setType(k)}
+                  className={`h-9 rounded-full px-3.5 text-xs font-semibold transition md:text-[13px] ${
+                    type === k
+                      ? "liquid-pill text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-              <div className="grid gap-2 sm:grid-cols-3">
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <div className="w-[9.5rem]">
                 <ProviderButton
                   active={activeService}
                   onOpen={() => setProviderOpen(true)}
                   onClear={() => setProviderId(null)}
                 />
+              </div>
+              <div className="w-[8.5rem]">
                 <SortSelect value={sort} onChange={setSort} />
-                <div className="liquid-glass flex h-11 min-w-0 items-center gap-2 rounded-2xl px-3 text-xs">
-                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                    Rating
-                  </span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={9}
-                    step={0.5}
-                    value={minRating}
-                    onChange={(e) => setMinRating(Number(e.target.value))}
-                    className="range-clean h-2 min-w-0 flex-1"
-                  />
-                  <span className="w-7 shrink-0 text-right tabular-nums text-muted-foreground">
-                    {minRating.toFixed(1)}
-                  </span>
-                </div>
+              </div>
+              <div className="liquid-glass flex h-11 w-[11rem] items-center gap-2 rounded-full px-3.5 text-xs">
+                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  {minRating > 0 ? "Rated" : "Any"}
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={9}
+                  step={0.5}
+                  value={minRating}
+                  onChange={(e) => setMinRating(Number(e.target.value))}
+                  className="range-clean h-2 min-w-0 flex-1"
+                />
+                <span className="w-6 shrink-0 text-right tabular-nums text-muted-foreground">
+                  {minRating > 0 ? minRating.toFixed(1) : "–"}
+                </span>
               </div>
             </div>
+          </div>
 
-            <div className="liquid-glass flex max-w-full items-center gap-2 overflow-x-auto rounded-2xl p-2 no-scrollbar">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+            <button
+              onClick={() => setGenreId(null)}
+              className={`h-8 shrink-0 rounded-full px-3.5 text-xs font-semibold transition ${
+                genreId == null
+                  ? "bg-foreground/12 text-foreground ring-1 ring-foreground/12"
+                  : "text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
+              }`}
+            >
+              All genres
+            </button>
+            {genres.map((g) => (
               <button
-                onClick={() => setGenreId(null)}
-                className={`h-9 shrink-0 rounded-xl px-3.5 text-xs font-semibold transition ${
-                  genreId == null
-                    ? "liquid-pill text-foreground"
-                    : "text-muted-foreground hover:bg-white/7 hover:text-foreground"
+                key={g.id}
+                onClick={() => setGenreId(g.id === genreId ? null : g.id)}
+                className={`h-8 shrink-0 rounded-full px-3.5 text-xs font-semibold transition ${
+                  genreId === g.id
+                    ? "bg-foreground/12 text-foreground ring-1 ring-foreground/12"
+                    : "text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
                 }`}
               >
-                All genres
+                {g.name}
               </button>
-              {genres.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => setGenreId(g.id === genreId ? null : g.id)}
-                  className={`h-9 shrink-0 rounded-xl px-3.5 text-xs font-semibold transition ${
-                    genreId === g.id
-                      ? "liquid-pill text-foreground"
-                      : "text-muted-foreground hover:bg-white/7 hover:text-foreground"
-                  }`}
-                >
-                  {g.name}
-                </button>
-              ))}
-              {/* Random movie button */}
-              <button
-                onClick={pickRandomMovie}
-                disabled={randomLoading}
-                className="liquid-pill ml-2 flex h-9 shrink-0 items-center gap-2 rounded-full px-4 text-xs font-bold transition hover:brightness-105 disabled:opacity-60"
-              >
-                {randomLoading ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                ) : (
-                  <Shuffle className="h-4 w-4" />
-                )}
-                <span>I'm feeling lucky</span>
-              </button>
-            </div>
+            ))}
           </div>
         </div>
+        <div className="mx-auto h-px max-w-7xl bg-foreground/6" />
       </div>
 
-      <main className="mx-auto max-w-7xl px-4 pt-8 md:px-10">
+      <main className="mx-auto max-w-7xl px-5 pt-6 md:px-10">
         {query.isLoading ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {Array.from({ length: 18 }).map((_, i) => (
@@ -294,13 +296,19 @@ function ExplorePage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 animate-soft-rise">
-            {filtered.map((m) => (
-              <MediaCard key={`${m.type}-${m.id}`} media={m} fill />
-            ))}
-          </div>
+          <>
+            <div className="mb-3 text-xs text-muted-foreground">
+              {filtered.length} title{filtered.length === 1 ? "" : "s"}
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {filtered.map((m) => (
+                <MediaCard key={`${m.type}-${m.id}`} media={m} fill />
+              ))}
+            </div>
+          </>
         )}
       </main>
+
 
       {providerOpen && (
         <ProviderPicker
