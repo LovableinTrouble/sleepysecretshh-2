@@ -32,6 +32,8 @@ function Search() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<SortKey>("relevance");
   const [aiMode, setAiMode] = useState(false);
+  // AI search runs only on explicit submit (Enter or the Ask button).
+  const [aiQuery, setAiQuery] = useState("");
   const recents = useRecentSearches();
   const aiFn = useServerFn(aiSearchTitles);
 
