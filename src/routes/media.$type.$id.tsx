@@ -516,13 +516,23 @@ function MediaPage() {
           {similar.length > 0 && (
             <div>
               <SectionHeading kicker="Recommended" title="More like this" />
-              <div className="no-scrollbar -mx-2 mt-3 flex gap-4 overflow-x-auto px-2 pb-3 pt-3">
-                {similar.map((m) => (
+              <div className="mt-3 grid grid-cols-2 gap-4 pt-1 sm:grid-cols-3 lg:grid-cols-4">
+                {similar.slice(0, similarShown).map((m) => (
                   <MediaCard key={`${m.type}-${m.id}`} media={m} />
                 ))}
               </div>
+              {similarShown < similar.length && (
+                <button
+                  type="button"
+                  onClick={() => setSimilarShown((n) => n + 8)}
+                  className="liquid-glass mt-4 w-full rounded-2xl py-3 text-xs font-bold uppercase tracking-[0.18em] text-foreground/80 transition-all duration-500 ease-out hover:text-foreground"
+                >
+                  Load more
+                </button>
+              )}
             </div>
           )}
+
         </div>
 
         <aside className="min-w-0 self-start space-y-4 animate-soft-rise lg:sticky lg:top-24 lg:h-fit lg:pb-2">
