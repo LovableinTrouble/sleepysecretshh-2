@@ -36,6 +36,8 @@ function MediaPage() {
   const [episodesShown, setEpisodesShown] = useState(3);
   const [wl, setWl] = useState<number[]>([]);
   const [similar, setSimilar] = useState<Media[]>([]);
+  const [similarShown, setSimilarShown] = useState(8);
+
   const [cast, setCast] = useState<{ id?: number; name: string; role: string; img?: string }[]>([]);
   const [seasons, setSeasons] = useState<{ number: number }[]>([]);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
