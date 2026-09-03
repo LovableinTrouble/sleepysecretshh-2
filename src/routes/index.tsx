@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Hero } from "@/components/Hero";
 import { MediaRow } from "@/components/MediaRow";
 import { ContinueWatchingRow } from "@/components/ContinueWatching";
+import { NotificationBell } from "@/components/NotificationBell";
+
 import { fetchTrending, fetchPopular, fetchTopRated, fetchAnime } from "@/lib/tmdb";
 import { stashWatchMedia } from "@/lib/watch-stash";
 
@@ -64,13 +66,18 @@ function Home() {
 
   return (
     <div className="relative min-h-screen pb-20 md:pb-8 animate-page-in">
-
+      <div className="pointer-events-none fixed right-4 top-4 z-40 md:right-6 md:top-5">
+        <div className="pointer-events-auto">
+          <NotificationBell />
+        </div>
+      </div>
 
       {featured.length ? (
         <Hero items={featured} onPlay={play} onMore={openDetails} />
       ) : (
         <div className="h-[100svh] min-h-[620px] w-full animate-shimmer" />
       )}
+
 
       <main className="relative z-20 -mt-24 animate-soft-rise space-y-8 md:-mt-28 md:space-y-10">
         <ContinueWatchingRow />

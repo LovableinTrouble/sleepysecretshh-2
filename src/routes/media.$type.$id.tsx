@@ -10,10 +10,12 @@ import {
   fetchExtraDetails,
   fetchMediaById,
   fetchSimilar,
+  fetchCollection,
   fetchTvDetails,
   fetchTvSeasonEpisodes,
   fetchWatchProviders,
   type ExtraDetails,
+  type MediaCollection,
   type WatchProvider,
 } from "@/lib/tmdb";
 
@@ -37,6 +39,7 @@ function MediaPage() {
   const [wl, setWl] = useState<number[]>([]);
   const [similar, setSimilar] = useState<Media[]>([]);
   const [similarShown, setSimilarShown] = useState(8);
+  const [collection, setCollection] = useState<MediaCollection | null>(null);
 
   const [cast, setCast] = useState<{ id?: number; name: string; role: string; img?: string }[]>([]);
   const [seasons, setSeasons] = useState<{ number: number }[]>([]);
@@ -55,6 +58,7 @@ function MediaPage() {
     setExtra(null);
     setSimilar([]);
     setSimilarShown(8);
+    setCollection(null);
 
     setCast([]);
     setProviders([]);
@@ -85,6 +89,10 @@ function MediaPage() {
         fetchExtraDetails(m.id, m.type)
           .then((d) => !dead && setExtra(d))
           .catch(() => {});
+        if (m.type === "movie")
+          fetchCollection(m.id)
+            .then((c) => !dead && setCollection(c))
+            .catch(() => {});
         if (m.type === "tv" || m.type === "anime")
           fetchTvDetails(m.id)
             .then((d) => !dead && setSeasons(d.seasons))
@@ -196,7 +204,7 @@ function MediaPage() {
       : [isSeries ? "Network details unavailable" : "Studio details unavailable"];
 
   return (
-    <main className="min-w-0 overflow-x-clip pb-8">
+    <main className="min-w-0 pb-8">
       <BackButton onClick={goBack} />
 
       {shareToast && (
@@ -296,7 +304,7 @@ function MediaPage() {
 
 
 
-              <div className="flex max-w-full flex-wrap items-center gap-2 pt-1.5">
+              <div className="flex max-w-full flex-col gap-2 pt-1.5 sm:flex-row sm:flex-wrap sm:items-center">
                 <Link
                   to="/watch/$id"
                   params={{ id: String(media.id) }}
@@ -307,17 +315,18 @@ function MediaPage() {
                     party: undefined,
                   }}
                   onClick={() => stashWatchMedia(media)}
-                   className="liquid-pill group/btn relative z-10 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-xl px-6 text-[15px] font-bold transition-all duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_14px_34px_-18px_rgba(0,0,0,0.6)] hover:brightness-[1.03] active:translate-y-0 active:scale-[0.98] will-change-transform sm:mr-1 sm:px-7"
+                   className="liquid-pill lift-smooth group/btn relative z-10 inline-flex h-12 w-full shrink-0 items-center justify-center gap-2.5 rounded-xl px-6 text-[15px] font-bold hover:-translate-y-1 hover:shadow-[0_18px_38px_-18px_rgba(0,0,0,0.6)] hover:brightness-[1.03] active:translate-y-0 active:scale-[0.98] sm:mr-1 sm:w-auto sm:px-7"
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    className="h-4 w-4 fill-current transition-transform duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/btn:translate-x-0.5"
+                    className="h-4 w-4 fill-current transition-transform duration-[700ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/btn:translate-x-0.5"
                   >
                     <path d="M8 5v14l11-7z" />
                   </svg>
                   Play {isSeries && `S${season} · E${episode}`}
                 </Link>
 
+                <div className="flex w-full items-center gap-2 overflow-x-auto no-scrollbar sm:w-auto sm:overflow-visible">
                 <button
                   type="button"
                   onClick={() => setWl(toggleWatchlist(media.id))}
@@ -392,6 +401,7 @@ function MediaPage() {
                     IMDb
                   </a>
                 )}
+                </div>
               </div>
             </div>
           </div>
@@ -519,6 +529,20 @@ function MediaPage() {
             </div>
           )}
 
+          {collection && collection.parts.length > 1 && (
+            <div className="animate-soft-rise">
+              <SectionHeading
+                kicker="Collection"
+                title={`${collection.name}: ${collection.parts.length} titles`}
+              />
+              <div className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 gap-y-7 pt-1 sm:grid-cols-3 lg:grid-cols-4">
+                {collection.parts.map((m) => (
+                  <MediaCard key={`col-${m.id}`} media={m} fill />
+                ))}
+              </div>
+            </div>
+          )}
+
           {similar.length > 0 && (
             <div>
               <SectionHeading kicker="Recommended" title="More like this" />
@@ -541,7 +565,7 @@ function MediaPage() {
 
         </div>
 
-        <aside className="min-w-0 self-start space-y-4 animate-soft-rise lg:sticky lg:top-24 lg:h-fit lg:pb-2">
+        <aside className="min-w-0 self-start space-y-4 animate-soft-rise lg:pb-2">
           <div className="media-sidebar-card rounded-[26px] p-5">
             <div className="flex items-center gap-3">
               <div className="h-16 w-11 shrink-0 overflow-hidden rounded-lg ring-1 ring-white/12">

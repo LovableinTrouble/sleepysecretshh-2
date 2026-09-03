@@ -15,7 +15,6 @@ import {
   Sparkles,
   Trash2,
   TrendingUp,
-  User as UserIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,6 +23,7 @@ import { useAutoSync } from "@/lib/auto-sync";
 import { useFolders, useSettings } from "@/lib/store";
 import { useContinueWatching } from "@/lib/progress";
 import { setAvatarUrl } from "@/lib/avatar";
+import { DefaultAvatar } from "@/components/DefaultAvatar";
 
 export const Route = createFileRoute("/account")({
   ssr: false,
@@ -121,30 +121,10 @@ function AccountPage() {
   }
 
   if (!user) {
-    return (
-      <div className="relative min-h-screen px-5 pb-28 pt-8 animate-page-in md:px-8">
-        <BackHome />
-        <div className="mx-auto mt-16 max-w-md text-center">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl liquid-glass">
-            <UserIcon className="h-7 w-7" />
-          </div>
-          <h1 className="mt-5 text-2xl font-black tracking-tight">No account yet</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Create a free account to sync your watchlist, continue watching and preferences across
-            every device.
-          </p>
-          <Link
-            to="/auth"
-            className="liquid-pill mt-6 inline-flex h-12 items-center justify-center rounded-full px-7 text-[15px] font-bold"
-          >
-            Sign in or sign up
-          </Link>
-        </div>
-      </div>
-    );
+    return <RedirectToAuth />;
   }
 
-  const initial = (name || user.email || "?").slice(0, 1).toUpperCase();
+
   const provider = (user.app_metadata?.provider as string) || "email";
   const memberSince = user.created_at ? new Date(user.created_at) : null;
 
@@ -255,13 +235,17 @@ function AccountPage() {
           />
           <div className="-mt-10 flex flex-wrap items-end gap-5 px-5 pb-5 md:px-7">
             <div className="relative">
-              <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-[var(--gradient-primary)] text-3xl font-black text-primary-foreground ring-4 ring-background">
+              <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full ring-4 ring-background">
                 {avatar ? (
                   <img src={avatar} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  initial
+                  <DefaultAvatar
+                    seed={name || username || user.email || ""}
+                    className="h-24 w-24 text-[6rem]"
+                  />
                 )}
               </div>
+
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
@@ -533,5 +517,18 @@ function BackHome() {
       <ArrowLeft className="h-4 w-4" />
       Home
     </Link>
+  );
+}
+
+/** Signed-out visitors go straight to sign in / sign up. */
+function RedirectToAuth() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    void navigate({ to: "/auth", replace: true });
+  }, [navigate]);
+  return (
+    <div className="grid min-h-screen place-items-center">
+      <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+    </div>
   );
 }
