@@ -222,7 +222,9 @@ function MediaPage() {
                 "radial-gradient(110% 80% at 12% 100%, color-mix(in oklab, var(--primary) 12%, transparent) 0%, transparent 58%)",
             }}
           />
-          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-background via-background/80 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 -bottom-px h-20 bg-background [mask-image:linear-gradient(to_top,black_35%,transparent)]" />
+
         </div>
 
         <div className="relative mx-auto flex min-h-[520px] max-w-7xl flex-col justify-end px-5 pb-10 pt-24 sm:px-6 md:min-h-[560px] md:px-10 md:pb-11 md:pt-28">
