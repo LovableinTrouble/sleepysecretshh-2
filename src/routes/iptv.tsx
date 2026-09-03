@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Search,
   Tv as Tv2,
-  RadioTower,
   Star,
   Trophy,
   ArrowRight,
