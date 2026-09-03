@@ -308,40 +308,86 @@ function LiveSportsRail() {
     refetchInterval: 120_000,
   });
 
-  const events = useMemo(() => {
-    if (!data) return { live: 0 };
-    return { live: flattenEvents(data).length };
-  }, [data]);
+  const live = useMemo(() => (data ? flattenEvents(data) : []), [data]);
+  const top = useMemo(
+    () =>
+      [...live]
+        .sort((a, b) => Number(b.viewers || 0) - Number(a.viewers || 0))
+        .slice(0, 10),
+    [live],
+  );
 
   return (
     <section className="mt-8 px-6 md:px-10">
-      <Link
-        to="/sports"
-        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/[0.08] via-card/40 to-card/40 p-4 ring-1 ring-white/5 transition hover:border-amber-500/40 hover:bg-amber-500/[0.06] md:p-5"
-      >
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30">
-          <Trophy className="h-5 w-5" strokeWidth={2.2} />
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Trophy className="h-4 w-4 text-amber-300" strokeWidth={2.4} />
+          <h2 className="text-lg font-black tracking-tight md:text-xl">Live Sports</h2>
+          {live.length > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+              <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+              {live.length}
+            </span>
+          )}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-black tracking-tight md:text-lg">Live Sports</h2>
-            {events.live > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-500/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-                <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                {events.live} live
+        <Link
+          to="/sports"
+          preload="intent"
+          className="group inline-flex items-center gap-1.5 text-xs font-bold text-foreground/70 transition-colors duration-150 hover:text-foreground"
+        >
+          All matches
+          <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
+        </Link>
+      </div>
+
+      {top.length === 0 ? (
+        <div className="rounded-2xl border border-glass-border bg-card/40 px-4 py-6 text-xs text-muted-foreground">
+          No live matches right now — only active streams appear here.
+        </div>
+      ) : (
+        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 scrollbar-thin">
+          {top.map((e) => (
+            <Link
+              key={e.id}
+              to="/sports/$id"
+              params={{ id: String(e.id) }}
+              preload="intent"
+              className="snap-tile group relative h-32 w-56 shrink-0 overflow-hidden rounded-2xl border border-glass-border bg-card/50 hover:border-amber-400/40"
+            >
+              {e.poster ? (
+                <img
+                  src={e.poster}
+                  alt=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className="absolute inset-0 h-full w-full object-cover opacity-55"
+                />
+              ) : (
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: e.colors?.length
+                      ? `linear-gradient(135deg, ${e.colors[0]} 0%, #000 75%)`
+                      : "linear-gradient(135deg, rgba(251,191,36,0.18), rgba(0,0,0,0.65))",
+                  }}
+                />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/45 to-black/15" />
+              <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-destructive/90 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> Live
               </span>
-            )}
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {events.live > 0
-              ? `${events.live} match${events.live === 1 ? "" : "es"} airing now`
-              : "No live matches right now — only active streams appear."}
-          </p>
+              <div className="absolute inset-x-0 bottom-0 p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-white/70">
+                  {e.category}
+                </div>
+                <div className="mt-0.5 line-clamp-2 text-xs font-bold leading-tight text-white">
+                  {e.name}
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15 transition group-hover:bg-white/15">
-          View matches <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-        </span>
-      </Link>
+      )}
     </section>
   );
 }
