@@ -22,7 +22,14 @@ export function useAuth() {
       void supabase.auth.getSession().then(({ data }) => finish(data.session ?? null), () => finish(null));
 
       // A network outage must never leave the account page spinning forever.
-      const timeout = window.setTimeout(() => finish(null), 5000);
+      // Only applies while auth is still unresolved — never sign an active session out.
+      const timeout = window.setTimeout(() => {
+        if (!active) return;
+        setLoading((wasLoading) => {
+          if (wasLoading) setSession((s) => s ?? null);
+          return false;
+        });
+      }, 5000);
       return () => {
         active = false;
         window.clearTimeout(timeout);
