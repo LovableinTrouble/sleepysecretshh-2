@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles } from "lucide-react";
+import { CornerDownLeft, Sparkles } from "lucide-react";
 import { MediaCard } from "@/components/MediaCard";
 import { searchMulti, searchPeople, fetchTrending } from "@/lib/tmdb";
 import { aiSearchTitles } from "@/lib/ai.functions";
@@ -32,6 +32,8 @@ function Search() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<SortKey>("relevance");
   const [aiMode, setAiMode] = useState(false);
+  // AI search runs only on explicit submit (Enter or the Ask button).
+  const [aiQuery, setAiQuery] = useState("");
   const recents = useRecentSearches();
   const aiFn = useServerFn(aiSearchTitles);
 
@@ -41,10 +43,10 @@ function Search() {
   }, [q]);
 
   useEffect(() => {
-    if (!debounced) return;
+    if (!debounced || aiMode) return;
     const t = setTimeout(() => addRecentSearch(debounced), 1200);
     return () => clearTimeout(t);
-  }, [debounced]);
+  }, [debounced, aiMode]);
 
   const trend = useQuery({
     queryKey: ["search-trending"],
@@ -62,11 +64,11 @@ function Search() {
     enabled: debounced.length > 0 && !aiMode,
   });
   const ai = useQuery({
-    queryKey: ["ai-search", debounced],
+    queryKey: ["ai-search", aiQuery],
     queryFn: async () => {
-      const r = await aiFn({ data: { query: debounced } });
+      const r = await aiFn({ data: { query: aiQuery } });
       if (!r.titles.length) {
-        const direct = await searchMulti(debounced).catch(() => []);
+        const direct = await searchMulti(aiQuery).catch(() => []);
         return { results: direct, error: r.error, aiUsed: false };
       }
       // For each AI title, search TMDB and take only the top result (best match).
@@ -86,22 +88,31 @@ function Search() {
       });
       return { results: merged, error: r.error, aiUsed: true };
     },
-    enabled: debounced.length > 0 && aiMode,
+    enabled: aiQuery.length > 0 && aiMode,
     retry: 0,
   });
 
-  const rawResults = debounced
+  // The query that labels the current result set.
+  const activeQ = aiMode ? aiQuery : debounced;
+  const submitAi = () => {
+    const term = q.trim();
+    if (!term) return;
+    setAiQuery(term);
+    addRecentSearch(term);
+  };
+
+  const rawResults = activeQ
     ? aiMode
       ? (ai.data?.results ?? [])
       : (res.data ?? [])
     : (trend.data ?? []);
-  const loading = debounced
+  const loading = activeQ
     ? aiMode
-      ? ai.isLoading
+      ? ai.isLoading || ai.isFetching
       : res.isLoading || people.isLoading
     : trend.isLoading;
   const peopleResults = debounced && !aiMode ? (people.data ?? []) : [];
-  const showRecents = !debounced && recents.length > 0;
+  const showRecents = !activeQ && recents.length > 0;
 
   const results = useMemo(() => {
     let items = rawResults;
@@ -146,7 +157,9 @@ function Search() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && q.trim()) addRecentSearch(q.trim());
+                if (e.key !== "Enter" || !q.trim()) return;
+                if (aiMode) submitAi();
+                else addRecentSearch(q.trim());
               }}
               placeholder={
                 aiMode ? "Ask AI: mood, genre, actor, vibe…" : "Movies, TV, anime, people…"
@@ -166,6 +179,17 @@ function Search() {
               <Sparkles className="h-3.5 w-3.5" />
               AI
             </button>
+            {aiMode && (
+              <button
+                onClick={submitAi}
+                disabled={!q.trim() || loading}
+                title="Ask AI (Enter)"
+                className="liquid-pill flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold transition disabled:opacity-50"
+              >
+                Ask
+                <CornerDownLeft className="h-3.5 w-3.5" />
+              </button>
+            )}
             {q && (
               <button
                 onClick={() => setQ("")}
@@ -275,7 +299,7 @@ function Search() {
 
         <div className="mt-12 flex items-baseline justify-between border-b border-foreground/10 pb-4">
           <h2 className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-            {debounced ? `Results for "${debounced}"` : "Trending now"}
+            {activeQ ? `Results for "${activeQ}"` : "Trending now"}
           </h2>
           {!loading && (
             <div className="text-xs text-muted-foreground">
@@ -290,7 +314,7 @@ function Search() {
               <div key={i} className="aspect-[2/3] rounded-xl animate-shimmer" />
             ))}
           </div>
-        ) : totalCount === 0 && debounced ? (
+        ) : totalCount === 0 && activeQ ? (
           <div className="mt-16 flex flex-col items-center text-center text-muted-foreground animate-fade-in">
             <div className="grid h-16 w-16 place-items-center rounded-full bg-white/5 ring-1 ring-white/10">
               <svg
@@ -305,7 +329,7 @@ function Search() {
               </svg>
             </div>
             <p className="mt-4 text-sm">
-              No matches for <span className="font-semibold text-foreground">"{debounced}"</span>
+              No matches for <span className="font-semibold text-foreground">"{activeQ}"</span>
             </p>
           </div>
         ) : (

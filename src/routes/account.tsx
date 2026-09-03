@@ -1,22 +1,28 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
   Camera,
-  CloudUpload,
-  CloudDownload,
+  CheckCircle2,
+  Clock,
+  Film,
+  FolderOpen,
   LogOut,
+  Mail,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Trash2,
+  TrendingUp,
   User as UserIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { ensureAccountRows, getLastSync, pullSync, pushSync } from "@/lib/sync";
-import { getFolders, useSettings } from "@/lib/store";
-import { getLocalProgress } from "@/lib/progress";
+import { ensureAccountRows } from "@/lib/sync";
+import { useAutoSync } from "@/lib/auto-sync";
+import { useFolders, useSettings } from "@/lib/store";
+import { useContinueWatching } from "@/lib/progress";
 import { setAvatarUrl } from "@/lib/avatar";
 
 export const Route = createFileRoute("/account")({
@@ -27,12 +33,12 @@ export const Route = createFileRoute("/account")({
       {
         name: "description",
         content:
-          "Manage your Sleepy account, profile picture and sync your watchlist, continue watching and preferences across devices.",
+          "Manage your Sleepy account, profile picture and preferences. Your watchlist, continue watching and settings sync automatically across devices.",
       },
       { property: "og:title", content: "Your account — Sleepy" },
       {
         property: "og:description",
-        content: "Manage your Sleepy account and sync your library across devices.",
+        content: "Manage your Sleepy account — your library syncs automatically across devices.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -43,19 +49,26 @@ export const Route = createFileRoute("/account")({
 
 const YEAR = 60 * 60 * 24 * 365;
 
+function formatHours(seconds: number) {
+  if (seconds < 60) return "0m";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+
 function AccountPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [settings, patchSettings] = useSettings();
-  const [busy, setBusy] = useState<"push" | "pull" | null>(null);
-  const [lastSync, setLastSync] = useState<number | null>(null);
+  const [folders] = useFolders();
+  const { items: progress } = useContinueWatching();
+  const { state: syncState, lastSync } = useAutoSync(user?.id ?? null);
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => setLastSync(getLastSync()), []);
 
   useEffect(() => {
     if (!user) return;
@@ -79,6 +92,25 @@ function AccountPage() {
         },
       );
   }, [user]);
+
+  const stats = useMemo(() => {
+    const watchlistItems = folders.reduce((n, f) => n + f.mediaIds.length, 0);
+    const watchedSeconds = progress.reduce((n, p) => n + (p.positionSeconds || 0), 0);
+    const completion = progress.length
+      ? Math.round(
+          (progress.reduce(
+            (n, p) => n + (p.durationSeconds ? p.positionSeconds / p.durationSeconds : 0),
+            0,
+          ) /
+            progress.length) *
+            100,
+        )
+      : 0;
+    const lastActive = progress.reduce((n, p) => Math.max(n, p.updatedAt || 0), 0);
+    const movies = progress.filter((p) => p.mediaType === "movie").length;
+    const shows = progress.filter((p) => p.mediaType !== "movie").length;
+    return { watchlistItems, watchedSeconds, completion, lastActive, movies, shows };
+  }, [folders, progress]);
 
   if (loading) {
     return (
@@ -112,36 +144,9 @@ function AccountPage() {
     );
   }
 
-  const folders = getFolders();
-  const items = folders.reduce((n, f) => n + f.mediaIds.length, 0);
-  const progressCount = getLocalProgress().length;
   const initial = (name || user.email || "?").slice(0, 1).toUpperCase();
-
-  const doPush = async () => {
-    setBusy("push");
-    try {
-      await pushSync(user.id);
-      setLastSync(getLastSync());
-      toast.success("Uploaded to your account");
-    } catch {
-      toast.error("Could not upload right now");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const doPull = async () => {
-    setBusy("pull");
-    try {
-      const ok = await pullSync(user.id);
-      setLastSync(getLastSync());
-      toast.success(ok ? "Restored from your account" : "Nothing saved yet");
-    } catch {
-      toast.error("Could not restore right now");
-    } finally {
-      setBusy(null);
-    }
-  };
+  const provider = (user.app_metadata?.provider as string) || "email";
+  const memberSince = user.created_at ? new Date(user.created_at) : null;
 
   const saveProfile = async (patch?: { avatar_url?: string | null }) => {
     const { error } = await supabase.from("profiles").upsert(
@@ -157,12 +162,15 @@ function AccountPage() {
   };
 
   const onSave = async () => {
+    setSaving(true);
     try {
       await saveProfile();
       toast.success("Profile saved");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save your profile";
       toast.error(/duplicate|unique/i.test(message) ? "That username is taken" : message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -220,6 +228,17 @@ function AccountPage() {
     }
   };
 
+  const syncLabel =
+    settings.autoSync === false
+      ? "Auto-sync is off"
+      : syncState === "syncing"
+        ? "Syncing changes…"
+        : syncState === "error"
+          ? "Last sync failed — will retry"
+          : lastSync
+            ? `Everything saved · ${new Date(lastSync).toLocaleTimeString()}`
+            : "Ready — changes save automatically";
+
   return (
     <div className="relative min-h-screen px-5 pb-28 pt-6 animate-page-in md:px-8 md:pb-10">
       <BackHome />
@@ -237,7 +256,6 @@ function AccountPage() {
           <div className="-mt-10 flex flex-wrap items-end gap-5 px-5 pb-5 md:px-7">
             <div className="relative">
               <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-[var(--gradient-primary)] text-3xl font-black text-primary-foreground ring-4 ring-background">
-
                 {avatar ? (
                   <img src={avatar} alt="" className="h-full w-full object-cover" />
                 ) : (
@@ -277,6 +295,22 @@ function AccountPage() {
                 {username ? `@${username} · ` : ""}
                 {user.email}
               </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                <span className="inline-flex items-center gap-1 rounded-full liquid-glass px-2.5 py-1 text-muted-foreground">
+                  <ShieldCheck className="h-3 w-3 text-primary" />
+                  {provider === "google" ? "Google account" : "Email account"}
+                </span>
+                {memberSince && (
+                  <span className="inline-flex items-center gap-1 rounded-full liquid-glass px-2.5 py-1 text-muted-foreground">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                    Member since{" "}
+                    {memberSince.toLocaleDateString(undefined, {
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-2 pb-1">
@@ -324,59 +358,93 @@ function AccountPage() {
             <div className="flex items-end">
               <button
                 onClick={onSave}
-                className="liquid-pill h-11 w-full rounded-2xl px-6 text-sm font-bold md:w-auto"
+                disabled={saving}
+                className="liquid-pill h-11 w-full rounded-2xl px-6 text-sm font-bold disabled:opacity-60 md:w-auto"
               >
-                Save changes
+                {saving ? "Saving…" : "Save changes"}
               </button>
             </div>
           </div>
         </section>
 
-        {/* Sync */}
+        {/* Usage */}
+        <section className="media-sidebar-card rounded-3xl p-5 md:p-7">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+              Your activity
+            </h2>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Stat
+              icon={<Clock className="h-4 w-4" />}
+              label="Time watched"
+              value={formatHours(stats.watchedSeconds)}
+            />
+            <Stat
+              icon={<Film className="h-4 w-4" />}
+              label="Watchlist items"
+              value={String(stats.watchlistItems)}
+            />
+            <Stat
+              icon={<FolderOpen className="h-4 w-4" />}
+              label="Folders"
+              value={String(folders.length)}
+            />
+            <Stat
+              icon={<RefreshCw className="h-4 w-4" />}
+              label="In progress"
+              value={String(progress.length)}
+            />
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <Stat label="Movies started" value={String(stats.movies)} />
+            <Stat label="Shows started" value={String(stats.shows)} />
+            <Stat label="Avg. completion" value={`${stats.completion}%`} />
+          </div>
+
+          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-foreground/10">
+            <div
+              className="h-full rounded-full bg-[var(--gradient-primary)] transition-all duration-700"
+              style={{ width: `${Math.min(100, stats.completion)}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {stats.lastActive
+              ? `Last watched ${new Date(stats.lastActive).toLocaleString()}`
+              : "Start something and your progress shows up here."}
+          </p>
+        </section>
+
+        {/* Sync + preferences */}
         <section className="media-sidebar-card rounded-3xl p-5 md:p-7">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-              Library sync
+              Cloud sync
             </h2>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <Stat label="Watchlist items" value={items} />
-            <Stat label="Folders" value={folders.length} />
-            <Stat label="In progress" value={progressCount} />
+          <div className="mt-4 flex items-center gap-3 rounded-2xl liquid-glass px-4 py-3">
+            {syncState === "syncing" ? (
+              <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+            )}
+            <div className="min-w-0">
+              <div className="text-sm font-semibold">Automatic backup</div>
+              <div className="truncate text-xs text-muted-foreground">{syncLabel}</div>
+            </div>
           </div>
 
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-            <button
-              onClick={doPush}
-              disabled={busy !== null}
-              className="liquid-pill inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full text-[15px] font-bold disabled:opacity-60"
-            >
-              <CloudUpload className={`h-4 w-4 ${busy === "push" ? "animate-pulse" : ""}`} />
-              Back up this device
-            </button>
-            <button
-              onClick={doPull}
-              disabled={busy !== null}
-              className="liquid-icon inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full text-[15px] font-semibold disabled:opacity-60"
-            >
-              <CloudDownload className={`h-4 w-4 ${busy === "pull" ? "animate-pulse" : ""}`} />
-              Restore to this device
-            </button>
-          </div>
-
-          <p className="mt-4 text-xs text-muted-foreground">
-            {lastSync
-              ? `Last synced ${new Date(lastSync).toLocaleString()}`
-              : "Not synced on this device yet."}
-          </p>
-
-          <label className="mt-4 flex items-center justify-between gap-4 rounded-2xl liquid-glass px-4 py-3">
+          <label className="mt-3 flex items-center justify-between gap-4 rounded-2xl liquid-glass px-4 py-3">
             <span className="text-sm font-medium">
-              Auto-sync on launch
+              Keep this device in sync
               <span className="block text-xs text-muted-foreground">
-                Restore your library automatically when you open Sleepy.
+                Saves your watchlist, progress and preferences as you go, and restores them when you
+                open Sleepy.
               </span>
             </span>
             <input
@@ -386,6 +454,15 @@ function AccountPage() {
               className="h-5 w-5 accent-[var(--primary)]"
             />
           </label>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <InfoRow icon={<Mail className="h-4 w-4" />} label="Email" value={user.email ?? "—"} />
+            <InfoRow
+              icon={<ShieldCheck className="h-4 w-4" />}
+              label="Sign-in method"
+              value={provider === "google" ? "Google" : "Email & password"}
+            />
+          </div>
         </section>
       </div>
     </div>
@@ -403,12 +480,45 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+}) {
   return (
     <div className="rounded-2xl liquid-glass px-4 py-3">
-      <div className="text-2xl font-black tabular-nums">{value}</div>
-      <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+      <div className="flex items-center gap-2 text-2xl font-black tabular-nums">
+        {icon && <span className="text-primary">{icon}</span>}
+        {value}
+      </div>
+      <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl liquid-glass px-4 py-3">
+      <span className="text-primary">{icon}</span>
+      <div className="min-w-0">
+        <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+          {label}
+        </div>
+        <div className="truncate text-sm font-medium">{value}</div>
       </div>
     </div>
   );
