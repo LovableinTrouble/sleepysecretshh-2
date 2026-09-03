@@ -443,7 +443,7 @@ function WatchlistPage() {
             {!allItems.length && (
               <Link
                 to="/explore"
-                className="liquid-pill lift-smooth mt-2 inline-flex h-11 items-center rounded-full px-6 text-sm font-bold hover:-translate-y-0.5"
+                className="liquid-pill mt-2 inline-flex h-11 items-center rounded-full px-6 text-sm font-bold"
               >
                 Browse titles
               </Link>
@@ -463,7 +463,7 @@ function WatchlistPage() {
                   }}
                   className="relative cursor-grab active:cursor-grabbing"
                 >
-                  <MediaCard media={m} fill />
+                  <MediaCard media={m} fill showWatchlistControl={false} />
                   <button
                     onClick={(e) => {
                       e.preventDefault();

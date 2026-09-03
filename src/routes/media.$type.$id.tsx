@@ -315,11 +315,11 @@ function MediaPage() {
                     party: undefined,
                   }}
                   onClick={() => stashWatchMedia(media)}
-                   className="liquid-pill lift-smooth group/btn relative z-10 inline-flex h-12 w-full shrink-0 items-center justify-center gap-2.5 rounded-xl px-6 text-[15px] font-bold hover:-translate-y-1 hover:shadow-[0_18px_38px_-18px_rgba(0,0,0,0.6)] hover:brightness-[1.03] active:translate-y-0 active:scale-[0.98] sm:mr-1 sm:w-auto sm:px-7"
+                   className="liquid-pill play-button-hover group/btn relative z-10 inline-flex h-12 w-full shrink-0 items-center justify-center gap-2.5 rounded-xl px-6 text-[15px] font-bold sm:mr-1 sm:w-auto sm:px-7"
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    className="h-4 w-4 fill-current transition-transform duration-[700ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/btn:translate-x-0.5"
+                    className="h-4 w-4 fill-current transition-transform duration-500 ease-out group-hover/btn:translate-x-0.5"
                   >
                     <path d="M8 5v14l11-7z" />
                   </svg>
