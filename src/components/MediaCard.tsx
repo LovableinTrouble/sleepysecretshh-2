@@ -10,9 +10,15 @@ interface Props {
   size?: "sm" | "md";
   /** When true, fill the parent (use inside CSS grid). When false, fixed width (for horizontal rows). */
   fill?: boolean;
+  showWatchlistControl?: boolean;
 }
 
-export function MediaCard({ media, size = "md", fill = false }: Props) {
+export function MediaCard({
+  media,
+  size = "md",
+  fill = false,
+  showWatchlistControl = true,
+}: Props) {
   const [s] = useSettings();
   const radius =
     s.posterStyle === "circle"
@@ -23,7 +29,9 @@ export function MediaCard({ media, size = "md", fill = false }: Props) {
   const width = fill ? "w-full" : size === "sm" ? "w-32" : "w-40 md:w-44";
   return (
     <div className={`group relative isolate shrink-0 overflow-visible ${width}`}>
-      <AddToWatchlistButton media={media} className="absolute right-2 top-2 z-30" />
+      {showWatchlistControl && (
+        <AddToWatchlistButton media={media} className="absolute right-2 top-2 z-30" />
+      )}
       <Link
         to="/media/$type/$id"
         params={{ type: media.type, id: String(media.id) }}
@@ -31,7 +39,7 @@ export function MediaCard({ media, size = "md", fill = false }: Props) {
         className="block w-full text-left"
       >
         <div
-          className={`media-poster lift-smooth relative aspect-[2/3] overflow-hidden ${radius} bg-foreground/5 ring-1 ring-foreground/8 group-hover:-translate-y-1.5 group-hover:scale-[1.03] group-hover:ring-foreground/20`}
+          className={`media-poster relative aspect-[2/3] overflow-hidden ${radius} bg-foreground/5 ring-1 ring-foreground/8 transition-all duration-500 ease-out group-hover:-translate-y-1 group-hover:scale-[1.025] group-hover:ring-foreground/20`}
         >
 
           <img
