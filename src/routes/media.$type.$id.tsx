@@ -307,11 +307,11 @@ function MediaPage() {
                     party: undefined,
                   }}
                   onClick={() => stashWatchMedia(media)}
-                   className="liquid-pill group/btn relative z-10 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-2xl px-6 text-[15px] font-bold transition-[transform,box-shadow,background-color,filter] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-18px_hsl(var(--primary)/0.55)] hover:brightness-110 active:translate-y-0 sm:mr-1 sm:px-7"
+                   className="liquid-pill group/btn relative z-10 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-xl px-6 text-[15px] font-bold transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-0.5 active:translate-y-0 sm:mr-1 sm:px-7"
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    className="h-4 w-4 fill-current transition-transform duration-500 ease-out group-hover/btn:scale-110"
+                    className="h-4 w-4 fill-current transition-transform duration-300 ease-out group-hover/btn:translate-x-0.5"
                   >
                     <path d="M8 5v14l11-7z" />
                   </svg>
@@ -522,9 +522,9 @@ function MediaPage() {
           {similar.length > 0 && (
             <div>
               <SectionHeading kicker="Recommended" title="More like this" />
-              <div className="mt-3 grid grid-cols-2 gap-4 pt-1 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 gap-y-7 pt-1 sm:grid-cols-3 lg:grid-cols-4">
                 {similar.slice(0, similarShown).map((m) => (
-                  <MediaCard key={`${m.type}-${m.id}`} media={m} />
+                  <MediaCard key={`${m.type}-${m.id}`} media={m} fill />
                 ))}
               </div>
               {similarShown < similar.length && (
