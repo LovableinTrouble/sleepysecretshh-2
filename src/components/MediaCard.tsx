@@ -58,7 +58,7 @@ export function MediaCard({ media, size = "md", fill = false }: Props) {
           )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center opacity-0 transition-all duration-500 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0">
-            <div className="grid h-11 w-11 place-items-center rounded-full bg-foreground text-background shadow-lg">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-foreground text-background shadow-lg transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105">
               <Play className="h-4 w-4 fill-current" />
             </div>
           </div>
