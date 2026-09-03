@@ -157,7 +157,9 @@ function Search() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && q.trim()) addRecentSearch(q.trim());
+                if (e.key !== "Enter" || !q.trim()) return;
+                if (aiMode) submitAi();
+                else addRecentSearch(q.trim());
               }}
               placeholder={
                 aiMode ? "Ask AI: mood, genre, actor, vibe…" : "Movies, TV, anime, people…"
