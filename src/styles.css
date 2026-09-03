@@ -560,11 +560,11 @@
 .liquid-icon,
 .liquid-glass {
   transition:
-    background-color 280ms ease-out,
-    border-color 280ms ease-out,
-    color 280ms ease-out,
-    box-shadow 280ms ease-out,
-    transform 280ms ease-out !important;
+    background-color 160ms ease-out,
+    border-color 160ms ease-out,
+    color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    transform 160ms ease-out !important;
 }
 
 .liquid-pill:active,
