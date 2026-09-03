@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles } from "lucide-react";
+import { CornerDownLeft, Sparkles } from "lucide-react";
 import { MediaCard } from "@/components/MediaCard";
 import { searchMulti, searchPeople, fetchTrending } from "@/lib/tmdb";
 import { aiSearchTitles } from "@/lib/ai.functions";
@@ -43,10 +43,10 @@ function Search() {
   }, [q]);
 
   useEffect(() => {
-    if (!debounced) return;
+    if (!debounced || aiMode) return;
     const t = setTimeout(() => addRecentSearch(debounced), 1200);
     return () => clearTimeout(t);
-  }, [debounced]);
+  }, [debounced, aiMode]);
 
   const trend = useQuery({
     queryKey: ["search-trending"],
@@ -299,7 +299,7 @@ function Search() {
 
         <div className="mt-12 flex items-baseline justify-between border-b border-foreground/10 pb-4">
           <h2 className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-            {debounced ? `Results for "${debounced}"` : "Trending now"}
+            {activeQ ? `Results for "${activeQ}"` : "Trending now"}
           </h2>
           {!loading && (
             <div className="text-xs text-muted-foreground">
@@ -314,7 +314,7 @@ function Search() {
               <div key={i} className="aspect-[2/3] rounded-xl animate-shimmer" />
             ))}
           </div>
-        ) : totalCount === 0 && debounced ? (
+        ) : totalCount === 0 && activeQ ? (
           <div className="mt-16 flex flex-col items-center text-center text-muted-foreground animate-fade-in">
             <div className="grid h-16 w-16 place-items-center rounded-full bg-white/5 ring-1 ring-white/10">
               <svg
@@ -329,7 +329,7 @@ function Search() {
               </svg>
             </div>
             <p className="mt-4 text-sm">
-              No matches for <span className="font-semibold text-foreground">"{debounced}"</span>
+              No matches for <span className="font-semibold text-foreground">"{activeQ}"</span>
             </p>
           </div>
         ) : (
