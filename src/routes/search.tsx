@@ -179,6 +179,17 @@ function Search() {
               <Sparkles className="h-3.5 w-3.5" />
               AI
             </button>
+            {aiMode && (
+              <button
+                onClick={submitAi}
+                disabled={!q.trim() || loading}
+                title="Ask AI (Enter)"
+                className="liquid-pill flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold transition disabled:opacity-50"
+              >
+                Ask
+                <CornerDownLeft className="h-3.5 w-3.5" />
+              </button>
+            )}
             {q && (
               <button
                 onClick={() => setQ("")}
