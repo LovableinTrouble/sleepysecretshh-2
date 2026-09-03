@@ -2,8 +2,6 @@ import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-r
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Trophy,
-  ArrowLeft,
   Search,
   Users,
   RadioTower,
@@ -14,6 +12,7 @@ import {
 } from "lucide-react";
 import { fetchPpvAll, flattenEvents, flattenUpcoming, type FlatEvent } from "@/lib/sports";
 import { SportIcon } from "@/components/SportIcon";
+import { LiveTabs } from "@/components/LiveTabs";
 
 export const Route = createFileRoute("/sports")({
   head: () => ({
@@ -100,7 +99,7 @@ function SportsPage() {
               <button
                 onClick={() => setTab("live")}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition ${
-                  tab === "live" ? "bg-red-500/90 text-white" : "text-white/60 hover:text-white"
+                  tab === "live" ? "bg-destructive/90 text-white" : "text-white/60 hover:text-white"
                 }`}
               >
                 <span
@@ -214,7 +213,7 @@ function BigMatchCard({ e }: { e: FlatEvent }) {
 
   return (
     <Link to="/sports/$id" params={{ id: String(e.id) }} preload="intent" className="block">
-      <div className="group relative h-44 w-full overflow-hidden rounded-2xl border border-white/10 bg-card/40 ring-1 ring-white/5 transition active:scale-[0.99] hover:-translate-y-0.5 hover:border-primary/50">
+      <div className="snap-tile group relative h-44 w-full overflow-hidden rounded-2xl border border-glass-border bg-card/50 hover:border-amber-400/45">
         {e.poster ? (
           <img
             src={e.poster}
@@ -234,7 +233,7 @@ function BigMatchCard({ e }: { e: FlatEvent }) {
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/30" />
-        <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-red-500/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white ring-1 ring-red-300/40">
+        <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-destructive/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white ring-1 ring-red-300/40">
           <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> LIVE
         </div>
         {viewers > 0 && (
@@ -314,7 +313,7 @@ function UpcomingCard({ e }: { e: FlatEvent }) {
   };
 
   return (
-    <div className="group relative flex h-44 w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-card/40 ring-1 ring-white/5 transition hover:border-primary/40">
+    <div className="snap-tile group relative flex h-44 w-full flex-col overflow-hidden rounded-2xl border border-glass-border bg-card/50 hover:border-primary/40">
       {e.poster ? (
         <img
           src={e.poster}

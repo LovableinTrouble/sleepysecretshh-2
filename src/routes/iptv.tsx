@@ -23,6 +23,7 @@ import {
   type CustomPlaylist,
 } from "@/lib/iptv-custom";
 import { CURATED_CHANNELS, type CuratedChannel } from "@/lib/iptv-curated";
+import { LiveTabs } from "@/components/LiveTabs";
 import {
   Dialog,
   DialogContent,
