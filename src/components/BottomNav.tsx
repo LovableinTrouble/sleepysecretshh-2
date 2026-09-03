@@ -1,5 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useAvatarUrl } from "@/lib/avatar";
+import { DefaultAvatar } from "@/components/DefaultAvatar";
+
 import {
   Home,
   Compass,
@@ -53,15 +55,20 @@ export function BottomNav() {
                   : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
               }`}
             >
-              {to === "/account" && avatar ? (
-                <img
-                  src={avatar}
-                  alt=""
-                  className="h-[1.35rem] w-[1.35rem] shrink-0 rounded-full object-cover ring-1 ring-foreground/25 md:h-6 md:w-6"
-                />
+              {to === "/account" ? (
+                avatar ? (
+                  <img
+                    src={avatar}
+                    alt=""
+                    className="h-[1.35rem] w-[1.35rem] shrink-0 rounded-full object-cover ring-1 ring-foreground/25 md:h-6 md:w-6"
+                  />
+                ) : (
+                  <DefaultAvatar className="h-[1.35rem] w-[1.35rem] shrink-0 text-[1.35rem] md:h-6 md:w-6 md:text-2xl" />
+                )
               ) : (
                 <Icon className="h-[1.15rem] w-[1.15rem] shrink-0 md:h-5 md:w-5" strokeWidth={2.15} />
               )}
+
 
               <span
                 className={`hidden overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 md:inline-block ${

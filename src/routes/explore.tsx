@@ -75,9 +75,6 @@ function ExplorePage() {
   const [providerOpen, setProviderOpen] = useState(false);
   const [randomLoading, setRandomLoading] = useState(false);
 
-  useEffect(() => {
-    setGenreId(null);
-  }, [type]);
 
   const genres = useMemo(() => {
     if (type === "movie") return MOVIE_GENRES;
@@ -85,13 +82,20 @@ function ExplorePage() {
     return [...MOVIE_GENRES.filter((g) => TV_GENRES.some((t) => t.name === g.name))];
   }, [type]);
 
+  // Genre is applied by name so it survives switching between movie/TV/provider
+  // catalogues, which use different TMDB genre ids.
+  const genreName = useMemo(
+    () => (genreId == null ? null : (genres.find((g) => g.id === genreId)?.name ?? null)),
+    [genreId, genres],
+  );
+
   const query = useQuery<Media[]>({
-    queryKey: ["explore", type, genreId, providerId],
+    queryKey: ["explore", type, genreId, genreName, providerId],
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const results: Media[] = [];
       if (providerId != null) {
-        results.push(...(await fetchByProvider(providerId, 2)));
+        results.push(...(await fetchByProvider(providerId, 2, "US", genreName)));
         const filtered =
           type === "movie"
             ? results.filter((m) => m.type === "movie")

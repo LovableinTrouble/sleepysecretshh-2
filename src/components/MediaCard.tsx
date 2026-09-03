@@ -31,8 +31,9 @@ export function MediaCard({ media, size = "md", fill = false }: Props) {
         className="block w-full text-left"
       >
         <div
-          className={`media-poster relative aspect-[2/3] overflow-hidden ${radius} bg-foreground/5 ring-1 ring-foreground/8 transition-all duration-500 ease-out group-hover:-translate-y-1 group-hover:scale-[1.025] group-hover:ring-foreground/20`}
+          className={`media-poster lift-smooth relative aspect-[2/3] overflow-hidden ${radius} bg-foreground/5 ring-1 ring-foreground/8 group-hover:-translate-y-1.5 group-hover:scale-[1.03] group-hover:ring-foreground/20`}
         >
+
           <img
             src={media.poster}
             alt={media.title}

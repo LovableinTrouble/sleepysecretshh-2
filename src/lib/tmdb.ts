@@ -401,34 +401,97 @@ export async function searchPeople(q: string): Promise<PersonSearchResult[]> {
     }));
 }
 
+/** Episode air status for a series — used by the new-episode notifications. */
+export interface EpisodeAirStatus {
+  lastAired?: { season: number; episode: number; name: string; airDate: string };
+  nextAiring?: { season: number; episode: number; name: string; airDate: string };
+}
+
+export async function fetchEpisodeAirStatus(tvId: number): Promise<EpisodeAirStatus> {
+  const raw = await tmdb<any>(`/tv/${tvId}`);
+  const map = (e: any) =>
+    e
+      ? {
+          season: e.season_number ?? 1,
+          episode: e.episode_number ?? 1,
+          name: e.name || `Episode ${e.episode_number ?? 1}`,
+          airDate: e.air_date || "",
+        }
+      : undefined;
+  return { lastAired: map(raw.last_episode_to_air), nextAiring: map(raw.next_episode_to_air) };
+}
+
+/** Movie collection ("… Collection") with its parts, ordered by release. */
+export interface MediaCollection {
+  id: number;
+  name: string;
+  parts: Media[];
+}
+
+export async function fetchCollection(movieId: number): Promise<MediaCollection | null> {
+  const raw = await tmdb<any>(`/movie/${movieId}`).catch(() => null);
+  const col = raw?.belongs_to_collection;
+  if (!col?.id) return null;
+  const [detail, gm] = await Promise.all([
+    tmdb<any>(`/collection/${col.id}`).catch(() => null),
+    genreMap("movie"),
+  ]);
+  const parts = (detail?.parts ?? [])
+    .filter((p: any) => p.poster_path && isSafeForMode(p))
+    .sort((a: any, b: any) => String(a.release_date || "").localeCompare(String(b.release_date || "")))
+    .map((p: any) => toMedia(p, "movie", gm));
+  if (!parts.length) return null;
+  return { id: col.id, name: detail?.name || col.name || "Collection", parts: remember(parts) };
+}
+
 export async function fetchSimilar(media: Media): Promise<Media[]> {
   const tmdbKind = media.type === "movie" ? "movie" : "tv";
   const g = await genreMap(tmdbKind);
   const collect = (items: any[]) =>
-    items.filter((r) => r.poster_path && isReleased(r) && isSafeForMode(r));
-  const [similar, recommendations] = await Promise.all([
-    tmdb<{ results: any[] }>(`/${tmdbKind}/${media.id}/similar`).catch(() => ({ results: [] })),
+    items.filter((r) => r.poster_path && isReleased(r) && isSafeForMode(r) && r.id !== media.id);
+  // Recommendations are far more relevant than TMDB's "similar" bucket, so they
+  // lead and "similar" only tops up the list.
+  const [recommendations, similar] = await Promise.all([
     tmdb<{ results: any[] }>(`/${tmdbKind}/${media.id}/recommendations`).catch(() => ({
       results: [],
     })),
+    tmdb<{ results: any[] }>(`/${tmdbKind}/${media.id}/similar`).catch(() => ({ results: [] })),
   ]);
-  let results = collect([...similar.results, ...recommendations.results]);
-  if (results.length < 6) {
-    const genreIds = media.genres
+
+  const ownGenreIds = new Set<number>(
+    media.genres
       .map((name) => Number(Object.entries(g).find(([, value]) => value === name)?.[0]))
-      .filter(Boolean);
-    if (genreIds.length) {
-      const fallback = await tmdb<{ results: any[] }>(`/discover/${tmdbKind}`, {
-        with_genres: genreIds.slice(0, 2).join(","),
-        sort_by: "popularity.desc",
-        page: 1,
-      }).catch(() => ({ results: [] }));
-      results = [...results, ...collect(fallback.results).filter((r) => r.id !== media.id)];
-    }
+      .filter((n) => Number.isFinite(n) && n > 0),
+  );
+  const genreIdsOf = (r: any): number[] =>
+    r.genre_ids || (r.genres ?? []).map((x: any) => x.id) || [];
+  const overlap = (r: any) => genreIdsOf(r).filter((id: number) => ownGenreIds.has(id)).length;
+
+  const primary = collect(recommendations.results);
+  const secondary = collect(similar.results).filter((r) => overlap(r) > 0);
+
+  let pool = [...primary, ...secondary];
+  if (pool.length < 8 && ownGenreIds.size) {
+    const fallback = await tmdb<{ results: any[] }>(`/discover/${tmdbKind}`, {
+      with_genres: [...ownGenreIds].slice(0, 2).join(","),
+      sort_by: "popularity.desc",
+      "vote_count.gte": 80,
+      page: 1,
+    }).catch(() => ({ results: [] }));
+    pool = [...pool, ...collect(fallback.results)];
   }
-  const unique = Array.from(new Map(results.map((r) => [r.id, r])).values()).slice(0, 12);
-  return remember(unique.map((r) => toMedia(r, media.type, g)));
+
+  const unique = Array.from(new Map(pool.map((r) => [r.id, r])).values());
+  // Rank by genre overlap first, then rating — keeps the row on-topic.
+  unique.sort(
+    (a, b) =>
+      overlap(b) - overlap(a) ||
+      (b.vote_average || 0) - (a.vote_average || 0) ||
+      (b.popularity || 0) - (a.popularity || 0),
+  );
+  return remember(unique.slice(0, 24).map((r) => toMedia(r, media.type, g)));
 }
+
 
 export async function fetchCredits(
   media: Media,
@@ -708,14 +771,28 @@ export async function fetchByProvider(
   providerId: number,
   pages = 2,
   region = "US",
+  /** Optional genre name (e.g. "Comedy") — resolved per media kind. */
+  genreName?: string | null,
 ): Promise<Media[]> {
   const [mg, tg] = await Promise.all([genreMap("movie"), genreMap("tv")]);
+  const idFor = (map: Record<number, string>) => {
+    if (!genreName) return undefined;
+    const wanted = genreName.toLowerCase();
+    const hit = Object.entries(map).find(([, name]) => {
+      const n = name.toLowerCase();
+      return n === wanted || n.includes(wanted) || wanted.includes(n.split(" & ")[0]);
+    });
+    return hit ? Number(hit[0]) : undefined;
+  };
+  const movieGenre = idFor(mg);
+  const tvGenre = idFor(tg);
   const movieReqs = Array.from({ length: pages }, (_, i) =>
     tmdb<{ results: any[] }>(`/discover/movie`, {
       page: i + 1,
       sort_by: "popularity.desc",
       with_watch_providers: providerId,
       watch_region: region,
+      ...(movieGenre ? { with_genres: movieGenre } : {}),
     }).catch(() => ({ results: [] })),
   );
   const tvReqs = Array.from({ length: pages }, (_, i) =>
@@ -724,6 +801,7 @@ export async function fetchByProvider(
       sort_by: "popularity.desc",
       with_watch_providers: providerId,
       watch_region: region,
+      ...(tvGenre ? { with_genres: tvGenre } : {}),
     }).catch(() => ({ results: [] })),
   );
   const [movies, tv] = await Promise.all([Promise.all(movieReqs), Promise.all(tvReqs)]);
