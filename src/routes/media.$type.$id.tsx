@@ -54,6 +54,8 @@ function MediaPage() {
     setMedia(null);
     setExtra(null);
     setSimilar([]);
+    setSimilarShown(8);
+
     setCast([]);
     setProviders([]);
     setSeasons([]);
