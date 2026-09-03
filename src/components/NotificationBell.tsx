@@ -96,7 +96,7 @@ export function NotificationBell() {
           if (!open && unread) markSeen();
         }}
         aria-label={unread ? `${unread} new episodes` : "Notifications"}
-        className="liquid-glass lift-smooth grid h-11 w-11 place-items-center rounded-full text-foreground/90 hover:-translate-y-0.5 hover:text-foreground"
+        className="liquid-glass grid h-11 w-11 place-items-center rounded-full text-foreground/90 hover:text-foreground"
       >
         {unread ? <BellRing className="h-[18px] w-[18px]" /> : <Bell className="h-[18px] w-[18px]" />}
         {unread > 0 && (
