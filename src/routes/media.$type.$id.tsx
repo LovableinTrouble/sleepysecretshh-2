@@ -36,6 +36,8 @@ function MediaPage() {
   const [episodesShown, setEpisodesShown] = useState(3);
   const [wl, setWl] = useState<number[]>([]);
   const [similar, setSimilar] = useState<Media[]>([]);
+  const [similarShown, setSimilarShown] = useState(8);
+
   const [cast, setCast] = useState<{ id?: number; name: string; role: string; img?: string }[]>([]);
   const [seasons, setSeasons] = useState<{ number: number }[]>([]);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -52,6 +54,8 @@ function MediaPage() {
     setMedia(null);
     setExtra(null);
     setSimilar([]);
+    setSimilarShown(8);
+
     setCast([]);
     setProviders([]);
     setSeasons([]);
@@ -218,7 +222,9 @@ function MediaPage() {
                 "radial-gradient(110% 80% at 12% 100%, color-mix(in oklab, var(--primary) 12%, transparent) 0%, transparent 58%)",
             }}
           />
-          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-background via-background/80 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 -bottom-px h-20 bg-background [mask-image:linear-gradient(to_top,black_35%,transparent)]" />
+
         </div>
 
         <div className="relative mx-auto flex min-h-[520px] max-w-7xl flex-col justify-end px-5 pb-10 pt-24 sm:px-6 md:min-h-[560px] md:px-10 md:pb-11 md:pt-28">
@@ -301,7 +307,7 @@ function MediaPage() {
                     party: undefined,
                   }}
                   onClick={() => stashWatchMedia(media)}
-                   className="liquid-pill group/btn relative z-10 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full px-6 text-[15px] font-bold transition-all duration-500 ease-out hover:scale-[1.02] sm:mr-1 sm:px-7"
+                   className="liquid-pill group/btn relative z-10 inline-flex h-12 shrink-0 items-center gap-2.5 rounded-2xl px-6 text-[15px] font-bold transition-[transform,box-shadow,background-color,filter] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-18px_hsl(var(--primary)/0.55)] hover:brightness-110 active:translate-y-0 sm:mr-1 sm:px-7"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -516,13 +522,23 @@ function MediaPage() {
           {similar.length > 0 && (
             <div>
               <SectionHeading kicker="Recommended" title="More like this" />
-              <div className="no-scrollbar -mx-2 mt-3 flex gap-4 overflow-x-auto px-2 pb-3 pt-3">
-                {similar.map((m) => (
+              <div className="mt-3 grid grid-cols-2 gap-4 pt-1 sm:grid-cols-3 lg:grid-cols-4">
+                {similar.slice(0, similarShown).map((m) => (
                   <MediaCard key={`${m.type}-${m.id}`} media={m} />
                 ))}
               </div>
+              {similarShown < similar.length && (
+                <button
+                  type="button"
+                  onClick={() => setSimilarShown((n) => n + 8)}
+                  className="liquid-glass mt-4 w-full rounded-2xl py-3 text-xs font-bold uppercase tracking-[0.18em] text-foreground/80 transition-all duration-500 ease-out hover:text-foreground"
+                >
+                  Load more
+                </button>
+              )}
             </div>
           )}
+
         </div>
 
         <aside className="min-w-0 self-start space-y-4 animate-soft-rise lg:sticky lg:top-24 lg:h-fit lg:pb-2">
