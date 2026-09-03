@@ -132,67 +132,65 @@ function IptvPage() {
 
   return (
     <div className="relative min-h-screen pb-32 pt-20 md:pb-12 md:pt-12 animate-page-in">
-      <header className="px-6 md:px-10">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/30">
-              <RadioTower className="h-6 w-6" strokeWidth={2.2} />
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-[0.4em] text-primary/80">Live · Free</div>
-              <h1 className="text-3xl font-black md:text-5xl">Live TV</h1>
-            </div>
+      <header className="mx-auto max-w-7xl px-6 md:px-10">
+        <LiveTabs active="tv" />
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight md:text-5xl">Live TV</h1>
+            <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span className="live-dot" aria-hidden="true" />
+              <span>
+                <span className="font-semibold text-foreground">{channels.length}</span> channels
+                streaming right now
+              </span>
+              {favs.size > 0 && <span className="text-foreground/60">· {favs.size} favorites</span>}
+              {customChannels.length > 0 && (
+                <span className="text-foreground/60">· {customChannels.length} yours</span>
+              )}
+            </p>
           </div>
           <button
             onClick={() => setImportOpen(true)}
-            className="mt-1 inline-flex shrink-0 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-2 text-xs font-bold text-primary ring-1 ring-primary/20 transition hover:bg-primary/15 md:text-sm"
+            className="snap-tile inline-flex shrink-0 items-center gap-2 rounded-full border border-glass-border bg-card/60 px-4 py-2 text-xs font-bold text-foreground/85 hover:border-primary/40 hover:text-foreground md:text-sm"
           >
             <Upload className="h-4 w-4" strokeWidth={2.4} />
             <span className="hidden sm:inline">Import playlist</span>
             <span className="sm:hidden">Import</span>
             {custom.length > 0 && (
-              <span className="rounded-full bg-primary/25 px-1.5 text-[10px] font-bold">
+              <span className="rounded-full bg-primary/20 px-1.5 text-[10px] font-bold text-primary">
                 {custom.length}
               </span>
             )}
           </button>
         </div>
-        <p className="mt-3 max-w-xl text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
-          <span className="live-dot" aria-hidden="true" />
-          <span>
-            <span className="font-semibold text-foreground">{channels.length}</span> channels + live
-            sports right now.
-          </span>
-          {favs.size > 0 && <span className="text-foreground/70">· {favs.size} favorited</span>}
-          {customChannels.length > 0 && (
-            <span className="text-foreground/70">· {customChannels.length} yours</span>
-          )}
-        </p>
       </header>
 
       {/* Live Sports section */}
-      <LiveSportsRail />
+      <div className="mx-auto max-w-7xl">
+        <LiveSportsRail />
+      </div>
 
       {/* Channels */}
-      <section className="mt-10 px-6 md:px-10">
-        <div className="mb-4 flex items-end justify-between gap-3">
+      <section className="mx-auto mt-10 max-w-7xl px-6 md:px-10">
+        <div className="mb-3 flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl font-black tracking-tight md:text-2xl">Channels</h2>
+            <h2 className="text-lg font-black tracking-tight md:text-xl">Channels</h2>
             <p className="text-xs text-muted-foreground">Verified 24/7 broadcaster feeds.</p>
           </div>
+          <span className="text-xs font-semibold text-muted-foreground">
+            {filtered.length} shown
+          </span>
         </div>
 
-        <div className="rounded-2xl border border-glass-border bg-card/40 p-2 backdrop-blur">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search channels…"
-                className="w-full rounded-xl bg-background/40 py-2 pl-9 pr-3 text-sm outline-none ring-1 ring-white/10 transition focus:ring-2 focus:ring-primary/40"
-              />
-            </div>
+        <div className="sticky top-2 z-20 rounded-2xl border border-glass-border bg-card/70 p-2 backdrop-blur-md">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search channels…"
+              className="w-full rounded-xl bg-background/50 py-2 pl-9 pr-3 text-sm outline-none ring-1 ring-white/10 transition-shadow duration-150 focus:ring-2 focus:ring-primary/40"
+            />
           </div>
           <div className="mt-2 -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-thin">
             {groups.map((g) => {
@@ -201,7 +199,7 @@ function IptvPage() {
                 <button
                   key={g}
                   onClick={() => setGroup(g)}
-                  className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                  className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors duration-150 ${
                     isActive
                       ? "bg-primary text-primary-foreground"
                       : "bg-white/5 text-white/65 hover:bg-white/10 hover:text-white"
@@ -213,6 +211,7 @@ function IptvPage() {
             })}
           </div>
         </div>
+
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {filtered.map((c) => {
