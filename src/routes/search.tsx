@@ -64,11 +64,11 @@ function Search() {
     enabled: debounced.length > 0 && !aiMode,
   });
   const ai = useQuery({
-    queryKey: ["ai-search", debounced],
+    queryKey: ["ai-search", aiQuery],
     queryFn: async () => {
-      const r = await aiFn({ data: { query: debounced } });
+      const r = await aiFn({ data: { query: aiQuery } });
       if (!r.titles.length) {
-        const direct = await searchMulti(debounced).catch(() => []);
+        const direct = await searchMulti(aiQuery).catch(() => []);
         return { results: direct, error: r.error, aiUsed: false };
       }
       // For each AI title, search TMDB and take only the top result (best match).
@@ -88,22 +88,31 @@ function Search() {
       });
       return { results: merged, error: r.error, aiUsed: true };
     },
-    enabled: debounced.length > 0 && aiMode,
+    enabled: aiQuery.length > 0 && aiMode,
     retry: 0,
   });
 
-  const rawResults = debounced
+  // The query that labels the current result set.
+  const activeQ = aiMode ? aiQuery : debounced;
+  const submitAi = () => {
+    const term = q.trim();
+    if (!term) return;
+    setAiQuery(term);
+    addRecentSearch(term);
+  };
+
+  const rawResults = activeQ
     ? aiMode
       ? (ai.data?.results ?? [])
       : (res.data ?? [])
     : (trend.data ?? []);
-  const loading = debounced
+  const loading = activeQ
     ? aiMode
-      ? ai.isLoading
+      ? ai.isLoading || ai.isFetching
       : res.isLoading || people.isLoading
     : trend.isLoading;
   const peopleResults = debounced && !aiMode ? (people.data ?? []) : [];
-  const showRecents = !debounced && recents.length > 0;
+  const showRecents = !activeQ && recents.length > 0;
 
   const results = useMemo(() => {
     let items = rawResults;
