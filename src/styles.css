@@ -560,11 +560,11 @@
 .liquid-icon,
 .liquid-glass {
   transition:
-    background-color 280ms ease-out,
-    border-color 280ms ease-out,
-    color 280ms ease-out,
-    box-shadow 280ms ease-out,
-    transform 280ms ease-out !important;
+    background-color 160ms ease-out,
+    border-color 160ms ease-out,
+    color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    transform 160ms ease-out !important;
 }
 
 .liquid-pill:active,
@@ -585,7 +585,7 @@
 
 .liquid-pill svg,
 .liquid-icon svg {
-  transition: transform 280ms ease-out;
+  transition: transform 160ms ease-out;
 }
 
 
@@ -825,7 +825,7 @@ body.game-open .animate-float-orb {
 @keyframes page-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(5px);
   }
   to {
     opacity: 1;
@@ -833,7 +833,24 @@ body.game-open .animate-float-orb {
   }
 }
 .animate-page-in {
-  animation: page-in 200ms ease-out both;
+  animation: page-in 130ms ease-out both;
+}
+
+/* Snappy tile used across Live TV / Sports grids. */
+.snap-tile {
+  transition:
+    transform 150ms ease-out,
+    border-color 150ms ease-out,
+    background-color 150ms ease-out,
+    box-shadow 150ms ease-out;
+  will-change: transform;
+}
+.snap-tile:hover {
+  transform: translateY(-2px);
+}
+.snap-tile:active {
+  transform: translateY(0) scale(0.985);
+  transition-duration: 90ms;
 }
 
 @keyframes modal-in {
