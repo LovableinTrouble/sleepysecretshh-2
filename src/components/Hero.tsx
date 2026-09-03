@@ -88,9 +88,9 @@ export function Hero({ items, onPlay, onMore, intervalMs = 7000 }: Props) {
             <div className="pointer-events-auto mt-7 flex flex-wrap items-center gap-3">
               <button
                 onClick={() => onPlay(media)}
-                className="liquid-pill inline-flex h-12 items-center gap-2.5 rounded-full px-7 text-[15px] font-bold"
+                className="liquid-pill group/play inline-flex h-12 items-center gap-2.5 rounded-xl px-7 text-[15px] font-bold transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-0.5 active:translate-y-0"
               >
-                <Play className="h-4 w-4 fill-current" />
+                <Play className="h-4 w-4 fill-current transition-transform duration-300 ease-out group-hover/play:translate-x-0.5" />
                 Play
               </button>
 
