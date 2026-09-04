@@ -17,6 +17,7 @@ import {
 } from "@/lib/tmdb";
 import type { Media } from "@/lib/catalog";
 import { stashWatchMedia } from "@/lib/watch-stash";
+import { ShortsSection } from "@/components/ShortsSection";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -313,6 +314,7 @@ function ExplorePage() {
         )}
       </main>
 
+      <ShortsSection />
 
       {providerOpen && (
         <ProviderPicker

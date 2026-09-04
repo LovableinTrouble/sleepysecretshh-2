@@ -10,7 +10,6 @@ import {
   RadioTower,
   Settings as SettingsIcon,
   UserRound,
-  Smartphone,
   type LucideIcon,
 } from "lucide-react";
 
