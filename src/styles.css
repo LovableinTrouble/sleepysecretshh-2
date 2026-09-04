@@ -833,8 +833,9 @@ body.game-open .animate-float-orb {
   }
 }
 .animate-page-in {
-  animation: page-in 130ms ease-out both;
+  animation: page-in 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
 
 /* Snappy tile used across Live TV / Sports grids. */
 .snap-tile {

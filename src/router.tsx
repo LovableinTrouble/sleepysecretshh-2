@@ -23,7 +23,10 @@ export const getRouter = () => {
     scrollRestoration: true,
     // Let TanStack Router preload routes on hover/intent for snappier nav.
     defaultPreload: "intent",
+    // Start preloading immediately on hover/touch instead of after a delay.
+    defaultPreloadDelay: 0,
     defaultPreloadStaleTime: 30_000,
+
   });
 
   return router;
