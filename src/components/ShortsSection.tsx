@@ -9,6 +9,8 @@ import {
   Check,
   ChevronUp,
   ChevronDown,
+  ArrowLeft,
+
   Loader2,
 } from "lucide-react";
 import { fetchTrendingPage, fetchPopularPage, fetchMovieVideos, fetchTVVideos } from "@/lib/tmdb";
