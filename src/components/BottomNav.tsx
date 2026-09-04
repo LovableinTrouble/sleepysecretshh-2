@@ -18,7 +18,6 @@ const items: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/", label: "Home", icon: Home },
   { to: "/explore", label: "Explore", icon: Compass },
   { to: "/iptv", label: "Live TV", icon: RadioTower },
-  { to: "/shorts", label: "Shorts", icon: Smartphone },
   { to: "/watchlist", label: "Watchlist", icon: Bookmark },
   { to: "/search", label: "Search", icon: Search },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
