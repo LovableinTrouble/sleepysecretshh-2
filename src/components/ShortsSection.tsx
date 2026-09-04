@@ -188,13 +188,10 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
   }, [shorts.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <section className={full ? "pt-14 pb-6" : "mx-auto max-w-7xl px-5 pt-8 md:px-10"}>
-      <div className={`mb-2 flex flex-wrap items-center gap-2 ${full ? "mx-auto max-w-7xl px-4 md:px-8" : ""}`}>
-        <div>
-          <div className="text-[9px] uppercase tracking-[0.3em] text-primary/80">Trailers</div>
-          <h2 className="text-lg font-black tracking-tight md:text-xl">Shorts</h2>
-        </div>
-        <div className="ml-auto flex items-center gap-0.5 rounded-full bg-foreground/8 p-1">
+    <section className={full ? "pt-10 pb-6" : "mx-auto max-w-7xl px-5 pt-8 md:px-10"}>
+      <div className={`mb-1.5 flex flex-wrap items-center gap-2 ${full ? "mx-auto max-w-7xl px-4 md:px-8" : ""}`}>
+        <h2 className="text-sm font-black tracking-tight md:text-base">Shorts</h2>
+        <div className="ml-auto flex items-center gap-0.5 rounded-full bg-foreground/8 p-0.5">
           {FILTERS.map((f) => (
             <button
               key={f.id}
@@ -203,7 +200,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
                 setCurrentIndex(0);
                 containerRef.current?.scrollTo({ top: 0 });
               }}
-              className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+              className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition ${
                 filter === f.id
                   ? "bg-foreground text-background"
                   : "text-muted-foreground hover:text-foreground"
@@ -214,6 +211,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
           ))}
         </div>
       </div>
+
 
       <div
         className={`relative overflow-hidden bg-black ${
