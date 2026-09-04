@@ -189,8 +189,8 @@ export function ShortsSection() {
   }, [shorts.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <section className="mx-auto max-w-7xl px-5 pt-10 md:px-10">
-      <div className="mb-3 flex flex-wrap items-center gap-3">
+    <section className={full ? "pt-20 pb-10" : "mx-auto max-w-7xl px-5 pt-10 md:px-10"}>
+      <div className={`mb-3 flex flex-wrap items-center gap-3 ${full ? "mx-auto max-w-7xl px-5 md:px-10" : ""}`}>
         <div>
           <div className="mb-1 text-[10px] uppercase tracking-[0.4em] text-primary/80">Trailers</div>
           <h2 className="text-2xl font-black tracking-tight md:text-3xl">Shorts</h2>
@@ -216,7 +216,11 @@ export function ShortsSection() {
         </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-3xl bg-black ring-1 ring-white/10">
+      <div
+        className={`relative overflow-hidden bg-black ${
+          full ? "mx-auto max-w-7xl rounded-3xl ring-1 ring-white/10" : "rounded-3xl ring-1 ring-white/10"
+        }`}
+      >
         {shorts.length > 0 && (
           <div className="pointer-events-none absolute right-4 top-4 z-40 rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur">
             {currentIndex + 1} / {shorts.length}
@@ -225,7 +229,10 @@ export function ShortsSection() {
 
         <div
           ref={containerRef}
-          className="h-[70vh] max-h-[720px] w-full overflow-y-scroll no-scrollbar snap-y snap-mandatory overscroll-y-contain"
+          className={`w-full overflow-y-scroll no-scrollbar snap-y snap-mandatory overscroll-y-contain ${
+            full ? "h-[calc(100vh-11rem)]" : "h-[70vh] max-h-[720px]"
+          }`}
+
           style={{
             scrollSnapType: "y mandatory",
             scrollBehavior: "smooth",
