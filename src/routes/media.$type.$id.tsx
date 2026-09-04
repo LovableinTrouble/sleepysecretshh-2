@@ -89,10 +89,9 @@ function MediaPage() {
         fetchExtraDetails(m.id, m.type)
           .then((d) => !dead && setExtra(d))
           .catch(() => {});
-        if (m.type === "movie")
-          fetchCollection(m.id)
-            .then((c) => !dead && setCollection(c))
-            .catch(() => {});
+        fetchCollection(m.id, m.type)
+          .then((c) => !dead && setCollection(c))
+          .catch(() => {});
         if (m.type === "tv" || m.type === "anime")
           fetchTvDetails(m.id)
             .then((d) => !dead && setSeasons(d.seasons))
@@ -533,7 +532,7 @@ function MediaPage() {
             <div className="animate-soft-rise">
               <SectionHeading
                 kicker="Collection"
-                title={`${collection.name}: ${collection.parts.length} titles`}
+                title={`${collection.name}:`}
               />
               <div className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 gap-y-7 pt-1 sm:grid-cols-3 lg:grid-cols-4">
                 {collection.parts.map((m) => (

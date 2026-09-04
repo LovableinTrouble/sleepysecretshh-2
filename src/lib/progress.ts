@@ -78,6 +78,18 @@ export function getLocalProgress(): LocalProgressEntry[] {
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+/** Every title that has recorded playback, including completed titles. */
+export function getWatchHistory(): LocalProgressEntry[] {
+  const latest = new Map<string, LocalProgressEntry>();
+  for (const entry of readLocal()) {
+    const existing = latest.get(continueKeyOf(entry));
+    if (!existing || existing.updatedAt < entry.updatedAt) latest.set(continueKeyOf(entry), entry);
+  }
+  return Array.from(latest.values())
+    .filter((entry) => entry.positionSeconds > 0)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
 export function getLocalProgressFor(
   mediaId: number,
   season: number | null,
@@ -185,4 +197,21 @@ export function useContinueWatching(): {
   }, []);
 
   return { items, loading, refresh: compute };
+}
+
+export function useWatchHistory(): LocalProgressEntry[] {
+  const [items, setItems] = useState<LocalProgressEntry[]>([]);
+
+  useEffect(() => {
+    const refresh = () => setItems(getWatchHistory());
+    refresh();
+    window.addEventListener("sleepy:progress-changed", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("sleepy:progress-changed", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
+  return items;
 }

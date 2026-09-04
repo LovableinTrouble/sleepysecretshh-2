@@ -27,6 +27,7 @@ import {
   type WatchFolder,
 } from "@/lib/store";
 import { loadStashedMedia, stashWatchMedia } from "@/lib/watch-stash";
+import { useWatchHistory } from "@/lib/progress";
 import type { Media } from "@/lib/catalog";
 import {
   AlertDialog,
@@ -74,6 +75,7 @@ const SORTS: { key: SortKey; label: string }[] = [
 
 function WatchlistPage() {
   const [folders] = useFolders();
+  const history = useWatchHistory();
   const [activeId, setActiveId] = useState<string>(folders[0]?.id ?? "default");
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -214,6 +216,56 @@ function WatchlistPage() {
             </div>
           </div>
         </header>
+
+        {history.length > 0 && (
+          <section className="mt-7" aria-labelledby="watch-history-heading">
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-primary/75">Recently played</div>
+                <h2 id="watch-history-heading" className="mt-1 text-xl font-black tracking-tight sm:text-2xl">Watch History</h2>
+              </div>
+              <span className="text-xs font-semibold text-muted-foreground">{history.length} watched</span>
+            </div>
+            <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-3 pt-1">
+              {history.slice(0, 14).map((item) => {
+                const progress = item.durationSeconds > 0
+                  ? Math.min(100, Math.max(0, (item.positionSeconds / item.durationSeconds) * 100))
+                  : 0;
+                return (
+                  <Link
+                    key={`${item.mediaType}-${item.mediaId}-${item.season ?? 0}-${item.episode ?? 0}`}
+                    to="/watch/$id"
+                    params={{ id: String(item.mediaId) }}
+                    search={{
+                      t: item.mediaType as "movie" | "tv" | "anime",
+                      s: item.season ?? undefined,
+                      e: item.episode ?? undefined,
+                      party: undefined,
+                    }}
+                    className="group relative aspect-video w-56 shrink-0 overflow-hidden rounded-2xl bg-white/[0.04] ring-1 ring-white/10 transition duration-300 hover:ring-primary/35 sm:w-64"
+                  >
+                    {(item.backdrop || item.poster) && (
+                      <img src={item.backdrop || item.poster || ""} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/15 to-transparent" />
+                    <div className="absolute inset-x-3 bottom-3 min-w-0">
+                      <div className="truncate text-sm font-bold text-white">{item.title}</div>
+                      <div className="mt-1 flex items-center gap-2 text-[10px] font-semibold text-white/65">
+                        {item.season != null && item.episode != null && <span>S{item.season} · E{item.episode}</span>}
+                        <span>{item.completed ? "Watched" : "In progress"}</span>
+                      </div>
+                      {progress > 0 && (
+                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/20">
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Folder tabs */}
         <div className="no-scrollbar mt-5 -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
