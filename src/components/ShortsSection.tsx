@@ -9,6 +9,8 @@ import {
   Check,
   ChevronUp,
   ChevronDown,
+  ArrowLeft,
+
   Loader2,
 } from "lucide-react";
 import { fetchTrendingPage, fetchPopularPage, fetchMovieVideos, fetchTVVideos } from "@/lib/tmdb";
@@ -188,10 +190,20 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
   }, [shorts.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <section className={full ? "pt-10 pb-6" : "mx-auto max-w-7xl px-5 pt-8 md:px-10"}>
-      <div className={`mb-1.5 flex flex-wrap items-center gap-2 ${full ? "mx-auto max-w-7xl px-4 md:px-8" : ""}`}>
-        <h2 className="text-sm font-black tracking-tight md:text-base">Shorts</h2>
-        <div className="ml-auto flex items-center gap-0.5 rounded-full bg-foreground/8 p-0.5">
+    <section className={full ? "pt-8 pb-6" : "mx-auto max-w-7xl px-5 pt-8 md:px-10"}>
+      <div className={`mb-3 flex flex-wrap items-center gap-3 ${full ? "mx-auto max-w-7xl px-4 md:px-8" : ""}`}>
+        {full && (
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/explore" })}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-foreground/10 text-foreground/70 transition hover:bg-foreground/20 hover:text-foreground"
+            aria-label="Back to Explore"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        )}
+        <h2 className="text-xl font-black tracking-tight md:text-2xl">Shorts</h2>
+        <div className="ml-auto flex items-center gap-1 rounded-full bg-foreground/8 p-1">
           {FILTERS.map((f) => (
             <button
               key={f.id}
@@ -200,7 +212,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
                 setCurrentIndex(0);
                 containerRef.current?.scrollTo({ top: 0 });
               }}
-              className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition ${
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
                 filter === f.id
                   ? "bg-foreground text-background"
                   : "text-muted-foreground hover:text-foreground"
@@ -211,6 +223,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
           ))}
         </div>
       </div>
+
 
 
       <div
