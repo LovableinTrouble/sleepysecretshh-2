@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
@@ -15,16 +15,6 @@ import { fetchTrendingPage, fetchPopularPage, fetchMovieVideos, fetchTVVideos } 
 import type { Media } from "@/lib/catalog";
 import { addToFolder, removeFromFolder, getFolders, isInAnyFolder } from "@/lib/store";
 import { stashWatchMedia } from "@/lib/watch-stash";
-
-export const Route = createFileRoute("/shorts")({
-  head: () => ({
-    meta: [
-      { title: "Shorts — Sleepy" },
-      { name: "description", content: "Endless vertical trailers from movies and TV." },
-    ],
-  }),
-  component: ShortsPage,
-});
 
 type Short = {
   id: string;
@@ -72,7 +62,6 @@ async function loadPage(
     else if (filter === "tv") items = await fetchPopularPage("tv", page);
     else if (filter === "trending") items = await fetchTrendingPage("all", page);
     else {
-      // "all" — interleave movies + tv
       const [m, t] = await Promise.all([
         fetchPopularPage("movie", page),
         fetchPopularPage("tv", page),
@@ -89,8 +78,6 @@ async function loadPage(
   }
   items = items.filter((i) => i.type === "movie" || i.type === "tv");
 
-  // Fetch trailers in parallel, cached per media id so filter switches don't
-  // re-hit TMDB for titles we've already resolved a trailer for.
   const results = await Promise.all(
     items.map(async (item) => {
       try {
@@ -125,7 +112,7 @@ async function loadPage(
   return results.filter((s): s is Short => s !== null);
 }
 
-function ShortsPage() {
+export function ShortsSection() {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -180,11 +167,6 @@ function ShortsPage() {
     el.scrollTo({ top: clamped * el.clientHeight, behavior: "smooth" });
   }, []);
 
-  // Which slide is "active" is driven entirely by IntersectionObserver, not
-  // by a scroll listener. A scroll listener that also *calls* scrollTo on
-  // every index change fights the browser's native momentum/snap scrolling
-  // and is what made swiping feel laggy — this way native scroll-snap does
-  // 100% of the work and React just watches, off the scroll thread.
   useEffect(() => {
     const root = containerRef.current;
     if (!root) return;
@@ -206,32 +188,14 @@ function ShortsPage() {
     return () => io.disconnect();
   }, [shorts.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // Keyboard nav — imperative scroll, not state-driven, for the same
-  // fight-with-native-scroll reason as above.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowDown" || e.key === "j") {
-        e.preventDefault();
-        scrollToIndex(Math.min(currentIndex + 1, shorts.length - 1));
-      } else if (e.key === "ArrowUp" || e.key === "k") {
-        e.preventDefault();
-        scrollToIndex(Math.max(currentIndex - 1, 0));
-      } else if (e.key === "m") {
-        setMuted((m) => !m);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [currentIndex, shorts.length, scrollToIndex]);
-
   return (
-    <div className="fixed inset-0 z-30 bg-black">
-      {/* Top gradient for legibility */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-24 bg-gradient-to-b from-black/70 to-transparent" />
-
-      {/* Centered filter pill */}
-      <div className="pointer-events-none absolute inset-x-0 top-4 z-40 flex justify-center">
-        <div className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-black/50 p-1 ring-1 ring-white/10 backdrop-blur-xl">
+    <section className="mx-auto max-w-7xl px-5 pt-10 md:px-10">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <div>
+          <div className="mb-1 text-[10px] uppercase tracking-[0.4em] text-primary/80">Trailers</div>
+          <h2 className="text-2xl font-black tracking-tight md:text-3xl">Shorts</h2>
+        </div>
+        <div className="ml-auto flex items-center gap-0.5 rounded-full bg-foreground/8 p-1">
           {FILTERS.map((f) => (
             <button
               key={f.id}
@@ -241,7 +205,9 @@ function ShortsPage() {
                 containerRef.current?.scrollTo({ top: 0 });
               }}
               className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
-                filter === f.id ? "bg-white text-black" : "text-white/70 hover:text-white"
+                filter === f.id
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {f.label}
@@ -250,71 +216,71 @@ function ShortsPage() {
         </div>
       </div>
 
-      {/* Counter */}
-      {shorts.length > 0 && (
-        <div className="pointer-events-none absolute right-4 top-5 z-40 rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur">
-          {currentIndex + 1} / {shorts.length}
+      <div className="relative overflow-hidden rounded-3xl bg-black ring-1 ring-white/10">
+        {shorts.length > 0 && (
+          <div className="pointer-events-none absolute right-4 top-4 z-40 rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur">
+            {currentIndex + 1} / {shorts.length}
+          </div>
+        )}
+
+        <div
+          ref={containerRef}
+          className="h-[70vh] max-h-[720px] w-full overflow-y-scroll no-scrollbar snap-y snap-mandatory overscroll-y-contain"
+          style={{
+            scrollSnapType: "y mandatory",
+            scrollBehavior: "smooth",
+            scrollSnapStop: "always",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          {query.isLoading && shorts.length === 0 && (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
+
+          {!query.isLoading && shorts.length === 0 && (
+            <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+              <p className="text-lg font-semibold text-white">No trailers found</p>
+              <p className="text-sm text-white/60">Try a different filter.</p>
+            </div>
+          )}
+
+          {shorts.map((s, idx) => (
+            <ShortSlide
+              key={s.id}
+              index={idx}
+              short={s}
+              active={idx === currentIndex}
+              muted={muted}
+              isSaved={watchlistIds.has(s.id)}
+              isFirst={idx === 0}
+              isLast={idx === shorts.length - 1}
+              registerRef={(el) => {
+                if (el) slideRefs.current.set(idx, el);
+                else slideRefs.current.delete(idx);
+              }}
+              onToggleSaved={() => toggleWatchlist(s.media)}
+              onToggleMute={() => setMuted((m) => !m)}
+              onPrev={() => scrollToIndex(idx - 1)}
+              onNext={() => scrollToIndex(idx + 1)}
+              onWatch={() =>
+                navigate({
+                  to: "/media/$type/$id",
+                  params: { type: s.mediaType, id: String(s.mediaId) },
+                })
+              }
+            />
+          ))}
+
+          {query.isFetchingNextPage && (
+            <div className="flex h-24 items-center justify-center text-white/60">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          )}
         </div>
-      )}
-
-      {/* Feed */}
-      <div
-        ref={containerRef}
-        className="h-full w-full overflow-y-scroll no-scrollbar snap-y snap-mandatory overscroll-y-contain"
-        style={{
-          scrollSnapType: "y mandatory",
-          scrollBehavior: "smooth",
-          scrollSnapStop: "always",
-          WebkitOverflowScrolling: "touch",
-        }}
-      >
-        {query.isLoading && shorts.length === 0 && (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        )}
-
-        {!query.isLoading && shorts.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-            <p className="text-lg font-semibold text-white">No trailers found</p>
-            <p className="text-sm text-white/60">Try a different filter.</p>
-          </div>
-        )}
-
-        {shorts.map((s, idx) => (
-          <ShortSlide
-            key={s.id}
-            index={idx}
-            short={s}
-            active={idx === currentIndex}
-            muted={muted}
-            isSaved={watchlistIds.has(s.id)}
-            isFirst={idx === 0}
-            isLast={idx === shorts.length - 1}
-            registerRef={(el) => {
-              if (el) slideRefs.current.set(idx, el);
-              else slideRefs.current.delete(idx);
-            }}
-            onToggleSaved={() => toggleWatchlist(s.media)}
-            onToggleMute={() => setMuted((m) => !m)}
-            onPrev={() => scrollToIndex(idx - 1)}
-            onNext={() => scrollToIndex(idx + 1)}
-            onWatch={() =>
-              navigate({
-                to: "/media/$type/$id",
-                params: { type: s.mediaType, id: String(s.mediaId) },
-              })
-            }
-          />
-        ))}
-
-        {query.isFetchingNextPage && (
-          <div className="flex h-24 items-center justify-center text-white/60">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -383,10 +349,6 @@ function ShortSlide({
     ? `https://www.youtube-nocookie.com/embed/${short.videoKey}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1&loop=1&playlist=${short.videoKey}&enablejsapi=1&origin=${encodeURIComponent(origin)}`
     : "";
 
-  // Mute/unmute + force-play via postMessage instead of remounting the
-  // iframe (remounting restarts the trailer from 0 on every tap). The
-  // extra "playVideo" nudge covers the rare case where autoplay silently
-  // didn't start, so YouTube's own big paused/play button never shows.
   useEffect(() => {
     if (!active) return;
     const post = (func: string) => {
@@ -409,7 +371,7 @@ function ShortSlide({
       ref={registerRef}
       data-index={index}
       className="relative flex h-full w-full snap-start snap-always items-center justify-center gap-3"
-      style={{ contentVisibility: "auto", containIntrinsicSize: "0 100vh" }}
+      style={{ contentVisibility: "auto", containIntrinsicSize: "0 70vh" }}
     >
       {short.backdrop && (
         <img
@@ -421,19 +383,11 @@ function ShortSlide({
         />
       )}
 
-      {/* Mirrors the button column's width on the other side of the card,
-          so `justify-center` centers the CARD, not the card+buttons row
-          (without this, the buttons' width pushed the card off-center). */}
       <div className="hidden w-12 shrink-0 md:block" />
 
-      {/* Card */}
-      <div className="relative h-full w-full max-w-[min(100vw,calc(100vh*9/16))] overflow-hidden bg-black md:h-[min(100vh,900px)] md:aspect-[9/16] md:w-auto md:rounded-2xl md:my-4 md:max-h-[calc(100vh-2rem)]">
+      <div className="relative h-full w-full max-w-[min(100%,calc(70vh*9/16))] overflow-hidden bg-black md:my-4 md:h-[calc(100%-2rem)] md:w-auto md:aspect-[9/16] md:rounded-2xl">
         {active ? (
           <>
-            {/* pointer-events-none: this is the actual YouTube UI. Nobody
-                can click it directly, so its own play/pause/branding chrome
-                is never reachable — all interaction goes through our
-                overlay below instead. */}
             <iframe
               key={short.id}
               ref={iframeRef}
@@ -470,15 +424,14 @@ function ShortSlide({
         {active && (
           <button
             onClick={onToggleMute}
-            className="absolute top-4 left-4 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white ring-1 ring-white/10 backdrop-blur-md transition hover:bg-black/55"
+            className="absolute left-4 top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white ring-1 ring-white/10 backdrop-blur-md transition hover:bg-black/55"
             aria-label={muted ? "Unmute" : "Mute"}
           >
             {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </button>
         )}
 
-        {/* Text info */}
-        <div className="absolute bottom-24 left-4 right-16 z-30">
+        <div className="absolute bottom-20 left-4 right-16 z-30">
           <div className="mb-1 inline-flex items-center gap-2">
             <span className="rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
               {short.mediaType === "tv" ? "TV" : "Movie"}
@@ -496,12 +449,7 @@ function ShortSlide({
         </div>
       </div>
 
-      {/* Button column: overlays the card on mobile (no room beside it),
-          sits as a normal sibling right next to the card on desktop —
-          the TikTok/Shorts-desktop layout. The wrapper's width is always
-          reserved on desktop (matching the spacer above) even when empty,
-          so the card doesn't shift when a slide becomes active/inactive. */}
-      <div className="absolute right-3 bottom-24 z-40 flex w-12 flex-col items-center gap-2.5 md:static md:bottom-auto md:right-auto md:self-center">
+      <div className="absolute bottom-20 right-3 z-40 flex w-12 flex-col items-center gap-2.5 md:static md:bottom-auto md:right-auto md:self-center">
         {active && (
           <>
             <ActionButton
