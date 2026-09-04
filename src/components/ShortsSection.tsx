@@ -161,10 +161,8 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
   }, [query.data]);
 
   const scrollToIndex = useCallback((i: number) => {
-    const el = containerRef.current;
-    if (!el) return;
-    const clamped = Math.max(0, i);
-    el.scrollTo({ top: clamped * el.clientHeight, behavior: "smooth" });
+    const target = slideRefs.current.get(Math.max(0, i));
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
   useEffect(() => {
@@ -172,28 +170,29 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
     if (!root) return;
     const io = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-            const idx = Number((entry.target as HTMLElement).dataset.index);
-            setCurrentIndex(idx);
-            if (idx >= shorts.length - 5 && hasNextPage && !isFetchingNextPage) {
-              fetchNextPage();
-            }
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible && visible.intersectionRatio >= 0.52) {
+          const idx = Number((visible.target as HTMLElement).dataset.index);
+          setCurrentIndex(idx);
+          if (idx >= shorts.length - 5 && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
           }
         }
       },
-      { root, threshold: 0.6 },
+      { root, threshold: [0.52, 0.7, 0.9] },
     );
     slideRefs.current.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [shorts.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <section className={full ? "pt-20 pb-10" : "mx-auto max-w-7xl px-5 pt-10 md:px-10"}>
-      <div className={`mb-3 flex flex-wrap items-center gap-3 ${full ? "mx-auto max-w-7xl px-5 md:px-10" : ""}`}>
+    <section className={full ? "pt-14 pb-6" : "mx-auto max-w-7xl px-5 pt-8 md:px-10"}>
+      <div className={`mb-2 flex flex-wrap items-center gap-2 ${full ? "mx-auto max-w-7xl px-4 md:px-8" : ""}`}>
         <div>
-          <div className="mb-1 text-[10px] uppercase tracking-[0.4em] text-primary/80">Trailers</div>
-          <h2 className="text-2xl font-black tracking-tight md:text-3xl">Shorts</h2>
+          <div className="text-[9px] uppercase tracking-[0.3em] text-primary/80">Trailers</div>
+          <h2 className="text-lg font-black tracking-tight md:text-xl">Shorts</h2>
         </div>
         <div className="ml-auto flex items-center gap-0.5 rounded-full bg-foreground/8 p-1">
           {FILTERS.map((f) => (
@@ -204,7 +203,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
                 setCurrentIndex(0);
                 containerRef.current?.scrollTo({ top: 0 });
               }}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
                 filter === f.id
                   ? "bg-foreground text-background"
                   : "text-muted-foreground hover:text-foreground"
@@ -229,15 +228,15 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
 
         <div
           ref={containerRef}
-          className={`w-full overflow-y-scroll no-scrollbar snap-y snap-mandatory overscroll-y-contain ${
-            full ? "h-[calc(100vh-11rem)]" : "h-[70vh] max-h-[720px]"
+          className={`w-full touch-pan-y overflow-y-auto no-scrollbar snap-y snap-mandatory overscroll-y-contain ${
+            full ? "h-[calc(100dvh-7.5rem)]" : "h-[70vh] max-h-[720px]"
           }`}
 
           style={{
             scrollSnapType: "y mandatory",
-            scrollBehavior: "smooth",
-            scrollSnapStop: "always",
+            scrollSnapStop: "normal",
             WebkitOverflowScrolling: "touch",
+            willChange: "scroll-position",
           }}
         >
           {query.isLoading && shorts.length === 0 && (
@@ -377,8 +376,8 @@ function ShortSlide({
     <div
       ref={registerRef}
       data-index={index}
-      className="relative flex h-full w-full snap-start snap-always items-center justify-center gap-3"
-      style={{ contentVisibility: "auto", containIntrinsicSize: "0 70vh" }}
+      className="relative flex h-full w-full snap-start items-center justify-center gap-3"
+      style={{ contain: "layout paint" }}
     >
       {short.backdrop && (
         <img
