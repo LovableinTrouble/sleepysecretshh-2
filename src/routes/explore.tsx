@@ -1,9 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { MediaCard } from "@/components/MediaCard";
-import { Shuffle } from "lucide-react";
+import { Shuffle, Clapperboard, ArrowRight } from "lucide-react";
 import {
   fetchPopular,
   fetchTrending,
@@ -17,7 +17,6 @@ import {
 } from "@/lib/tmdb";
 import type { Media } from "@/lib/catalog";
 import { stashWatchMedia } from "@/lib/watch-stash";
-import { ShortsSection } from "@/components/ShortsSection";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -184,6 +183,14 @@ function ExplorePage() {
             </div>
             <h1 className="text-3xl font-black tracking-tight md:text-5xl">Explore</h1>
           </div>
+          <Link
+            to="/shorts"
+            className="liquid-glass group flex h-11 shrink-0 items-center gap-2 rounded-full px-5 text-sm font-bold transition hover:brightness-110"
+          >
+            <Clapperboard className="h-4 w-4 text-primary" />
+            <span>Shorts</span>
+            <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+          </Link>
           <button
             onClick={pickRandomMovie}
             disabled={randomLoading}
@@ -313,8 +320,6 @@ function ExplorePage() {
           </>
         )}
       </main>
-
-      <ShortsSection />
 
       {providerOpen && (
         <ProviderPicker

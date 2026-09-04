@@ -112,7 +112,7 @@ async function loadPage(
   return results.filter((s): s is Short => s !== null);
 }
 
-export function ShortsSection() {
+export function ShortsSection({ full = false }: { full?: boolean }) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<Map<number, HTMLDivElement>>(new Map());
