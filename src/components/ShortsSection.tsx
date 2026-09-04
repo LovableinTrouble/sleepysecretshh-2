@@ -164,7 +164,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
 
   const scrollToIndex = useCallback((i: number) => {
     const target = slideRefs.current.get(Math.max(0, i));
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    target?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, []);
 
   useEffect(() => {
@@ -183,7 +183,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
           }
         }
       },
-      { root, threshold: [0.52, 0.7, 0.9] },
+      { root, threshold: 0.62 },
     );
     slideRefs.current.forEach((el) => io.observe(el));
     return () => io.disconnect();
@@ -202,7 +202,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        <h2 className="text-xl font-black tracking-tight md:text-2xl">Shorts</h2>
+        <h2 className="text-[1.4rem] font-black leading-none tracking-tight md:text-[1.65rem]">Shorts</h2>
         <div className="ml-auto flex items-center gap-1 rounded-full bg-foreground/8 p-1">
           {FILTERS.map((f) => (
             <button
@@ -239,7 +239,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
 
         <div
           ref={containerRef}
-          className={`w-full touch-pan-y overflow-y-auto no-scrollbar snap-y snap-mandatory overscroll-y-contain ${
+          className={`w-full touch-pan-y overflow-y-auto no-scrollbar snap-y snap-mandatory overscroll-y-contain scroll-smooth ${
             full ? "h-[calc(100dvh-7.5rem)]" : "h-[70vh] max-h-[720px]"
           }`}
 
@@ -247,7 +247,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
             scrollSnapType: "y mandatory",
             scrollSnapStop: "normal",
             WebkitOverflowScrolling: "touch",
-            willChange: "scroll-position",
+            scrollBehavior: "smooth",
           }}
         >
           {query.isLoading && shorts.length === 0 && (
@@ -269,6 +269,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
               index={idx}
               short={s}
               active={idx === currentIndex}
+              renderVideo={Math.abs(idx - currentIndex) <= 1}
               muted={muted}
               isSaved={watchlistIds.has(s.id)}
               isFirst={idx === 0}
@@ -334,6 +335,7 @@ function ShortSlide({
   short,
   index,
   active,
+  renderVideo,
   muted,
   isSaved,
   isFirst,
@@ -348,6 +350,7 @@ function ShortSlide({
   short: Short;
   index: number;
   active: boolean;
+  renderVideo: boolean;
   muted: boolean;
   isSaved: boolean;
   isFirst: boolean;
@@ -362,18 +365,19 @@ function ShortSlide({
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const src = active
-    ? `https://www.youtube-nocookie.com/embed/${short.videoKey}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1&loop=1&playlist=${short.videoKey}&enablejsapi=1&origin=${encodeURIComponent(origin)}`
-    : "";
+  const src = `https://www.youtube-nocookie.com/embed/${short.videoKey}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&playsinline=1&loop=1&playlist=${short.videoKey}&enablejsapi=1&origin=${encodeURIComponent(origin)}`;
 
   useEffect(() => {
-    if (!active) return;
     const post = (func: string) => {
       iframeRef.current?.contentWindow?.postMessage(
         JSON.stringify({ event: "command", func, args: [] }),
         "*",
       );
     };
+    if (!active) {
+      post("pauseVideo");
+      return;
+    }
     const attempts = [0, 250, 800, 1500].map((delay) =>
       window.setTimeout(() => {
         post(muted ? "mute" : "unMute");
@@ -396,14 +400,14 @@ function ShortSlide({
           alt=""
           loading="lazy"
           decoding="async"
-          className="absolute inset-0 h-full w-full object-cover opacity-40 blur-lg"
+          className="absolute inset-0 h-full w-full object-cover opacity-25"
         />
       )}
 
       <div className="hidden w-12 shrink-0 md:block" />
 
       <div className="relative h-full w-full max-w-[min(100%,calc(70vh*9/16))] overflow-hidden bg-black md:my-4 md:h-[calc(100%-2rem)] md:w-auto md:aspect-[9/16] md:rounded-2xl">
-        {active ? (
+        {renderVideo ? (
           <>
             <iframe
               key={short.id}
@@ -416,12 +420,14 @@ function ShortSlide({
               allowFullScreen
               frameBorder={0}
             />
-            <div
-              className="absolute inset-0 z-10"
-              onClick={onToggleMute}
-              role="button"
-              aria-label="Toggle sound"
-            />
+            {active && (
+              <div
+                className="absolute inset-0 z-10"
+                onClick={onToggleMute}
+                role="button"
+                aria-label="Toggle sound"
+              />
+            )}
           </>
         ) : (
           short.poster && (

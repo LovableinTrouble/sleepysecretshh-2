@@ -421,27 +421,57 @@ export async function fetchEpisodeAirStatus(tvId: number): Promise<EpisodeAirSta
   return { lastAired: map(raw.last_episode_to_air), nextAiring: map(raw.next_episode_to_air) };
 }
 
-/** Movie collection ("… Collection") with its parts, ordered by release. */
+/** Movie franchise or closely related series, ordered by release. */
 export interface MediaCollection {
   id: number;
   name: string;
   parts: Media[];
 }
 
-export async function fetchCollection(movieId: number): Promise<MediaCollection | null> {
-  const raw = await tmdb<any>(`/movie/${movieId}`).catch(() => null);
-  const col = raw?.belongs_to_collection;
-  if (!col?.id) return null;
-  const [detail, gm] = await Promise.all([
-    tmdb<any>(`/collection/${col.id}`).catch(() => null),
-    genreMap("movie"),
+export async function fetchCollection(
+  mediaId: number,
+  kind: MediaKind = "movie",
+): Promise<MediaCollection | null> {
+  if (kind === "movie") {
+    const raw = await tmdb<any>(`/movie/${mediaId}`).catch(() => null);
+    const col = raw?.belongs_to_collection;
+    if (!col?.id) return null;
+    const [detail, gm] = await Promise.all([
+      tmdb<any>(`/collection/${col.id}`).catch(() => null),
+      genreMap("movie"),
+    ]);
+    const parts = (detail?.parts ?? [])
+      .filter((p: any) => p.poster_path && isSafeForMode(p))
+      .sort((a: any, b: any) => String(a.release_date || "").localeCompare(String(b.release_date || "")))
+      .map((p: any) => toMedia(p, "movie", gm));
+    if (!parts.length) return null;
+    return { id: col.id, name: detail?.name || col.name || "Collection", parts: remember(parts) };
+  }
+
+  const raw = await tmdb<any>(`/tv/${mediaId}`).catch(() => null);
+  if (!raw?.name) return null;
+  const baseName = String(raw.name)
+    .replace(/\s*[:–—-]\s*(season|series|chapter|part)\s*\d+.*$/i, "")
+    .replace(/\s+(season|series|chapter|part)\s*\d+$/i, "")
+    .trim();
+  const [search, recommendations, gm] = await Promise.all([
+    tmdb<{ results: any[] }>("/search/tv", { query: baseName }).catch(() => ({ results: [] })),
+    tmdb<{ results: any[] }>(`/tv/${mediaId}/recommendations`).catch(() => ({ results: [] })),
+    genreMap("tv"),
   ]);
-  const parts = (detail?.parts ?? [])
-    .filter((p: any) => p.poster_path && isSafeForMode(p))
-    .sort((a: any, b: any) => String(a.release_date || "").localeCompare(String(b.release_date || "")))
-    .map((p: any) => toMedia(p, "movie", gm));
-  if (!parts.length) return null;
-  return { id: col.id, name: detail?.name || col.name || "Collection", parts: remember(parts) };
+  const words = baseName.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 2);
+  const related = [raw, ...search.results, ...recommendations.results]
+    .filter((item) => {
+      if (!item?.poster_path || !isSafeForMode(item)) return false;
+      const name = String(item.name || "").toLowerCase();
+      return name.includes(baseName.toLowerCase()) || words.filter((word) => name.includes(word)).length >= Math.max(1, Math.ceil(words.length * 0.6));
+    });
+  const unique = Array.from(new Map(related.map((item) => [item.id, item])).values());
+  if (unique.length < 2) return null;
+  const parts = unique
+    .sort((a, b) => String(a.first_air_date || "").localeCompare(String(b.first_air_date || "")))
+    .map((item) => toMedia(item, kind, gm));
+  return { id: mediaId, name: `${baseName} Collection`, parts: remember(parts) };
 }
 
 export async function fetchSimilar(media: Media): Promise<Media[]> {
