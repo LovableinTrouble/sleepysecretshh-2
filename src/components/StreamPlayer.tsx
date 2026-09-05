@@ -112,10 +112,9 @@ export function StreamPlayer({ media, season, episode, server, onClose }: Props)
         <button
           onClick={onClose}
           aria-label="Back"
-          className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-black/50 px-3.5 py-2 text-sm font-semibold text-white/85 shadow-lg backdrop-blur-md transition-colors duration-200 hover:border-white/25 hover:bg-black/70 hover:text-white"
+          className="group absolute left-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/80 shadow-lg backdrop-blur-xl transition-all duration-300 ease-out hover:scale-105 hover:border-white/25 hover:bg-black/60 hover:text-white hover:shadow-xl active:scale-95"
         >
-          <ChevronLeft className="h-4 w-4 shrink-0" />
-          Back
+          <ChevronLeft className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:-translate-x-0.5" />
         </button>
 
       </div>
