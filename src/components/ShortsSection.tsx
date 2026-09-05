@@ -123,6 +123,18 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
   const [filter, setFilter] = useState<FilterId>("trending");
   const [watchlistIds, setWatchlistIds] = useState<Set<string>>(new Set());
 
+  // Full-page shorts: lock page scrolling so only the feed scrolls.
+  useEffect(() => {
+    if (!full || typeof document === "undefined") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [full]);
+
+
+
   useEffect(() => {
     const update = () => {
       const ids = new Set<number>(getFolders().flatMap((f) => f.mediaIds));
@@ -190,7 +202,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
   }, [shorts.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <section className={full ? "py-4" : "mx-auto max-w-7xl px-5 pt-8 md:px-10"}>
+    <section className={full ? "fixed inset-0 z-30 bg-black" : "mx-auto max-w-7xl px-5 pt-8 md:px-10"}>
       {!full && (
         <div className="mb-3 flex items-center">
           <h2 className="text-[1.4rem] font-black leading-none tracking-tight md:text-[1.65rem]">Shorts</h2>
@@ -218,7 +230,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
 
       <div
         className={`relative overflow-hidden bg-black ${
-          full ? "mx-auto max-w-7xl rounded-3xl ring-1 ring-white/10" : "rounded-3xl ring-1 ring-white/10"
+          full ? "h-full w-full" : "rounded-3xl ring-1 ring-white/10"
         }`}
       >
         {full && (
@@ -241,8 +253,9 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
         <div
           ref={containerRef}
           className={`w-full touch-pan-y overflow-y-auto no-scrollbar snap-y snap-mandatory overscroll-y-contain scroll-smooth ${
-            full ? "h-[calc(100dvh-7.5rem)]" : "h-[70vh] max-h-[720px]"
+            full ? "h-full" : "h-[70vh] max-h-[720px]"
           }`}
+
 
           style={{
             scrollSnapType: "y mandatory",
