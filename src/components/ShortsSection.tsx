@@ -123,6 +123,18 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
   const [filter, setFilter] = useState<FilterId>("trending");
   const [watchlistIds, setWatchlistIds] = useState<Set<string>>(new Set());
 
+  // Full-page shorts: lock page scrolling so only the feed scrolls.
+  useEffect(() => {
+    if (!full || typeof document === "undefined") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [full]);
+
+
+
   useEffect(() => {
     const update = () => {
       const ids = new Set<number>(getFolders().flatMap((f) => f.mediaIds));
