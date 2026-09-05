@@ -190,7 +190,7 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
   }, [shorts.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <section className={full ? "pt-8 pb-6" : "mx-auto max-w-7xl px-5 pt-8 md:px-10"}>
+    <section className={full ? "py-4" : "mx-auto max-w-7xl px-5 pt-8 md:px-10"}>
       {!full && (
         <div className="mb-3 flex items-center">
           <h2 className="text-[1.4rem] font-black leading-none tracking-tight md:text-[1.65rem]">Shorts</h2>
@@ -232,27 +232,6 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
           </button>
         )}
 
-        {!full && (
-          <div className="absolute right-4 top-4 z-40 flex items-center gap-1 rounded-full bg-black/40 p-1 backdrop-blur">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => {
-                setFilter(f.id);
-                setCurrentIndex(0);
-                containerRef.current?.scrollTo({ top: 0 });
-              }}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
-                filter === f.id
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-          </div>
-        )}
         {shorts.length > 0 && (
           <div className="pointer-events-none absolute right-4 top-4 z-40 rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur">
             {currentIndex + 1} / {shorts.length}
