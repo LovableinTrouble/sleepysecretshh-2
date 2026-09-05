@@ -191,19 +191,49 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
 
   return (
     <section className={full ? "pt-8 pb-6" : "mx-auto max-w-7xl px-5 pt-8 md:px-10"}>
-      <div className={`mb-3 flex flex-wrap items-center gap-3 ${full ? "mx-auto max-w-7xl px-4 md:px-8" : ""}`}>
+      {!full && (
+        <div className="mb-3 flex items-center">
+          <h2 className="text-[1.4rem] font-black leading-none tracking-tight md:text-[1.65rem]">Shorts</h2>
+          <div className="ml-auto flex items-center gap-1 rounded-full bg-foreground/8 p-1">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => {
+                  setFilter(f.id);
+                  setCurrentIndex(0);
+                  containerRef.current?.scrollTo({ top: 0 });
+                }}
+                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                  filter === f.id
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`relative overflow-hidden bg-black ${
+          full ? "mx-auto max-w-7xl rounded-3xl ring-1 ring-white/10" : "rounded-3xl ring-1 ring-white/10"
+        }`}
+      >
         {full && (
           <button
             type="button"
             onClick={() => navigate({ to: "/explore" })}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-foreground/10 text-foreground/70 transition hover:bg-foreground/20 hover:text-foreground"
+            className="absolute left-4 top-4 z-50 grid h-10 w-10 place-items-center rounded-full bg-black/45 text-white ring-1 ring-white/15 backdrop-blur-md transition hover:bg-black/65"
             aria-label="Back to Explore"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-5 w-5" />
           </button>
         )}
-        <h2 className="text-[1.4rem] font-black leading-none tracking-tight md:text-[1.65rem]">Shorts</h2>
-        <div className="ml-auto flex items-center gap-1 rounded-full bg-foreground/8 p-1">
+
+        {!full && (
+          <div className="absolute right-4 top-4 z-40 flex items-center gap-1 rounded-full bg-black/40 p-1 backdrop-blur">
           {FILTERS.map((f) => (
             <button
               key={f.id}
@@ -221,16 +251,8 @@ export function ShortsSection({ full = false }: { full?: boolean }) {
               {f.label}
             </button>
           ))}
-        </div>
-      </div>
-
-
-
-      <div
-        className={`relative overflow-hidden bg-black ${
-          full ? "mx-auto max-w-7xl rounded-3xl ring-1 ring-white/10" : "rounded-3xl ring-1 ring-white/10"
-        }`}
-      >
+          </div>
+        )}
         {shorts.length > 0 && (
           <div className="pointer-events-none absolute right-4 top-4 z-40 rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur">
             {currentIndex + 1} / {shorts.length}
